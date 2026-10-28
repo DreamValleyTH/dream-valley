@@ -306,15 +306,23 @@ function hitObject(cx, cy) {   // pixel-accurate on the sprite, front-most first
 // ---------- tools ----------
 let hover = null, dragDoor = null;
 function renderTools() { document.querySelectorAll('.tool').forEach(x => x.setAttribute('aria-pressed', x.dataset.t === tool)); $('side').hidden = !(tool === 'place' || tool === 'paint') && innerWidth < 900; size(); }
-function setTool(t) { tool = t; if (t !== 'move') sel = null; renderTools(); buildPalette(); renderDock(); dirty = true; }
+function setTool(t) { repeatStop(); tool = t; if (t !== 'move') sel = null; renderTools(); buildPalette(); renderDock(); dirty = true; }
 document.querySelectorAll('.tool').forEach(b => b.onclick = () => setTool(b.dataset.t));
 addEventListener('resize', renderTools);
 
 function nudge(dx, dy) {   // move the selected object one cell along the grid
   if (!sel) return; if (!sel._moving) { snapshot(); sel._moving = true; }
-  sel.x += dx; sel.y += dy; keepVisible(sel); changed(); renderDock();
+  sel.x += dx; sel.y += dy; keepVisible(sel); changed(); updateSelInfo();
 }
-function rotate(o) { snapshot(); o.flip = o.flip ? 0 : 1; changed(); renderDock(); }
+function updateSelInfo() {   // refresh only the text — rebuilding the pad mid-press would lose the button's pointerup
+  const s = document.querySelector('.selname small'); if (!s || !sel) return; const ok = valid(sel);
+  const pn = sel.place && MAP.places[sel.place] ? MAP.places[sel.place].name : '', nm = nameOf(sel);
+  s.className = ok ? '' : 'bad'; s.textContent = ok ? (pn && pn !== nm ? pn + ' · ' : '') + 'ช่อง ' + sel.x + ', ' + sel.y : 'ทับของอื่น / อยู่บนน้ำ — ขยับอีกนิด';
+}
+let repeatStop = () => {};
+['pointerup', 'pointercancel', 'blur'].forEach(ev => addEventListener(ev, () => repeatStop()));
+document.addEventListener('visibilitychange', () => repeatStop());
+function rotate(o) { snapshot(); o.flip = o.flip ? 0 : 1; changed(); if (o === sel && document.querySelector('.pad')) updateSelInfo(); else renderDock(); }
 function erase(o) { snapshot(); const n = nameOf(o); MAP.objects = MAP.objects.filter(q => q !== o); if (sel === o) sel = null; changed(); renderDock(); toast(`ลบ${n}แล้ว`, 'เอาคืน', () => $('undo').click()); }
 
 // the control dock: hint, or the move pad for the selected object
@@ -327,13 +335,17 @@ function renderDock() {
       <button data-d="0,1" aria-label="เลื่อนลงซ้าย">↙</button><button data-d="1,0" aria-label="เลื่อนลงขวา">↘</button></div>
       <button class="btn primary done" id="selDone" aria-label="เสร็จ">✓</button>`;
     d.querySelectorAll('[data-d]').forEach(b => {   // press = one cell, hold = keep moving
-      let t1 = null, t2 = null; const [dx, dy] = b.dataset.d.split(',').map(Number);
-      const stop = () => { clearTimeout(t1); clearInterval(t2); };
-      b.onpointerdown = e => { e.preventDefault(); nudge(dx, dy); t1 = setTimeout(() => { t2 = setInterval(() => nudge(dx, dy), 110); }, 380); };
-      b.onpointerup = b.onpointerleave = b.onpointercancel = stop;
+      const [dx, dy] = b.dataset.d.split(',').map(Number);
+      b.onpointerdown = e => {
+        e.preventDefault(); repeatStop(); nudge(dx, dy);
+        let t2 = null, n = 0; const t1 = setTimeout(() => { t2 = setInterval(() => { if (++n > 40) return repeatStop(); nudge(dx, dy); }, 130); }, 420);
+        repeatStop = () => { clearTimeout(t1); clearInterval(t2); repeatStop = () => {}; };
+      };
+      b.onpointerup = b.onpointerleave = b.onpointercancel = b.onlostpointercapture = () => repeatStop();
+      b.oncontextmenu = e => e.preventDefault();
     });
     d.querySelector('[data-r]').onclick = () => rotate(sel);
-    $('selDone').onclick = () => { if (sel) delete sel._moving; sel = null; renderDock(); dirty = true; };
+    $('selDone').onclick = () => { repeatStop(); if (sel) delete sel._moving; sel = null; renderDock(); dirty = true; };
   } else {
     let h = HINT[tool]; if (tool === 'place' && palKey) h = `<b>วางของ:</b> แตะจุดบนแผนที่เพื่อวาง “${CAT.items[palKey].name}”`;
     if (tool === 'paint') h = `<b>ระบายพื้น:</b> “${TERR_NAME[brush.code]}” ขนาด ${brush.size} · ลากนิ้วระบาย · สองนิ้วเลื่อนแผนที่`;
