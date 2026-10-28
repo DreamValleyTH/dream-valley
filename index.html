@@ -20,7 +20,7 @@
 
 <div id="hud" class="hidden">
   <div class="hud-card clock-card"><span id="clockIcon" class="uic uic-sun"></span><div><div id="dayLabel">วันที่ 1</div><div id="clock">06:00</div></div></div>
-  <div class="hud-card energy-card"><span class="uic uic-energy"></span><div class="bars2"><div class="ebar"><div id="energyBar"></div></div><div class="ebar fb" title="ความอิ่ม"><div id="fullBar"></div></div></div><b id="energyNum">100</b></div>
+  <div class="hud-card energy-card"><div class="srow"><span class="uic uic-energy"></span><div class="ebar"><div id="energyBar"></div></div><b id="energyNum">100</b></div><div class="srow"><img class="sti" src="assets/ui/full.png" alt="อิ่ม"><div class="ebar"><div id="fullBar"></div></div><b id="fullNum">80</b></div></div>
   <div class="hud-card small"><span class="uic uic-money"></span><span id="money">฿500</span></div>
   <div class="hud-card small" id="waterCard"><span class="uic uic-water"></span><span id="water">12/12</span></div>
 </div>
@@ -31,7 +31,6 @@
 <button id="camBtn" class="hidden" title="สลับกล้อง: ตามตัวละคร / อิสระ" aria-label="สลับกล้อง">🎯</button>
 <nav id="bar" class="hidden">
   <button id="bagBtn"><span class="uic uic-bag em"></span>กระเป๋า</button>
-  <button id="questBtn"><span class="uic uic-quest em"></span>เรื่อง</button>
   <button id="phoneBtn"><span class="uic uic-phone em"></span>มือถือ</button>
   <button id="bookBtn"><span class="uic uic-diary em"></span>สมุดยาย</button>
   <button id="healthBtn"><span class="uic uic-heart em"></span>สุขภาพ</button>
@@ -79,7 +78,7 @@
 <div id="title">
   <canvas id="tiCv"></canvas>
   <div id="tiDim"></div>
-  <div class="ti-ui" id="tiLogo"><div id="tiName">DREAM<small>VALLEY</small></div><div id="tiSub">ชุมชนคนช่างฝัน</div></div>
+  <div class="ti-ui" id="tiLogo"><div id="tiName"><img class="tsign" src="assets/intro/sign.png" alt=""><span class="tn">DREAM<small>VALLEY</small></span></div><div id="tiSub">ชุมชนคนช่างฝัน</div></div>
   <div class="ti-ui" id="tiMenu">
     <button class="primary" data-a="new">เริ่มเกมใหม่</button><button data-a="cont">เล่นต่อ</button><button data-a="upd">อัปเดต<i class="cl-dot hidden" id="clDot"></i></button><button data-a="saves">จัดการเซฟ</button>
     <div id="tiWho"></div>
@@ -126,6 +125,7 @@
 <script src="js/ghosts.js"></script>
 <script src="js/life.js"></script>
 <script src="js/tabs.js"></script>
+<script src="js/v2.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/intro.js"></script>
 <script src="js/main.js"></script>

@@ -78,6 +78,7 @@ DV.openObject = o => {
   const t = o.tap, s = S();
   if (t === 'tree') return openTree(o);
   if (t === 'box') return DV.openBox(o);
+  if (t === 'fence') return DV.openFence();
   if (t && t.startsWith('plant_')) return DV.openPlant(o);
   if (DECO[t]) return openDeco(o, t);
   if (t === 'house') return DV.openSheet('บ้านยาย', 'บ้านไม้ใต้ถุนสูง กลับมาเงียบกว่าที่จำได้', null, [
@@ -220,7 +221,7 @@ DV.newDay = fainted => {
   if (s.cells) for (const k in s.cells) { const c = s.cells[k]; if (c.crop && c.wet) c.crop.st = Math.min(4, c.crop.st + 1); c.wet = false; }
   s.day++; s.min = 0; s.energy = fainted ? DV.MAX_E / 2 : DV.MAX_E; s.napCount = 0; s.drinkCount = 0; s.cardsToday = 0;
   if (fainted) { const fee = Math.min(500, Math.floor(s.money * 0.1)); s.money -= fee; s.flags.faintedYesterday = 1; s.flags.faintedDay = s.day; DV.setFlag('fainted_once'); }
-  s.rain = Math.random() < 0.22;
+  s.rain = Math.random() < (DV.rainChance ? DV.rainChance(s.day) : 0.22);
   if (s.rain) DV.waterAll();
   DV.bindState(s);
   DV.enterMap('farm', 'home', true);

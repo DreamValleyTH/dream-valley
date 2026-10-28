@@ -59,7 +59,7 @@ async function call(num) {
     if (!host && NET.status === 'connected') { NET.status = ''; DV.toast('เพื่อนออกจากเกมแล้ว · สายหลุด'); hang(); return; }
     if (!host) { if (Date.now() - t0 > 9000 && NET.status === 'กำลังโทร…') { NET.status = 'ไม่มีผู้รับสาย (เพื่อนต้องเปิดเกมค้างไว้)'; hang(); } return; }
     const ok = (host.presence.acc || []).length >= 0 && Array.isArray(host.presence.acc) && host.presence.acc.some(x => NET.line.peers().some(m => m.isMe && m.sameTab && m.peer === x));
-    if (ok && NET.status !== 'connected') { NET.status = 'connected'; NET.hostPeer = host.peer; DV.sfx('coin'); DV.toast(`ต่อสายกับ ${host.presence.name} แล้ว — เจอกันที่ฟาร์มของเขา`); DV.rerenderPhone(); if (S().map !== 'farm') DV.travel('farm', 'home'); }
+    if (ok && NET.status !== 'connected') { NET.status = 'connected'; DV.closeAll && DV.closeAll(); DV.visitCut && DV.visitCut(host.presence.name); NET.hostPeer = host.peer; DV.sfx('coin'); DV.toast(`ต่อสายกับ ${host.presence.name} แล้ว — เจอกันที่ฟาร์มของเขา`); DV.rerenderPhone(); if (S().map !== 'farm') DV.travel('farm', 'home'); }
     NET.peers = NET.line.peers().filter(p => !p.isMe);
     if (NET.status === 'connected' && !ok) { NET.status = ''; DV.toast(`${host.presence.name} วางสายแล้ว · โทรใหม่ได้ทุกเมื่อ`); hang(); }
   }, () => {});

@@ -507,3 +507,36 @@ input:-webkit-autofill{-webkit-box-shadow:0 0 0 40px #fffdf6 inset;-webkit-text-
 .meter2{height:10px;border-radius:6px;background:#d8c7a4;overflow:hidden;margin-top:4px}.meter2 i{display:block;height:100%;background:#7fb04c}
 #zzz{position:fixed;inset:0;z-index:58;background:rgba(10,12,30,.92);color:#e9e4ff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-family:var(--font);text-align:center;padding:20px}
 #zzz.hidden{display:none}#zzz .zz{font-size:48px;animation:zzb 2s ease-in-out infinite alternate}@keyframes zzb{from{transform:translateY(0)}to{transform:translateY(-8px)}}
+
+/* ---- v2.0 HUD: edge to edge, energy + fullness in one card, roomy and readable ---- */
+#hud{flex-wrap:nowrap!important;justify-content:space-between;align-items:stretch!important;gap:5px!important;padding:calc(6px + env(safe-area-inset-top)) max(6px,env(safe-area-inset-right)) 0 max(6px,env(safe-area-inset-left))!important}
+#hud .hud-card{padding:3px 7px!important;border-width:3px!important;min-height:44px}
+#hud .clock-card{flex:0 0 auto}
+#hud .energy-card{flex:1 1 auto;display:flex!important;flex-direction:column!important;justify-content:center;gap:3px!important;min-width:0!important}
+#hud .srow{display:flex;align-items:center;gap:5px}
+#hud .srow .uic{--s:18px}#hud .sti{width:18px;height:18px;image-rendering:pixelated;flex:none}
+#hud .srow .ebar{flex:1;width:auto!important;min-width:40px;height:12px;border-width:4px 7px}
+#hud .srow b{font-size:13px;min-width:26px;text-align:right;font-weight:600;color:var(--ink)}
+#fullBar{position:absolute;left:-3px;top:0;bottom:0;background:linear-gradient(#ffd99a,#f0a85a 60%,#d47f3a)!important;border-radius:1px;transition:width .25s;max-width:calc(100% + 6px)}
+#fullBar.low{background:linear-gradient(#ff9a7a,#e2483b)!important}
+#hud .hud-card.small{flex:0 0 auto;display:flex;align-items:center;font-size:14px!important;font-weight:600}
+#hud .clock-card #clock{font-size:18px}#hud .clock-card #dayLabel{font-size:11px}
+@media (max-width:420px){ #hud .clock-card .uic{--s:20px} #hud .clock-card #clock{font-size:16px} #hud .hud-card.small{font-size:12px!important} #hud .hud-card.small .uic{--s:18px} }
+#bar button{width:calc((min(100vw,520px) - 36px) / 5)!important}
+#prologue{position:fixed;inset:0;z-index:7;background:#0b0a10}
+#prologue.hidden{display:none}
+#bookOv{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:rgba(10,8,6,.55)}
+#bookOv.hidden{display:none}
+#bookOv .bk{width:min(78vw,300px);aspect-ratio:94/114;background:center/contain no-repeat;image-rendering:pixelated;filter:drop-shadow(0 8px 12px rgba(0,0,0,.5))}
+
+/* v2.0 title: the name sits on a carved, flowered sign (PixelLab) */
+#tiName{position:relative;background:none!important;-webkit-text-fill-color:initial!important;filter:none!important;width:min(92vw,560px);font-size:inherit!important;line-height:1}
+#tiName .tsign{display:block;width:100%;image-rendering:pixelated;filter:drop-shadow(0 8px 10px rgba(0,0,0,.35))}
+#tiName .tn{position:absolute;left:0;right:0;top:44%;transform:translateY(-50%);text-align:center;font-family:'Pixelify Sans','Mitr',monospace;font-weight:700;font-size:clamp(30px,9.4vw,62px);line-height:.92;letter-spacing:2px;
+  background:linear-gradient(#fff6c8 0 30%,#ffd35a 30% 62%,#f0962e 62%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#ffd66b;
+  filter:drop-shadow(0 3px 0 #6b3514) drop-shadow(2px 0 0 #2e1607) drop-shadow(-2px 0 0 #2e1607) drop-shadow(0 2px 0 #2e1607) drop-shadow(0 -2px 0 #2e1607)}
+#tiName .tn small{display:block;font-size:.72em;letter-spacing:4px}
+#ratEgg{position:absolute;inset:0;z-index:30}
+#ratEgg .rp{position:absolute;width:110px;height:110px;background:url(assets/intro/rat_push.png) 0 0/900% 100% no-repeat;image-rendering:pixelated}
+#ratEgg .rr{display:none;position:absolute;left:50%;top:22vh;width:min(46vw,200px);aspect-ratio:120/119;background:url(assets/intro/rat_rich.png) 0 0/900% 100% no-repeat;image-rendering:pixelated}
+#ratEgg .rb{display:none;position:absolute;left:50%;top:calc(22vh - 54px);transform:translateX(-10%);background:#fff8e0;border:3px solid #3b2a1c;border-radius:14px;padding:6px 14px;font:700 20px 'Mitr',sans-serif;color:#7a4a0c;white-space:nowrap;box-shadow:0 4px 0 rgba(0,0,0,.3)}

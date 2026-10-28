@@ -94,7 +94,10 @@ for _k, _n, _fp, _iso, _blk in [('coop_broken', 'เล้าไก่ (พั�
 DECO = [('arch', 'ซุ้มไม้ไผ่ดอกไม้', (2, 1), 72, 380), ('banana_pot', 'กระถางกล้วยประดับ', (1, 1), 40, 150), ('bird', 'กรงนกเขา', (1, 1), 60, 260),
         ('dragonjar', 'โอ่งมังกร', (1, 1), 34, 280), ('flowerbed', 'แปลงดอกทานตะวัน', (2, 1), 36, 220), ('hammock', 'เปลญวน', (2, 1), 40, 350),
         ('lamp', 'เสาตะเกียงเจ้าพายุ', (1, 1), 58, 180), ('pots', 'กระถางเฟื่องฟ้า-ดาวเรือง', (1, 1), 28, 120), ('sala', 'ศาลาไม้หลังเล็ก', (2, 2), 92, 1500),
-        ('swing', 'ชิงช้าไม้', (2, 1), 58, 450), ('box_s', 'กล่องไม้เล็ก', (1, 1), 26, 150), ('box_m', 'หีบไม้สัก', (1, 1), 34, 450), ('box_l', 'ตู้เก็บของใหญ่', (1, 1), 52, 900)]
+        ('swing', 'ชิงช้าไม้', (2, 1), 58, 450), ('box_s', 'กล่องไม้เล็ก', (1, 1), 26, 150), ('box_m', 'หีบไม้สัก', (1, 1), 34, 450), ('box_l', 'ตู้เก็บของใหญ่', (1, 1), 52, 900),
+        ('bamboo_bed', 'แคร่ไม้ไผ่', (2, 1), 30, 650), ('plastic_set', 'โต๊ะเก้าอี้พลาสติก', (2, 2), 40, 900), ('umbrella_set', 'ร่มสนามกับเก้าอี้', (2, 2), 70, 1400),
+        ('motorbike', 'มอเตอร์ไซค์คันเก่า', (2, 1), 44, 28000), ('tire_planter', 'กระถางยางรถปลูกผัก', (1, 1), 26, 120), ('orchid_rack', 'ชั้นกล้วยไม้', (2, 1), 56, 850),
+        ('solar_lamp', 'เสาไฟโซลาร์เซลล์', (1, 1), 58, 690), ('sat_dish', 'จานดาวเทียม', (1, 1), 40, 1500), ('terrazzo_bench', 'ม้านั่งหินขัด', (2, 1), 28, 1200), ('water_jars', 'โอ่งซีเมนต์คู่', (1, 1), 34, 600)]
 for _k, _n, _fp, _h, _p in DECO:
     CATALOG['deco_' + _k] = dict(k='deco_' + _k, name=_n, cat='farm', src=os.path.join(_A2, 'deco', f'deco_{_k}.png'), iso=False, fp=list(_fp), block=True, shadow='prop', dy=2, h=_h, price=_p)
 
@@ -104,12 +107,9 @@ FENCE_CON = {'n': '', 'w': ' (โทรม)', 'v': ' (มีเถาวัล�
 _FD = os.path.join(_A2, 'fence')
 for _m, _mn in FENCE_MAT.items():
     for _c, _cn in FENCE_CON.items():
-        for _d, _dn, _fp, _mask, _ax in [('x', '↘ (หมุน = ↙)', (1, 1), None, 24), ('v', '↕', (2, 2), ['10', '01'], 52), ('h', '↔', (2, 2), ['01', '10'], 36)]:
-            _k = f'fence_{_m}_{_c}_{_d}'; _src = os.path.join(_FD, _k + '.png')
-            if not os.path.exists(_src): continue
-            CATALOG[_k] = dict(k=_k, name=f'{_mn}{_cn} {_dn}', cat='fence', src=_src, iso=False, fp=list(_fp), block=True, shadow='prop', dy=2, **({'x': {'wpx': 30}, 'v': {'h': 46}, 'h': {'wpx': 54}}[_d]))
-            CATALOG[_k].update(ax=_ax, ay=_ax)
-            if _mask: CATALOG[_k].update(mask=_mask)
+        _k = f'fence_{_m}_{_c}'; _src = os.path.join(_FD, _k + '.png')
+        if os.path.exists(_src):   # one piece, 4 directions: ↘ ↙ (mirrored) ↖ ↗ — R / ⟳ turns it; it always takes the one cell it stands on
+            CATALOG[_k] = dict(k=_k, name=f'{_mn}{_cn}', cat='fence', src=_src, iso=False, fp=[1, 1], block=True, shadow='prop', dy=2, wpx=30, ax=24, ay=24, rot4=True)
 
 # ---- v1.0 trees & plants (PixelLab, drawn in the tile sets' style, roots and soil patch so they sit on the ground) ----
 _TR = os.path.join(_A2, 'trees')
@@ -145,7 +145,7 @@ def load_img(c, flip=False):
     return im.transpose(Image.FLIP_LEFT_RIGHT) if flip else im
 
 def catalog_json():
-    keep = ('name', 'cat', 'fp', 'iso', 'block', 'dy', 'corner', 'ax', 'ay', 'shadow', 'mask')
+    keep = ('name', 'cat', 'fp', 'iso', 'block', 'dy', 'corner', 'ax', 'ay', 'shadow', 'mask', 'rot4')
     return {k: {kk: v for kk, v in c.items() if kk in keep} for k, c in CATALOG.items()}
 
 KIND2CODE = {k: c for c, k in TERRAIN.items()}

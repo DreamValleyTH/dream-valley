@@ -37,7 +37,7 @@ window.DV_CARDS = [
     when: { from: 360, to: 660, chance: 1 },
     text: 'เมฆดำตั้งเค้ามาจากทางทุ่ง ไม่ถึงห้านาทีฝนก็เทลงมา แปลงผักชุ่มทั้งแปลงโดยไม่ต้องรด',
     choices: [
-      { label: 'หลบฝนใต้ถุนบ้าน', hint: '1 ชม. · แรง +10', effect: { waterAll: true, mins: 60, energy: 10, text: 'ฟังเสียงฝนบนหลังคาสังกะสีจนเคลิ้ม' } },
+      { label: 'หลบฝนใต้ถุนบ้าน', hint: '1 ชม. · แรง +10', effect: { walk: 'shelter', waterAll: true, mins: 60, energy: 10, text: 'ฟังเสียงฝนบนหลังคาสังกะสีจนเคลิ้ม' } },
       { label: 'ทำงานต่อ ตากฝนไปเลย', hint: 'แรง −4', effect: { waterAll: true, energy: -4, text: 'เปียกทั้งตัว แต่ไม่เสียเวลา' } }
     ]
   },
@@ -46,8 +46,8 @@ window.DV_CARDS = [
     when: { from: 60, to: 540, chance: 1 },
     text: 'ไก่บ้านสามตัวมุดรั้วไม้ไผ่เข้ามาคุ้ยดินในแปลงผัก ปีกขาวมีเชือกแดงผูกขา… ไก่ป้าแต๋วแน่ ๆ',
     choices: [
-      { label: 'ไล่ไก่ออกไป', hint: '15 นาที · แรง −2', effect: { mins: 15, energy: -2, text: 'ไก่กระโดดหนีไปทางถนน' } },
-      { label: 'จับไปคืนป้าแต๋ว', hint: '25 นาที · แรง −3 · ♥ +1', effect: { mins: 25, energy: -3, heart: 1, text: 'ป้าแต๋วขอบใจใหญ่ “ตายแล้ว มันหนีมาอีกแล้วเหรอ”' } },
+      { label: 'ไล่ไก่ออกไป', hint: '15 นาที · แรง −2', effect: { walk: 'plot', mins: 15, energy: -2, text: 'ไก่กระโดดหนีไปทางถนน' } },
+      { label: 'จับไปคืนป้าแต๋ว', hint: '25 นาที · แรง −3 · ♥ +1', effect: { walk: 'plot', mins: 25, energy: -3, heart: 1, text: 'ป้าแต๋วขอบใจใหญ่ “ตายแล้ว มันหนีมาอีกแล้วเหรอ”' } },
       { label: 'ช่างมัน', hint: 'เสี่ยงต้นอ่อนเสียหาย', effect: { chance: { p: 0.5, win: { text: 'ไก่คุ้ยแค่ดินเปล่า โชคดีไป' }, lose: { damageCrop: true, text: 'ไก่จิกต้นอ่อนไปหนึ่งต้น' } } } }
     ]
   },
@@ -82,7 +82,7 @@ window.DV_CARDS = [
     id: 'find_snake', type: 'find', art: 'snake', title: 'งูเขียวในพงหญ้า',
     text: 'เดินแหวกหญ้าอยู่ดี ๆ งูเขียวตัวยาวเลื้อยออกมาขวางทาง ชูคอมองนิ่ง ๆ',
     choices: [
-      { label: 'ถอยช้า ๆ อ้อมไปทางอื่น', hint: 'แรง −2 · ปลอดภัย', effect: { energy: -2, setFlag: 'met_snake', text: 'งูเลื้อยหายเข้าพุ่มไป' } },
+      { label: 'ถอยช้า ๆ อ้อมไปทางอื่น', hint: 'แรง −2 · ปลอดภัย', effect: { walk: 'away', energy: -2, setFlag: 'met_snake', text: 'งูเลื้อยหายเข้าพุ่มไป' } },
       { label: 'เอาไม้เขี่ยไล่', hint: 'สุ่ม · ทักษะหาของป่า +', effect: { chance: { p: 0.6, win: { energy: -4, forage: 2, setFlag: 'met_snake', text: 'งูตกใจหนีไป ใต้พุ่มมีเห็ดขึ้นอยู่ด้วย!', items: { mushroom: 1 } }, lose: { energy: -15, setFlag: 'met_snake', text: 'โดนฉกที่ข้อเท้า! โชคดีที่เป็นงูเขียวหางไหม้ตัวเล็ก ปวดบวมทั้งวัน' } } } }
     ]
   },
@@ -91,7 +91,7 @@ window.DV_CARDS = [
     id: 'night_eyes', type: 'night', art: 'night', title: 'อะไรอยู่ในพุ่มไม้',
     text: 'ไฟฉายดับวูบ ในความมืดตรงพุ่มไม้ริมทาง มีแสงเล็ก ๆ สองดวงจ้องมา แล้วกะพริบ…',
     choices: [
-      { label: 'วิ่งกลับบ้านสุดแรง', hint: 'แรง −15 · ปลอดภัย', effect: { energy: -15, goHome: true, text: 'วิ่งจนถึงบันไดบ้าน หัวใจเต้นแรง' } },
+      { label: 'วิ่งกลับบ้านสุดแรง', hint: 'แรง −15 · ปลอดภัย', effect: { walk: 'home', energy: -15, goHome: true, text: 'วิ่งจนถึงบันไดบ้าน หัวใจเต้นแรง' } },
       { label: 'ยกมือไหว้ขอทาง', hint: 'ไหว้ศาลแล้วจะได้ผลดีกว่า', effect: { chance: { p: 0.5, pIfPrayed: 0.9, win: { text: 'ลมเย็นพัดผ่าน แสงนั้นหายไป' }, lose: { faint: true, text: 'ขาอ่อนจนทรุดลงกับพื้น…' } } } },
       { label: 'ยืนนิ่ง หลับตา', hint: 'สุ่ม', effect: { chance: { p: 0.5, win: { energy: -5, text: 'พอลืมตา ก็ไม่มีอะไรแล้ว' }, lose: { faint: true, text: 'มีมือเย็น ๆ แตะไหล่…' } } } }
     ]

@@ -5,12 +5,12 @@
 const DV = window.DV, $ = DV.$;
 const root = $('title'), cv = $('tiCv'), ctx = cv.getContext('2d'), cur = $('tiCurtain'), cctx = cur.getContext('2d');
 const load = s => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = s; });
-let IM = null, W = 0, H = 0, sc = 1;
+let IM = null, W = 0, H = 0, sc = 1; const LW = 384, LH = 216;   // v2.0 title landscape (PixelLab, portrait-level detail)
 function size() {
   const d = devicePixelRatio || 1; W = innerWidth; H = innerHeight;
   for (const c of [cv, cur]) { c.width = Math.round(W * d); c.height = Math.round(H * d); }
   for (const c of [ctx, cctx]) { c.setTransform(d, 0, 0, d, 0, 0); c.imageSmoothingEnabled = false; }
-  sc = Math.max(1, Math.round(Math.max(W / 480, H * .62 / 270) * 2) / 2);
+  sc = Math.max(1, Math.round(Math.max(W / LW, H * .62 / LH) * 2) / 2);
 }
 addEventListener('resize', size); size();
 const C = Array.from({ length: 9 }, (_, i) => ({ x: Math.random(), y: Math.random() * 1.6, s: .6 + Math.random() * .9, v: 4 + Math.random() * 8, k: i }));
@@ -35,7 +35,7 @@ function frame(now) {
   if (running) requestAnimationFrame(frame);
 }
 function draw(t) {
-  const landH = 270 * sc, skyH = H * 1.9, cam = (skyH + landH - H) * camF;
+  const landH = LH * sc, skyH = H * 1.9, cam = (skyH + landH - H) * camF;
   const g = ctx.createLinearGradient(0, -cam, 0, skyH - cam);
   g.addColorStop(0, '#2c3a6b'); g.addColorStop(.35, '#5d79b4'); g.addColorStop(.7, '#9cc3d9'); g.addColorStop(1, '#cce0dd');
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
@@ -43,10 +43,10 @@ function draw(t) {
   rg.addColorStop(0, 'rgba(255,236,170,.75)'); rg.addColorStop(.3, 'rgba(255,214,140,.25)'); rg.addColorStop(1, 'rgba(255,214,140,0)'); ctx.fillStyle = rg; ctx.fillRect(0, 0, W, H);
   for (const c of C) { const im = IM.clouds[c.k % 3], s = Math.max(1, Math.round(sc * c.s)), x = ((c.x * (W + 200) + t * c.v) % (W + 200)) - 100, y = c.y * skyH * .9 - cam;
     ctx.globalAlpha = .92; ctx.drawImage(im, Math.round(x), Math.round(y), im.width * s, im.height * s); ctx.globalAlpha = 1; }
-  const lw = 480 * sc, lx = Math.round((W - lw) / 2), ly = Math.round(skyH - cam), land = IM.land;
+  const lw = LW * sc, lx = Math.round((W - lw) / 2), ly = Math.round(skyH - cam), land = IM.land;
   ctx.drawImage(land, lx, ly, lw, landH);
-  if (lw < W) { ctx.drawImage(land, 0, 0, 1, 270, 0, ly, lx, landH); ctx.drawImage(land, 479, 0, 1, 270, lx + lw, ly, W - lx - lw, landH); }
-  if (ly + landH < H) { ctx.drawImage(land, 0, 269, 480, 1, lx, ly + landH, lw, H - ly - landH); }
+  if (lw < W) { ctx.drawImage(land, 0, 0, 1, LH, 0, ly, lx, landH); ctx.drawImage(land, (LW - 1), 0, 1, LH, lx + lw, ly, W - lx - lw, landH); }
+  if (ly + landH < H) { ctx.drawImage(land, 0, (LH - 1), LW, 1, lx, ly + landH, lw, H - ly - landH); }
   const fg = ctx.createLinearGradient(0, ly - 2, 0, ly + 70 * sc); fg.addColorStop(0, 'rgba(204,224,221,1)'); fg.addColorStop(1, 'rgba(204,224,221,0)'); ctx.fillStyle = fg; ctx.fillRect(0, ly - 2, W, 70 * sc);
   for (const b of B) { const im = IM.birds[Math.floor((t * 6 + b.d * 3) % 2)], x = ((b.x + (t - b.d) * b.v / 400) % 1.3) * W, y = (skyH * .55 + b.y * 260 * sc) - cam + Math.sin(t * 2 + b.d) * 6, s = Math.max(1, Math.round(sc * .9));
     ctx.drawImage(im, Math.round(x), Math.round(y), im.width * s, im.height * s); }
@@ -174,6 +174,30 @@ DV.introReady = () => { ready = true; $('loading').classList.add('hidden'); if (
 const L = window.DV_CHANGELOG || [];
 $('tiVer').textContent = L.length ? 'v' + L[0].v : '';
 if (DV.clUnseen && DV.clUnseen()) $('clDot').classList.remove('hidden');
-Promise.all(['land', 'cloud_0', 'cloud_1', 'cloud_2', 'bird_0', 'bird_1'].map(n => load(`assets/intro/${n}.png`)).concat([load('assets/chars/player_m.png'), load('assets/chars/player_f.png')]))
+Promise.all(['land2', 'cloud_0', 'cloud_1', 'cloud_2', 'bird_0', 'bird_1'].map(n => load(`assets/intro/${n}.png`)).concat([load('assets/chars/player_m.png'), load('assets/chars/player_f.png')]))
   .then(([land, c0, c1, c2, b0, b1, pm, pf]) => { IM = { land, clouds: [c0, c1, c2], birds: [b0, b1] }; pvIm = { m: pm, f: pf }; requestAnimationFrame(frame); });
+})();
+
+// ---- easter egg: tap the DREAM VALLEY sign many times… ----
+(() => {
+  const DV = window.DV, $ = DV.$, nm = $('tiName'); if (!nm) return;
+  let taps = [], busy = false;
+  nm.style.pointerEvents = 'auto';
+  nm.addEventListener('click', () => { const t = Date.now(); taps = taps.filter(x => t - x < 2500).concat(t); if (taps.length >= 7 && !busy) { taps = []; rat(); } });
+  function rat() {
+    busy = true; DV.sfx && DV.sfx('tick');
+    const ov = document.createElement('div'); ov.id = 'ratEgg'; ov.innerHTML = '<div class="rp"></div><div class="rr"></div><div class="rb">รวยไม่ไหวแล้ว!</div>'; document.getElementById('title').appendChild(ov);
+    const rp = ov.querySelector('.rp'), rr = ov.querySelector('.rr'), rb = ov.querySelector('.rb'), sign = nm.getBoundingClientRect();
+    const strip = (el, n, ms) => { let f = 0; return setInterval(() => { f = (f + 1) % n; el.style.backgroundPosition = `${f / (n - 1) * 100}% 0`; }, ms); };
+    rp.style.top = (sign.top + sign.height * .35) + 'px'; const k1 = strip(rp, 9, 90);
+    rp.animate([{ left: '-140px' }, { left: (sign.left - 70) + 'px' }], { duration: 1200, fill: 'forwards', easing: 'linear' }).onfinish = () => {
+      nm.animate([{ transform: 'translate(0,0) rotate(0)' }, { transform: 'translate(8vw,0) rotate(4deg)', offset: .35 }, { transform: 'translate(120vw,60vh) rotate(70deg)' }], { duration: 1300, fill: 'forwards', easing: 'ease-in' });
+      rp.animate([{ left: (sign.left - 70) + 'px' }, { left: (sign.left + 40) + 'px' }], { duration: 600, fill: 'forwards' });
+      setTimeout(() => { clearInterval(k1); rp.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300, fill: 'forwards' });
+        rr.style.display = 'block'; const k2 = strip(rr, 9, 110); rr.animate([{ transform: 'translate(-50%,40px) scale(.4)', opacity: 0 }, { transform: 'translate(-50%,0) scale(1)', opacity: 1 }], { duration: 500, fill: 'forwards', easing: 'cubic-bezier(.2,1.5,.4,1)' });
+        setTimeout(() => { rb.style.display = 'block'; try { DV.sfx('coin'); setTimeout(() => DV.sfx('coin'), 180); } catch (_) {} }, 450);
+        const end = () => { clearInterval(k2); ov.remove(); nm.getAnimations().filter(a => !(window.CSSAnimation && a instanceof CSSAnimation)).forEach(a => a.cancel()); busy = false; };
+        ov.onclick = end; setTimeout(end, 6000); }, 1500);
+    };
+  }
 })();

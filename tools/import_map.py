@@ -27,6 +27,20 @@ for o in src['objects']:
     elif k.startswith('f_tall_sugarcane') or k == 'sugarcane': o['tap'] = 'plant_sugarcane'
     elif k in ('f_tall_coconut', 'coconut'): o['tap'] = 'plant_coconut'
     elif k == 'f_peb': o['tap'] = 'pebble'; o['id'] = f'peb{n["peb"]}'; n['peb'] += 1
+# v2.0: grandma's farm fences are one fence system (tier 1 = broken bamboo); old fence pieces become fence cells, gaps filled
+if name == 'farm':
+    W, H = src['W'], src['H']; keep, fence = [], {}
+    def put(x, y, rot):
+        x = min(max(0, x), W - 1); y = min(max(0, y), H - 1)
+        if (x, y) not in fence: fence[(x, y)] = rot
+    for o in src['objects']:
+        k = o['k']
+        if k == 'f_fb': put(o['x'], o['y'], 0); put(o['x'] + 1, o['y'], 0)
+        elif k == 'f_fl': put(o['x'], o['y'], 1); put(o['x'], o['y'] + 1, 1)
+        elif k in ('bamboo_fence', 'bamboo_fence_b', 'bamboo_fence_vine') or k.startswith('fence_'): put(o['x'], o['y'], (o.get('rot') if o.get('rot') is not None else (1 if o.get('flip') else 0)))
+        else: keep.append(o)
+    src['objects'] = keep + [dict(id=f'fence_{x}_{y}', k='fence_bamboo_w', x=x, y=y, flip=r & 1, rot=r, tap='fence') for (x, y), r in sorted(fence.items())]
+    print('fence cells', len(fence))
 ids = collections.Counter(o['id'] for o in src['objects'])
 for o in src['objects']:
     if ids[o['id']] > 1: o['id'] = o['id'] + '_' + str(o['x']) + '_' + str(o['y'])

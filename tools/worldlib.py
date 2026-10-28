@@ -31,7 +31,7 @@ def paddy_rgb(xx, yy, seed, din=None):
     """rice paddies in logical px: parcels with raised bunds, each at its own stage (works for any coords, so the countryside outside the map continues seamlessly)"""
     T_ = 32
     jx = np.sin(yy / 97.0 + seed) * 9 + np.sin(xx / 61.0) * 4; jy = np.sin(xx / 83.0 + seed * 2) * 7
-    PXp, PYp = 6 * T_, 4 * T_
+    PXp, PYp = 15 * T_, 10 * T_   # v2.0: real-sized parcels (~15 x 10 m) instead of tiny plots
     fxr = np.floor((xx + jx) / PXp); yy2 = yy + jy + fxr * 37
     fx, fy = fxr, np.floor(yy2 / PYp)
     h = (np.sin(fx * 12.9898 + fy * 78.233 + seed) * 43758.5453) % 1
@@ -43,10 +43,10 @@ def paddy_rgb(xx, yy, seed, din=None):
     col = col * np.where(rows, 1.04, .80)[..., None] * (1 + gr[..., None] * .05)
     sprout = (h >= .78) & (h < .86) & (np.mod(xx, 10) < 3) & (np.mod(yy, 10) < 3)
     col = np.where(sprout[..., None], young * .95, col)
-    bund = (lx < 5) | (ly < 5)
+    bund = (lx < 7) | (ly < 7)
     if din is not None: bund = bund | (din <= 5)
     col = np.where(bund[..., None], np.array([132, 160, 70.]) * (1 + gr[..., None] * .06), col)
-    edge = ((lx >= 5) & (lx < 6)) | ((ly >= 5) & (ly < 6))
+    edge = ((lx >= 7) & (lx < 8)) | ((ly >= 7) & (ly < 8))
     if din is not None: edge = edge | ((din > 5) & (din <= 6))
     return np.where((edge & ~bund)[..., None], col * .62, col)
 
@@ -361,7 +361,10 @@ class World:
         outside = ~inside
         road = getattr(self, 'road_mask', np.zeros((self.PH, self.PW), bool))
         ext = outside & road[yc, xc]                                   # roads leaving the map continue straight on
-        src = np.where(ext[..., None], g[yc, xc], src)
+        def wrapin(v, n, band=64):   # v2.0: repeat the last 2 tiles of road instead of smearing one row of pixels into stripes
+            return np.where(v < 0, np.mod(v, band), np.where(v >= n, n - band + np.mod(v - n, band), v))
+        xr = np.clip(np.floor(wrapin(x, self.PW)).astype(int), 0, self.PW - 1); yr = np.clip(np.floor(wrapin(y, self.PH)).astype(int), 0, self.PH - 1)
+        src = np.where(ext[..., None], g[yr, xr], src)
         PX_, PY_ = 224, 160                                             # paddy plot size (logical px)
         fx, fy = np.floor(x / PX_), np.floor(y / PY_)
         h = (np.sin(fx * 12.9898 + fy * 78.233) * 43758.5453) % 1
@@ -377,6 +380,9 @@ class World:
         # (paddies switched off: the edge now continues the same grass and earth as the map, just not walkable)
         dirt = outside & ~ext & (noise(SH, SW, 14, self.seed + 41) > 1.9) & (not getattr(self, 'mirror_ground', False))
         src = np.where(dirt[..., None], src * .55 + np.array([150, 112, 70.]) * .45, src)   # a few worn earth patches, softly blended
+        if getattr(self, 'mirror_ground', False):   # v2.0: thin mist over the far countryside, so the edge of the world melts away
+            haze = np.clip((dist - 30) / 520, 0, .5)[..., None] * (0.85 + 0.15 * np.sin(x / 140.0 + y / 210.0))[..., None]
+            src = src * (1 - haze) + np.array([214, 222, 214.]) * haze
         out[..., :3] = np.clip(src * dim, 0, 255).astype(np.uint8); out[..., 3] = 255
         self._iso_outside = (outside, x, y, dist, ext, near)
         # map edge: darken last few px so the diamond reads as a raised island of land

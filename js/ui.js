@@ -57,7 +57,7 @@ DV.hud = () => {
   $('money').textContent = '฿' + s.money.toLocaleString(); $('water').textContent = `${s.water}/${DV.CAN_MAX}`;
   $('waterCard').classList.toggle('hidden', s.map !== 'farm');
   const ql = DV.questList ? DV.questList() : { act: [], offers: [] };
-  $('questBtn').classList.toggle('badge', ql.act.some(a => a.ready));
+  const qb = $('questBtn'); if (qb) qb.classList.toggle('badge', ql.act.some(a => a.ready));
   const un = DV.lineUnread ? DV.lineUnread() : 0;
   $('phoneBtn').dataset.n = un > 99 ? '99+' : un || ''; $('phoneBtn').classList.toggle('badge', un > 0);
 };
@@ -150,14 +150,13 @@ function showPanel(html) { const p = $('panel'); p.innerHTML = html; p.classList
 
 // ---------- travel map: drone photo of the sub-district with pins (positions in % of the 480×360 aerial) ----------
 const PLACES = [
-  { id: 'farm', name: 'ฟาร์มยาย', sub: 'บ้านไม้หลังเก่า บ่อบัว สวนมะม่วง', x: 11, y: 41, map: 'farm' },
-  { id: 'town', name: 'ใจกลางตำบล', sub: 'ตลาด ร้านค้า อบต. รพ.สต. โรงเรียน ศาลา', x: 47, y: 40, map: 'town' },
-  { id: 'temple', name: 'วัดดงเย็น', sub: 'อยู่ในใจกลางตำบล ข้ามสะพานไปทางใต้', x: 75, y: 68, map: 'town' },
-  { id: 'forest', name: 'ป่าชุมชน', sub: 'เปิดในเวอร์ชันถัดไป', x: 16, y: 13 },
-  { id: 'res', name: 'อ่างเก็บน้ำ', sub: 'เปิดในเวอร์ชันถัดไป', x: 55, y: 6 },
+  { id: 'farm', name: 'ฟาร์มยาย', sub: 'บ้านไม้หลังเก่า บ่อบัว สวนมะม่วง', x: 15, y: 46, map: 'farm' },
+  { id: 'town', name: 'ใจกลางตำบล', sub: 'ตลาด ร้านค้า อบต. รพ.สต. โรงเรียน ศาลา วัด', x: 55, y: 44, map: 'town' },
+  { id: 'forest', name: 'ป่าชุมชน', sub: 'เปิดในเวอร์ชันถัดไป', x: 17, y: 12 },
+  { id: 'res', name: 'อ่างเก็บน้ำ', sub: 'เปิดในเวอร์ชันถัดไป', x: 55, y: 8 },
   { id: 'moo4', name: 'ชุมชนหมู่ 4', sub: 'เปิดในเวอร์ชันถัดไป', x: 88, y: 33 },
-  { id: 'paddy', name: 'ทุ่งนา', sub: 'เปิดในเวอร์ชันถัดไป', x: 42, y: 90 },
-  { id: 'company', name: 'ที่ดินบริษัท', sub: 'ล้อมรั้ว ถังน้ำสีฟ้าเรียงเป็นแถว…', x: 88, y: 86 },
+  { id: 'paddy', name: 'ทุ่งนา', sub: 'เปิดในเวอร์ชันถัดไป', x: 30, y: 82 },
+  { id: 'company', name: 'ที่ดินบริษัท', sub: 'ล้อมรั้ว ถังน้ำสีฟ้าเรียงเป็นแถว…', x: 88, y: 89 },
   { id: 'district', name: 'อำเภอ', sub: 'ถนนออกไปทางนี้ · รถเมล์ (เปิดเร็ว ๆ นี้)', x: 93, y: 6 },
 ];
 DV.openMap = () => DV.openPhone('map');
@@ -188,12 +187,12 @@ function renderPhone() {
   const top = `<div class="ph-top"><span>${DV.fmt(s.min)}</span><span><span class="uic uic-phone" style="--s:14px"></span></span></div>`;
   if (phoneTab === 'home') {
     const un = DV.lineUnread();
-    const apps = [['map', 'แผนที่', 'map'], ['line', 'LINE', 'chat', un], ['call', 'โทรศัพท์', 'phone', DV.callBadge ? DV.callBadge() : 0], ['bc', 'หอกระจายข่าว', 'broadcast'], ['contacts', 'รายชื่อ', 'contacts'],
+    const apps = [['story', 'เรื่องราว', 'quest', (DV.questList ? DV.questList().act.filter(a => a.ready).length : 0)], ['map', 'แผนที่', 'map'], ['line', 'LINE', 'chat', un], ['call', 'โทรศัพท์', 'phone', DV.callBadge ? DV.callBadge() : 0], ['bc', 'หอกระจายข่าว', 'broadcast'], ['contacts', 'รายชื่อ', 'contacts'],
       ['bank', 'ธนาคาร', 'bank', 0, true], ['cam', 'กล้อง', 'camera', 0, true], ['shop', 'ขายออนไลน์', 'shop', 0, true], ['set', 'ตั้งค่า', 'settings']];
     scr.innerHTML = top + `<div class="ph-wall"><div class="ph-date">วันที่ ${s.day}<br><small>${s.name} · รหัส ${s.code}</small></div><div class="ph-grid">` +
       apps.map(([id, n, e, b, soon]) => `<button class="app${soon ? ' soon' : ''}" data-a="${id}"><span class="ae"><span class="uic uic-${e}" style="--s:36px"></span>${b ? `<i>${b}</i>` : ''}</span>${n}${soon ? '<small>เร็ว ๆ นี้</small>' : ''}</button>`).join('') + '</div></div>';
     scr.querySelectorAll('.app').forEach(b => b.onclick = () => { const a = b.dataset.a;
-      if (a === 'quests') { $('phone').classList.add('hidden'); return DV.openQuests(); }
+      if (a === 'quests' || a === 'story') { $('phone').classList.add('hidden'); return DV.openStory(); }
       if (a === 'set') { $('phone').classList.add('hidden'); return DV.openMenu(); }
       if (['bank', 'cam', 'shop'].includes(a)) return DV.toast('แอปนี้จะเปิดในเวอร์ชันถัดไป');
       phoneTab = a; renderPhone(); });
@@ -281,7 +280,6 @@ DV.openMenu = () => DV.openSheet('เมนู', `${S().name} · รหัส ${
 
 // ---------- bottom bar ----------
 $('bagBtn').onclick = () => S() && !DV.uiBlocked() && DV.openBag();
-$('questBtn').onclick = () => S() && !DV.uiBlocked() && DV.openQuests();
 $('phoneBtn').onclick = () => S() && !DV.uiBlocked() && DV.openPhone();
 $('menuBtn').onclick = () => S() && !DV.uiBlocked() && DV.openMenu();
 

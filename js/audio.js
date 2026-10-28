@@ -55,16 +55,16 @@ DV.sfx = kind => {
   seq.forEach(([f, d]) => { const o = AC.createOscillator(), g = AC.createGain(); o.type = kind === 'ghost' ? 'triangle' : 'square'; o.frequency.value = f;
     g.gain.setValueAtTime(.04 * V.sfx, tt); g.gain.exponentialRampToValueAtTime(.0005, tt + d); o.connect(g); g.connect(sfxBus); o.start(tt); o.stop(tt + d); tt += d * .9; });
 };
-// ---- footsteps: grass = soft swish, dirt/laterite = crunchy, hard road/floor = tap ----
+// ---- footsteps (v2.0): one soft, deep thud on every surface — a low body plus a little muffled grit ----
 let stepAlt = 0;
-DV.step = surface => {
+DV.step = () => {
   if (DV.muted || !V.sfx || !ac()) return;
-  const t = AC.currentTime, src = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
-  src.buffer = noiseBuf; stepAlt ^= 1;
-  const cfg = { grass: ['bandpass', 1400, .7, .07], dirt: ['bandpass', 700, 1.2, .06], hard: ['highpass', 2200, .8, .035], wood: ['bandpass', 380, 2, .05] }[surface] || ['bandpass', 1000, 1, .06];
-  f.type = cfg[0]; f.frequency.value = cfg[1] * (stepAlt ? 1 : .86); f.Q.value = cfg[2];
-  g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(.16 * V.sfx, t + .008); g.gain.exponentialRampToValueAtTime(.0005, t + cfg[3] + .03);
-  src.connect(f); f.connect(g); g.connect(sfxBus); src.start(t, Math.random() * .3); src.stop(t + .12);
+  const t = AC.currentTime; stepAlt ^= 1;
+  const o = AC.createOscillator(), og = AC.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(stepAlt ? 92 : 84, t); o.frequency.exponentialRampToValueAtTime(48, t + .09);
+  og.gain.setValueAtTime(.0001, t); og.gain.linearRampToValueAtTime(.2 * V.sfx, t + .006); og.gain.exponentialRampToValueAtTime(.0005, t + .12); o.connect(og); og.connect(sfxBus); o.start(t); o.stop(t + .14);
+  const src = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(); src.buffer = noiseBuf; f.type = 'lowpass'; f.frequency.value = 520; f.Q.value = .6;
+  g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(.07 * V.sfx, t + .005); g.gain.exponentialRampToValueAtTime(.0005, t + .07);
+  src.connect(f); f.connect(g); g.connect(sfxBus); src.start(t, Math.random() * .3); src.stop(t + .1);
 };
 // ---- music: gentle lo-fi loop (Rhodes-ish pad, soft pluck melody, brushed shaker); night = slower, darker ----
 const DAY = [[48, 52, 55, 59], [45, 48, 52, 55], [41, 45, 48, 52], [43, 47, 50, 53]];        // Cmaj7 Am7 Fmaj7 G7

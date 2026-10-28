@@ -311,6 +311,8 @@ DV.newPlot = () => {
   return cells;
 };
 const liveCells = () => (S.map === 'farm' && DV.visitCells && DV.visitCells()) || S.cells;   // while visiting a friend, their plot
+const rustle = {}; let lastRC = '';
+DV.rustleAt = (cx, cy) => { const k = cx + ',' + cy; if (k === lastRC) return; lastRC = k; const n = performance.now(); for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) rustle[(cx + dx) + ',' + (cy + dy)] = n; };
 DV.cell = (x, y) => liveCells()[x + ',' + y];
 DV.plotCells = pred => Object.keys(liveCells() || {}).map(k => k.split(',').map(Number)).sort((a, b) => a[1] - b[1] || a[0] - b[0]).filter(([x, y]) => pred(DV.cell(x, y), x, y));
 DV.waterAll = () => { if (!S.cells) return; for (const k in S.cells) if (S.cells[k].soil) S.cells[k].wet = true; dirtySoil = true; };
@@ -336,7 +338,7 @@ function makeSpots(day, name) {
   }
   return out;
 }
-const FORAGE_LV = [0, 3, 8, 15, 25, 38, 55, 75, 100, 130];
+const FORAGE_LV = [0, 6, 16, 32, 55, 85, 125, 175, 240, 320];   // v2.0: skills grow slower
 DV.forageLevel = () => { let l = 0; FORAGE_LV.forEach((v, i) => { if (S.skill.forage >= v) l = i; }); return l; };
 DV.FORAGE_LV = FORAGE_LV;
 DV.gainForage = n => {
@@ -364,7 +366,12 @@ function onStep(x, y) {
 // tap = walk / interact · one finger drag = look around · two-finger pinch (or mouse wheel) = zoom
 let down = null, pinch = null; const ptrs = new Map();
 const pdist = () => { const [a, b] = [...ptrs.values()]; return Math.hypot(a.x - b.x, a.y - b.y) || 1; };
+const followGrab = L => { if (L.grab) return; const xs = L.o.block.map(c => c[0]), ys = L.o.block.map(c => c[1]);
+  L.grab = [Math.round((Math.min(...xs) + Math.max(...xs)) / 2) - L.dx, Math.round((Math.min(...ys) + Math.max(...ys)) / 2) - L.dy]; };
 cv.addEventListener('pointerdown', e => {
+  if (e.pointerType === 'mouse' && DV.lift && DV.lift.follow && S && !DV.uiOpen()) {   // placing with a mouse: the see-through preview follows the cursor, click to put it down
+    if (e.button === 2) return DV.liftCancel();
+    liftDrag(e.clientX / zoom + cam.x, e.clientY / zoom + cam.y); if (liftValid()) DV.liftConfirm(); else { DV.sfx('dirt'); DV.toast('วางตรงนั้นไม่ได้ ช่องสีแดงชนของอื่น'); } return; }
   ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); try { cv.setPointerCapture(e.pointerId); } catch (_) {}
   if (ptrs.size === 1) {
     down = { x: e.clientX, y: e.clientY, ox: camOff.x, oy: camOff.y, moved: false };
@@ -377,6 +384,7 @@ cv.addEventListener('pointerdown', e => {
   else if (ptrs.size === 2) { pinch = { d0: pdist(), uz0: uz }; if (down) down.moved = true; }
 });
 cv.addEventListener('pointermove', e => {
+  if (e.pointerType === 'mouse' && !ptrs.size && DV.lift && DV.lift.follow) { followGrab(DV.lift); liftDrag(e.clientX / zoom + cam.x, e.clientY / zoom + cam.y); return; }
   if (!ptrs.has(e.pointerId)) return; ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (pinch && ptrs.size >= 2) { const [a, b] = [...ptrs.values()]; setZoom(pinch.uz0 * pdist() / pinch.d0, (a.x + b.x) / 2, (a.y + b.y) / 2, true); return; }
   if (down && down.lift && ptrs.size === 1) { liftDrag(e.clientX / zoom + cam.x, e.clientY / zoom + cam.y); return; }
@@ -448,7 +456,7 @@ const canLift = o => !!(o && o.block && o.block.length && !WILD[o.tap] && (o.id 
 DV.canLift = canLift;
 function liftStart(o, dx = 0, dy = 0, fromStore = false) {
   if (DV.lift && DV.lift.o !== o) liftCancel();
-  DV.lift = { o, dx, dy, flip: false, fromStore, grab: null }; applyMoves(); DV.sfx('tick');
+  DV.lift = { o, dx, dy, flip: false, fromStore, grab: null, follow: fromStore && matchMedia('(hover: hover)').matches }; applyMoves(); DV.sfx('tick');
 }
 function liftCellUnder(sx, sy) { const L = DV.lift; if (!L) return false; const [wx, wy] = unP(sx, sy), cx = Math.floor(wx / T), cy = Math.floor(wy / T); return L.o.block.some(([a, b]) => a === cx && b === cy); }
 function liftGrab(d, sx, sy) { const [wx, wy] = unP(sx, sy); d.lift = true; d.moved = true; DV.lift.grab = [Math.floor(wx / T) - DV.lift.dx, Math.floor(wy / T) - DV.lift.dy]; const b = $('liftBar'); if (b) b.classList.add('drag'); }
@@ -666,9 +674,15 @@ function drawSoil() {
 const cam = { x: 0, y: 0 }; let camLift = 0;
 DV.cam = cam;
 // ---------- shadows: every thing casts its own silhouette, slanted like the late-morning (11 o'clock) sun ----------
-const SUN = { c: -0.55, d: -0.28 };   // late-morning sun from the back-left: each pixel of height falls 0.28px toward the viewer and 0.55px right — short and leaning
+const SUN = { c: -0.55, d: -0.28, k: 1 };
+const BLUR = (() => { try { const c = document.createElement('canvas').getContext('2d'); c.filter = 'blur(1px)'; return c.filter === 'blur(1px)'; } catch (_) { return false; } })();   // soft shadow edges where the browser can   // late-morning sun from the back-left: each pixel of height falls 0.28px toward the viewer and 0.55px right — short and leaning
 const shCv = document.createElement('canvas'), shx = shCv.getContext('2d'); let shOn = false;
-function shadowBegin() { if (shCv.width !== cv.width || shCv.height !== cv.height) { shCv.width = cv.width; shCv.height = cv.height; } shx.setTransform(1, 0, 0, 1, 0, 0); shx.clearRect(0, 0, shCv.width, shCv.height); shx.imageSmoothingEnabled = false; shOn = true; }
+function sunNow() {   // v2.0: the sun travels — long shadows to one side in the morning, short at noon, long to the other side in the evening
+  const h = S ? 6 + S.min / 60 : 11, t = Math.max(-1, Math.min(1, (h - 12) / 6.5));
+  SUN.c = 1.25 * t - .35; SUN.d = -(.16 + .5 * t * t);
+  SUN.k = h < 6.5 ? .35 : h < 8 ? .35 + .65 * (h - 6.5) / 1.5 : h < 17 ? 1 : h < 19 ? 1 - .8 * (h - 17) / 2 : .2;   // fades toward night
+}
+function shadowBegin() { sunNow(); if (shCv.width !== cv.width || shCv.height !== cv.height) { shCv.width = cv.width; shCv.height = cv.height; } shx.setTransform(1, 0, 0, 1, 0, 0); shx.clearRect(0, 0, shCv.width, shCv.height); shx.imageSmoothingEnabled = false; shOn = true; }
 function cast(im, sx, sy, sw, sh, x, y, dw, dh, ox, oy, flip) {   // (x, y) = where it touches the ground; (ox, oy) = that point inside the drawn rect
   if (!shOn || !im) return;
   shx.setTransform(ctx.getTransform()); shx.transform(1, 0, SUN.c, SUN.d, x, y); if (flip) shx.scale(-1, 1);
@@ -676,7 +690,7 @@ function cast(im, sx, sy, sw, sh, x, y, dw, dh, ox, oy, flip) {   // (x, y) = wh
 }
 function shadowEnd(alpha) {   // all silhouettes merge into one soft-edged dark shape, so overlaps don't double up
   shOn = false; shx.setTransform(1, 0, 0, 1, 0, 0); shx.globalCompositeOperation = 'source-in'; shx.fillStyle = 'rgb(24,34,12)'; shx.fillRect(0, 0, shCv.width, shCv.height); shx.globalCompositeOperation = 'source-over';
-  const m = ctx.getTransform(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = alpha; ctx.drawImage(shCv, 0, 0); ctx.globalAlpha = 1; ctx.setTransform(m);
+  const m = ctx.getTransform(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = alpha * (SUN.k == null ? 1 : SUN.k); if (BLUR) ctx.filter = `blur(${Math.max(1, Math.round(zoom * dpr * .8))}px)`; ctx.drawImage(shCv, 0, 0); if (BLUR) ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.setTransform(m);
 }
 DV.sun = SUN;
 function drawChar(e, sheet, feet) {
@@ -766,7 +780,7 @@ function render(dt) {
     if (I) { if (!o.si) return; const key = o.si === o.s ? DV.objSprite(o) : o.si; const r = WORLD.atlas.rects[key]; if (!r) return; const w = r[3], h = r[4];
       const pd = player.x + player.y, behind = (o.iw > 60 && o.ih > 70) && pd < o.dep && psy < o.iy - 4 && psy > o.iy - h + 16 && Math.abs(psx - o.ix) < w * .46;
       const lifted = DV.lift && DV.lift.o === o, up = lifted ? 7 + Math.sin(now / 160) * 2 : 0;
-      list.push({ y: lifted ? 1e9 - 1 : o.front ? 1e9 : o.dep, d: () => drawSpr(key, o.ix, o.iy - up, lifted ? .9 : behind ? .5 : null, o.flip), c: o.top ? null : () => castSpr(key, o.ix, o.iy, o.flip) }); return; }
+      list.push({ y: lifted ? 1e9 - 1 : o.front ? 1e9 : o.dep, d: () => drawSpr(key, o.ix, o.iy - up, lifted ? (DV.lift.follow ? .55 : .9) : behind ? .5 : null, o.flip), c: o.top ? null : () => castSpr(key, o.ix, o.iy, o.flip) }); return; }
     const key = DV.objSprite(o); const r = WORLD.atlas.rects[key]; if (!r) return;
     const w = r[3], h = r[4];
     const behind = (o.w > 60 && o.h > 70) && player.y < o.y - 4 && player.y > o.y - h + 16 && Math.abs(player.x - o.x) < w * .46;
@@ -777,7 +791,7 @@ function render(dt) {
     if (c.debris) { const key = WORLD.atlas.debris[c.debris]; const r = WORLD.atlas.rects[key]; const [dx, dy] = P(x * T + 16, y * T + 22); if (r) list.push({ y: depth(x * T + 16, y * T + 22), d: () => drawSpr(key, dx, dy + 4, null, false, DEBRIS_K), c: () => castSpr(key, dx, dy + 4, false, DEBRIS_K) }); }
     if (c.crop) {
       const cr = DV.CROPS[c.crop.k], bb = CROPMETA.crops[cr.row][c.crop.st], w = bb[2] - bb[0], h = bb[3] - bb[1];
-      const sway = c.crop.st >= 2 ? Math.sin(now / 700 + x * 1.3 + y) * .6 : 0;
+      const rt = rustle[x + ',' + y], since = rt ? (now - rt) / 1000 : 9, sway = since < 1.1 ? Math.sin(since * 18) * 2.2 * (1 - since / 1.1) : 0;   // still, unless someone brushes past
       const [qx, qy] = P(x * T + 16, y * T + 20);
       list.push({ y: depth(x * T + 16, y * T + 22), d: () => {
         const sw = Math.round(w * CROP_K), sh = Math.round(h * CROP_K);   // crops sized against the player (a chili bush is knee high)
@@ -889,6 +903,7 @@ function moveEnt(e, dt, speed, isPlayer) {
   e.x = nx; e.y = ny;
   if (ncx !== e.cx || ncy !== e.cy) {
     e.cx = ncx; e.cy = ncy;
+    if (S.map === 'farm' && DV.rustleAt) DV.rustleAt(ncx, ncy);
     if (isPlayer) { player.walkTiles = (player.walkTiles || 0) + 1; onStep(ncx, ncy); DV.step && DV.step(S.map === 'house' ? 'wood' : DV.M.path[ncy][ncx] ? (S.map === 'town' ? 'hard' : 'dirt') : 'grass'); }
   }
   if (k === 1) e.path.shift();
@@ -924,3 +939,7 @@ function loop(t) {
 DV.startLoop = () => requestAnimationFrame(loop);
 DV.bindState = st => { S = st; dayOver = false; };
 })();
+
+// keyboard while placing: R turns / mirrors the piece, Esc puts it back
+addEventListener('keydown', e => { if (!DV.lift || /INPUT|TEXTAREA/.test((e.target.tagName || ''))) return;
+  if (e.key === 'r' || e.key === 'R') { e.preventDefault(); DV.liftFlip(); } else if (e.key === 'Escape') DV.liftCancel(); else if (e.key === 'Enter') DV.liftConfirm(); });

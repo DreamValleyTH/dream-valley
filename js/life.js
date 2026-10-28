@@ -33,7 +33,7 @@ const tier = sc => sc >= .9 ? 3 : sc >= .6 ? 2 : sc >= .3 ? 1 : 0;   // score 0.
 // ================= skills =================
 const SK = { farm: ['ทำไร่', 'crop_chili', 'เก็บผักได้เพิ่ม'], fish: ['ตกปลา', 'item_fish_tilapia_fresh', 'ช่องเขียวกว้างขึ้น ปลาใหญ่ขึ้น'], cook: ['ทำอาหาร', 'food_khai_jiao', 'คุมไฟง่ายขึ้น อาหารให้แรงมากขึ้น'],
   clean: ['งานทำความสะอาด', 'item_trash', 'ค่าจ้างสูงขึ้น'], chicken: ['เลี้ยงไก่', 'item_egg_chicken', 'ไข่ออกบ่อยขึ้น มีโอกาสไข่แฝด'] };
-const LVX = [0, 10, 28, 55, 95, 150, 225, 320, 440, 600];
+const LVX = [0, 20, 60, 120, 210, 330, 490, 690, 940, 1250];   // v2.0: about twice the practice per level
 DV.skLv = k => { const x = ((S().sxp || {})[k]) || 0; let l = 1; LVX.forEach((v, i) => { if (x >= v) l = i + 1; }); return l; };
 DV.xp = (k, n = 1) => { const s = S(); s.sxp = s.sxp || {}; const b = DV.skLv(k); s.sxp[k] = (s.sxp[k] || 0) + n; const a = DV.skLv(k); if (a > b) { DV.sfx('spark'); DV.notify(`⭐ ทักษะ${SK[k][0]} ขึ้นเป็น Lv ${a}!`); } };
 DV.openSkills = () => {
@@ -89,7 +89,7 @@ DV.coopGift = () => { const s = S(); if (s.flags.henGift) return; s.flags.henGif
   const who = DV.pick(['taew', 'hong', 'sommai', 'bua', 'cherd', 'heng'].filter(id => (window.DV_NPCS || {})[id])) || 'taew';
   const line = DV.pick(['ได้ยินว่าซ่อมเล้าแล้ว เอาแม่ไก่ไปเลี้ยงตัวนึง ไข่ดกนะ ยายเพียรเคยให้ข้าวเปลือกบ้านป้าตอนแล้งตั้งหลายกระสอบ',
     'แม่ไก่ตัวนี้ชื่อ “ลายจุด” เลี้ยงดี ๆ นะ ทีนี้ก็ค่อย ๆ เก็บเงินซื้อลูกไก่ที่ร้านเสี่ยเฮงเพิ่มเอา', 'เห็นเล้าใหม่แล้วชื่นใจ เอาไก่ไปตัวนึง ถือว่าขึ้นบ้านใหม่ให้เล้า']);
-  if (DV.showTalk) DV.showTalk(who, line, [{ text: 'ขอบคุณมาก{k}', reply: 'ให้อาหารทุกวันนะ เช้ามาจะมีไข่', heart: 1 }], o => DV.showTalk(who, o.reply, []));
+  DV.addHeart(who, 1); if (DV.cut) DV.cut('st_hen_gift', 'แม่ไก่ตัวแรก', [{ who, text: line }, { who, text: 'ให้อาหารทุกวันนะ เช้ามาจะมีไข่' }]);
   DV.notify(`🐔 ${DV.npcName(who)} ให้แม่ไก่มา 1 ตัว`); DV.save(); };
 DV.buyHook = k => k === 'chick' ? buyChick() : false;
 
@@ -192,7 +192,7 @@ DV.ensureDeco = () => {
   // the shop templates themselves never show on the farm
   s.stored = s.stored || {}; const st = s.stored.farm = s.stored.farm || {}; DECO.forEach(d => { st[d.tpl] = 1; });
 };
-const initDeco = () => { const M = DV.MAPS.farm; window.DV_DECOT = M.objects.filter(o => TPL(o.id)).map(o => o.id); M.objects.filter(o => /^deco_/.test(o.id) && !o.id.includes('#')).forEach(o => { const p = { deco_arch: 380, deco_banana_pot: 150, deco_bird: 260, deco_dragonjar: 280, deco_flowerbed: 220, deco_hammock: 350, deco_lamp: 180, deco_pots: 120, deco_sala: 1500, deco_swing: 450, deco_box_s: 150, deco_box_m: 450, deco_box_l: 900 }[o.id];
+const initDeco = () => { const M = DV.MAPS.farm; window.DV_DECOT = M.objects.filter(o => TPL(o.id)).map(o => o.id); M.objects.filter(o => /^deco_/.test(o.id) && !o.id.includes('#')).forEach(o => { const p = { deco_arch: 380, deco_banana_pot: 150, deco_bird: 260, deco_dragonjar: 280, deco_flowerbed: 220, deco_hammock: 350, deco_lamp: 180, deco_pots: 120, deco_sala: 1500, deco_swing: 450, deco_box_s: 150, deco_box_m: 450, deco_box_l: 900, deco_bamboo_bed: 650, deco_plastic_set: 900, deco_umbrella_set: 1400, deco_motorbike: 28000, deco_tire_planter: 120, deco_orchid_rack: 850, deco_solar_lamp: 690, deco_sat_dish: 1500, deco_terrazzo_bench: 1200, deco_water_jars: 600 }[o.id];
   DECO.push({ tpl: o.id, name: o.label || o.id, price: p || 250 }); }); };
 initDeco();
 
@@ -230,8 +230,7 @@ const finesMorning = s => {
     DV.postLine && setTimeout(() => DV.postLine({ id: 'gs' + s.day, from: DV.pick(['taew', 'hong', 'porn']), text: `ได้ยินไหม หลานยายเพียรโดนหมายศาล! ไปค้นบ้านเพื่อนเขา… เฮ้อ ยายเพียรคงไม่สบายใจ` }), 5000);
   } else if (f.summons && d >= 7) {
     const take = Math.min(s.money, f.amt * 2); s.money -= take; s.fine = null; DV.setFlag('court_done');
-    setTimeout(() => DV.showCard({ id: 'court_day', type: 'story', art: 'village', title: 'ขึ้นศาล', text: `ศาลสั่งชำระค่าปรับสองเท่า ฿${take} …นั่งรถลุงเชิดกลับบ้านเงียบ ๆ ลุงไม่พูดอะไรเลยทั้งทาง`,
-      choices: [{ label: 'จะไม่ทำอีกแล้ว', effect: {} }] }), 1600);
+    setTimeout(() => DV.cut('st_court', 'ขึ้นศาล', [{ who: 'narrator', text: 'นั่งรอหน้าห้องพิจารณาคดีที่อำเภอ มือจับหมายศาลจนยับ' }, { who: 'narrator', text: `ศาลสั่งชำระค่าปรับสองเท่า ฿${take} …นั่งรถลุงเชิดกลับบ้านเงียบ ๆ ลุงไม่พูดอะไรเลยทั้งทาง` }]), 1600);
   } else if (f.summons) DV.ticker && setTimeout(() => DV.ticker('🗣️ ' + DV.pick(['เขาว่ากันว่า หลานยายเพียรยังไม่จ่ายค่าปรับนะ', 'ป้าแต๋วกระซิบ: “ระวังกระเป๋าตังค์ไว้นะ”', 'ที่ตลาดคุยกันเรื่องหมายศาลทั้งเช้า'])), 2600);
 };
 DV.gossipNote = () => S() && S().fine && S().fine.summons ? DV.pick(['…ได้ยินเรื่องหมายศาลแล้วนะ', '(มองแปลก ๆ แล้วเงียบไป)', 'ไปจ่ายค่าปรับหรือยังล่ะ']) : null;

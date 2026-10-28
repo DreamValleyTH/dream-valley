@@ -23,27 +23,31 @@ DV.onEat = (k, it) => { const s = st(), was = s.full; s.full = Math.min(100, s.f
   if (SWEET.includes(k)) add('sweet', 1); if (SALTY.includes(k)) add('salty', 1); if (RAW.includes(k)) add('raw', 1);
   if (s.sick.stomach && s.full > 20) { delete s.sick.stomach; DV.toast('ท้องอิ่มแล้ว อาการปวดท้องหายไป'); }
   if (was < 100 && s.full >= 100) DV.notify('🍚 อิ่มแปล้แล้ว'); DV.hud(); };
-const SICK = { fever: ['ตัวร้อน เป็นไข้', 'ตากฝนนานเกินไป / ตัวเปียก'], heat: ['ร้อนจนเพลีย (เกือบลมแดด)', 'อยู่กลางแดดเที่ยงนานเกินไป'], stomach: ['ปวดท้อง หิวจนไส้กิ่ว', 'ไม่ได้กินอะไรจนหลอดความอิ่มหมด'] };
+const SICK = { cold: ['เป็นหวัด คัดจมูก', 'หน้าหนาว ออกไปข้างนอกตอนดึก/เช้ามืดนาน'], fever: ['ตัวร้อน เป็นไข้', 'หน้าฝน ตากฝนนานเกินไป / ตัวเปียก'], heat: ['ร้อนจนเพลีย (เกือบลมแดด)', 'หน้าร้อน อยู่กลางแดดเที่ยงนานเกินไป'], stomach: ['ปวดท้อง หิวจนไส้กิ่ว', 'ไม่ได้กินอะไรจนหลอดความอิ่มหมด'] };
 DV.cure = () => { const s = st(), had = Object.keys(s.sick).map(k => SICK[k] ? SICK[k][0] : k); s.sick = {}; s.rainOut = 0; s.sunOut = 0; DV.hud(); return had.join(', '); };
 const outdoors = () => S().map !== 'house' && !(DV.player && DV.player.sit && /ใต้ร่ม|ชาน|ศาลา/.test(String(DV.player.sit)));
 const tick = DV.onTick;
 DV.onTick = () => { tick && tick(); const s = st(); if (DV.isDayOver && DV.isDayOver()) return;
   // hunger: about 5 points an hour
-  s.full = Math.max(0, s.full - .9);
+  s.full = Math.max(0, s.full - .7);
   if (s.full <= 0) { if (!s.sick.stomach) { s.sick.stomach = s.day; DV.notify('🤢 ปวดท้อง หิวมาก — กินอะไรหน่อย'); } DV.addEnergy(-2, true); }
   else if (s.full < 20 && !s.flags['hungry' + s.day]) { s.flags['hungry' + s.day] = 1; DV.notify('🍚 เริ่มหิวแล้ว'); }
-  // rain: an hour out in the rain → fever
-  if (s.rain && outdoors() && hour() < 12) { s.rainOut = (s.rainOut || 0) + 10; if (s.rainOut >= 60 && !s.sick.fever && Math.random() < .25) { s.sick.fever = s.day; DV.notify('🤒 ตากฝนนานไป ตัวรุม ๆ เป็นไข้'); } }
+  // v2.0: sickness follows the season and builds up slowly (eating is the same all year)
+  const sea = DV.season ? DV.season() : 'rain', h = hour();
+  if (sea === 'rain' && s.rain && outdoors() && h < 12) { s.rainOut = (s.rainOut || 0) + 10; if (s.rainOut >= 120 && !s.sick.fever && Math.random() < .12) { s.sick.fever = s.day; DV.notify('🤒 ตากฝนนานไป ตัวรุม ๆ เป็นไข้'); } }
   else s.rainOut = Math.max(0, (s.rainOut || 0) - 5);
-  // midday sun: 2½ hours of hard sun without resting → heat exhaustion
-  const h = hour(); if (!s.rain && h >= 11 && h < 15 && outdoors() && !(DV.player && DV.player.sit)) { s.sunOut = (s.sunOut || 0) + 10; if (s.sunOut >= 150 && !s.sick.heat) { s.sick.heat = s.day; DV.notify('🥵 ร้อนจนหน้ามืด ไปพักในร่มหรือกินน้ำ'); } }
+  if (sea === 'hot' && h >= 11 && h < 15 && outdoors() && !(DV.player && DV.player.sit)) { s.sunOut = (s.sunOut || 0) + 10; if (s.sunOut >= 200 && !s.sick.heat) { s.sick.heat = s.day; DV.notify('🥵 ร้อนจนหน้ามืด ไปพักในร่มหรือกินน้ำ'); } }
   else { s.sunOut = Math.max(0, (s.sunOut || 0) - 15); if (s.sick.heat && s.sunOut === 0) { delete s.sick.heat; DV.toast('พักแล้ว หายร้อนแล้ว'); } }
+  if (sea === 'cool' && (h >= 21 || h < 7) && outdoors()) { s.coldOut = (s.coldOut || 0) + 10; if (s.coldOut >= 120 && !s.sick.cold && Math.random() < .12) { s.sick.cold = s.day; DV.notify('🤧 ลมหนาวตอนกลางคืน เป็นหวัดแล้ว'); } }
+  else s.coldOut = Math.max(0, (s.coldOut || 0) - 5);
+  if (s.sick.cold) DV.addEnergy(-.5, true);
   if (s.sick.fever) DV.addEnergy(-1, true);
   if (s.sick.heat) DV.addEnergy(-1.5, true);
   DV.hud(); DV.checkFaint && DV.checkFaint(); };
 const nd = DV.newDay;
 DV.newDay = fainted => { const s = st(); nd(fainted); s.full = Math.max(15, (s.full || 0) - 25);   // you wake up hungry
   if (s.sick.fever && Math.random() < .5) { delete s.sick.fever; DV.notify('😌 นอนพักแล้ว ไข้ลดลง'); }
+  if (s.sick.cold && Math.random() < .6) { delete s.sick.cold; DV.notify('😌 หายหวัดแล้ว'); }
   if (s.sick.fever) { s.energy = Math.round(s.energy * .8); DV.notify('🤒 ยังเป็นไข้อยู่ แรงไม่เต็ม — ไป รพ.สต. หรือซื้อยาที่ร้านภก.มด'); } DV.hud(); };
 const hud = DV.hud;
 DV.hud = () => { hud(); const s = S(); if (!s) return; const f = s.full == null ? 80 : s.full, b = $('fullBar'); if (b) { b.style.width = f + '%'; b.classList.toggle('low', f < 20); }
@@ -59,7 +63,7 @@ DV.openHealth = () => {
   h += `<div class="hl-row"><span>⚡ แรง</span><b>${Math.round(s.energy)}/${DV.MAX_E}</b></div><div class="hl-row" style="display:block"><div style="display:flex;justify-content:space-between"><span>🍚 ความอิ่ม</span><b>${Math.round(s.full)}/100</b></div><div class="meter2"><i style="width:${s.full}%;background:${s.full < 20 ? 'var(--chili)' : ''}"></i></div><small class="muted">หิวลงเรื่อย ๆ · กินอาหารได้ทั้งแรงและความอิ่ม · ถ้าหมดจะปวดท้องและแรงลด</small></div>`;
   h += '<h4>อาการตอนนี้</h4>' + (sick.length ? sick.map(k => `<div class="hl-row"><span>${SICK[k][0]}<br><small class="muted">สาเหตุ: ${SICK[k][1]}</small></span><b class="risk-high">เป็นอยู่</b></div>`).join('') +
     '<p class="muted">รักษา: ตรวจที่ รพ.สต. (ฟรี) หรือกินยาชุดสมุนไพรจากร้านภก.มด · ไข้มักลดเองหลังนอนพัก · ร้อนเกินให้เข้าร่มหรือนั่งพัก · ปวดท้องให้กินข้าว</p>' : '<p class="muted">แข็งแรงดี ไม่มีอาการ</p>');
-  h += `<div class="hl-row"><span>🌧️ ตากฝนวันนี้</span><b>${s.rainOut || 0} นาที</b></div><div class="hl-row"><span>☀️ อยู่กลางแดดเที่ยง</span><b>${s.sunOut || 0} นาที</b></div>`;
+  h += `<div class="hl-row"><span>📅 ${DV.date ? DV.date().d + ' ' + DV.date().month + ' · ' + DV.date().seasonName : ''}</span><b>${({ rain: 'ระวังตากฝน', hot: 'ระวังแดดเที่ยง', cool: 'ระวังลมหนาวกลางคืน' })[DV.season ? DV.season() : 'rain']}</b></div><div class="hl-row"><span>🌧️ ตากฝนวันนี้</span><b>${s.rainOut || 0} นาที</b></div><div class="hl-row"><span>☀️ อยู่กลางแดดเที่ยง</span><b>${s.sunOut || 0} นาที</b></div>`;
   const R = [['เบาหวาน', n('sweet'), 5, 9, 'ของหวาน น้ำหวาน กาแฟเย็น เครื่องดื่มชูกำลัง', met('ann') ? 'หมอแอนเคยเตือนเรื่องน้ำหวาน' : ''],
     ['ความดัน / โรคไต', n('salty'), 5, 9, 'บะหมี่ ปลากระป๋อง ปลาร้า ไข่เค็ม ส้มตำ', met('mod') ? 'ภก.มดเคยบอกว่าคนแถวนี้กินเค็มจัด' : ''],
     ['พยาธิใบไม้ตับ', n('raw'), 2, 4, 'ของดิบ ๆ สุก ๆ เช่น ส้มตำปูปลาร้า ลาบ', 'ผู้ใหญ่ในหมู่บ้านคุยกันบ่อยเรื่องมะเร็งท่อน้ำดี'],
@@ -111,10 +115,10 @@ DV.openBook = (tab = 'diary') => {
     h += '</div>'; p.innerHTML = h; p.classList.remove('hidden'); $('panelX').onclick = () => p.classList.add('hidden');
     p.querySelectorAll('.bk-tabs button').forEach(b => b.onclick = () => { tab = b.dataset.t; draw(); });
   };
-  // the opening animation (PixelLab) the first time it is opened each session
-  if (DV._bookShown) return draw(); DV._bookShown = true;
-  p.innerHTML = head + `<div class="panel-b"><div class="bk-open" id="bkAnim" style="background-image:url(assets/ui/book_open.png);background-size:${BOOKFR * 100}% 100%"></div></div>`; p.classList.remove('hidden'); $('panelX').onclick = () => p.classList.add('hidden');
-  let f = 0; const el = $('bkAnim'); DV.sfx('tick'); const iv = setInterval(() => { f++; if (el) el.style.backgroundPosition = `${f / (BOOKFR - 1) * 100}% 0`; if (f >= BOOKFR - 1) { clearInterval(iv); setTimeout(draw, 450); } }, 110);
+  // the opening animation (PixelLab) every time: just the book itself, no panel behind it
+  let ov = $('bookOv'); if (!ov) { ov = document.createElement('div'); ov.id = 'bookOv'; ov.className = 'hidden'; ov.innerHTML = '<div class="bk"></div>'; document.body.appendChild(ov); }
+  const el = ov.firstChild; el.style.backgroundImage = 'url(assets/ui/book_open.png)'; el.style.backgroundSize = `${BOOKFR * 100}% 100%`; el.style.backgroundPosition = '0 0'; ov.classList.remove('hidden'); p.classList.add('hidden');
+  let f = 0; DV.sfx('tick'); const iv = setInterval(() => { f++; el.style.backgroundPosition = `${f / (BOOKFR - 1) * 100}% 0`; if (f >= BOOKFR - 1) { clearInterval(iv); setTimeout(() => { ov.classList.add('hidden'); draw(); }, 380); } }, 115);
 };
 
 // ================= tapping a player: yourself or a friend =================
@@ -176,7 +180,6 @@ setInterval(() => { if (!pendingDay) return; const peers = (DV.sessionPeers && D
 const uo = DV.uiOpen; DV.uiOpen = () => uo() || !zz.classList.contains('hidden');
 
 // ---- bottom bar ----
-$('questBtn').onclick = () => S() && !DV.uiBlocked() && DV.openStory();
 $('bookBtn').onclick = () => S() && !DV.uiBlocked() && DV.openBook();
 $('healthBtn').onclick = () => S() && !DV.uiBlocked() && DV.openHealth();
 })();

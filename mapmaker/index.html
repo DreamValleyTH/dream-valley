@@ -180,7 +180,7 @@ function anchor(o) {   // sprite bottom-centre in iso px — exactly how the gam
 }
 const depth = o => { const [fw, fd] = fpOf(o); return (o.x + fw / 2 + o.y + fd / 2) + (o.layer === 'flat' ? -1e6 : o.layer === 'front' ? 1e6 : o.layer === 'top' ? 2e6 : 0); };
 const LAYERS = [[undefined, '▣', 'ชั้นปกติ: เรียงหน้า-หลังตามตำแหน่ง'], ['flat', '⬇', 'ติดพื้น: วางราบกับพื้น ตัวละครเดินทับได้'], ['front', '⬆', 'หน้าเสมอ: บังตัวละครเสมอ'], ['top', '⏫', 'บนสุด: ลอยเหนือทุกอย่าง (สายไฟ ธง)']];
-let clip = null, mouseCell = null, mouseXY = null;   // copied item (kind + turn + layer) and the cell under the mouse
+let clip = null, mouseCell = null, mouseXY = null, palRot = 0;   // copied item (kind + turn + layer) and the cell under the mouse
 const cellsOf = o => { const c = CAT.items[o.k], [fw, fd] = fpOf(o), r = []; for (let y = o.y; y < o.y + fd; y++) for (let x = o.x; x < o.x + fw; x++) if (!(c && c.mask) || (c.mask[y - o.y] || '')[x - o.x] === '1') r.push([x, y]); return r; };   // a mask fits the footprint to the sprite's shape (e.g. a diagonal fence: 10 / 01)
 const nameOf = o => { const c = CAT.items[o.k]; return o.label || (c && c.name) || o.k; };
 
@@ -288,6 +288,7 @@ addEventListener('keydown', e => {
     const o = sel || (mouseXY && hitObject(...mouseXY)); if (o) { e.preventDefault(); erase(o); } return; }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') { const o = sel || (mouseXY && hitObject(...mouseXY)); if (o) { e.preventDefault(); const keep = sel; sel = o; copySel(); sel = keep; } else toast('ชี้เมาส์ที่ของ หรือแตะเลือกของก่อนกด Ctrl+C'); return; }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v' && clip) { e.preventDefault(); if (!mouseCell) return toast('ชี้เมาส์บนแผนที่ตรงที่จะวาง'); const n = pasteAt(...mouseCell); if (n && tool === 'move') { sel = n; renderDock(); } return; }
+  if (tool === 'place' && palKey && e.key.toLowerCase() === 'r' && !e.ctrlKey) { const c = CAT.items[palKey]; palRot = (palRot + 1) % (c && c.rot4 ? 4 : 2); dirty = true; toast(c && c.rot4 ? `หมุนเป็น ${ROT4[palRot]}` : 'หมุนแล้ว'); return; }
   if (sel && tool === 'move') { const k = { ArrowUp: [0, -1], ArrowRight: [1, 0], ArrowDown: [0, 1], ArrowLeft: [-1, 0] }[e.key]; if (k) { e.preventDefault(); nudge(...k); } if (e.key.toLowerCase() === 'r') rotate(sel); }
   if (e.key === 'Escape') { sel = null; renderDock(); dirty = true; }
 });
@@ -418,6 +419,12 @@ function draw() {
     const label = (x, y, t) => { if (view.z <= .28) return; const [qx, qy] = P((x + .5) * T, (y + .5) * T); ctx.lineWidth = 3 / view.z; ctx.strokeStyle = '#000'; ctx.strokeText(t, qx, qy - 8 / view.z); ctx.fillStyle = '#fff'; ctx.fillText(t, qx, qy - 8 / view.z); };
     for (const [pid, pl] of Object.entries(MAP.places)) { const [x, y] = pl.door; ctx.fillStyle = dragDoor === 'p:' + pid ? 'rgba(255,240,140,.95)' : 'rgba(233,196,106,.6)'; diamond(x, y); ctx.fill(); label(x, y, (pl.kind === 'home' ? '🏠 ' : '') + pl.name); }
     if (tool === 'door') for (const [k, v] of Object.entries(MAP.spawns || {})) { if (MAP.places.home && k === 'home') continue; const [x, y] = v; ctx.fillStyle = dragDoor === 's:' + k ? 'rgba(150,220,255,.95)' : 'rgba(90,170,230,.65)'; diamond(x, y); ctx.fill(); label(x, y, '▶ ' + (SPAWN_NAME[k] || k)); } }
+  if (tool === 'place' && palKey && mouseCell && IMG[palKey]) {   // ghost preview under the mouse: the item, see-through, and the cells it needs
+    const c = CAT.items[palKey], g = { k: palKey, flip: palRot & 1, rot: palRot }, [fw, fd] = fpOf(g); g.x = mouseCell[0] - Math.floor(fw / 2); g.y = mouseCell[1] - Math.floor(fd / 2);
+    const ok = valid(g); ctx.fillStyle = ok ? 'rgba(120,230,110,.4)' : 'rgba(240,80,70,.45)'; cellsOf(g).forEach(([x, y]) => { diamond(x, y); ctx.fill(); });
+    const im = IMG[palKey], [ax, ay] = anchor(g); ctx.globalAlpha = .6;
+    if (g.flip) { ctx.save(); ctx.translate(ax, 0); ctx.scale(-1, 1); ctx.drawImage(im, -im.width / 2, ay - im.height); ctx.restore(); } else ctx.drawImage(im, ax - im.width / 2, ay - im.height);
+    ctx.globalAlpha = 1; }
   if (tool === 'paint' && hover) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5 / view.z; for (const [x, y] of brushCells(...hover)) { diamond(x, y); ctx.stroke(); } }
 }
 function loop() { if (dirty) { dirty = false; draw(); } requestAnimationFrame(loop); }
@@ -457,7 +464,9 @@ function updateSelInfo() {   // refresh only the text — rebuilding the pad mid
   s.className = ok ? '' : 'bad'; s.textContent = ok ? (pn && pn !== nm ? pn + ' · ' : '') + 'ช่อง ' + sel.x + ', ' + sel.y : 'ทับของอื่น / อยู่บนน้ำ — ขยับอีกนิด';
 }
 
-function rotate(o) { snapshot(); o.flip = o.flip ? 0 : 1; changed(); if (o === sel && document.querySelector('.pad')) updateSelInfo(); else renderDock(); }
+const ROT4 = ['↘', '↙', '↖', '↗'];
+const turn = o => { const c = CAT.items[o.k]; if (c && c.rot4) { o.rot = ((o.rot || 0) + 1) % 4; o.flip = o.rot & 1; } else o.flip = o.flip ? 0 : 1; };   // fences turn through all 4 iso directions
+function rotate(o) { snapshot(); turn(o); changed(); if (o === sel && document.querySelector('.pad')) updateSelInfo(); else renderDock(); }
 let palClip = null;
 // ---------- random fill: paint coloured zones by kind, press 🎲 again and again until it looks right ----------
 const ZONES = {
@@ -500,7 +509,7 @@ function copySel() { if (!sel) return; clip = { k: sel.k, flip: sel.flip ? 1 : 0
 function pasteAt(cx, cy, from) {   // a copy keeps its turn and layer; it lands with its footprint centred on the cell
   const c = from || clip; if (!c || !CAT.items[c.k]) return;
   snapshot(); const [fw, fd] = fpOf({ k: c.k, flip: c.flip });
-  const n = { id: 'n' + Date.now().toString(36) + Math.floor(Math.random() * 99), k: c.k, x: cx - Math.floor(fw / 2), y: cy - Math.floor(fd / 2), flip: c.flip || 0 };
+  const n = { id: 'n' + Date.now().toString(36) + Math.floor(Math.random() * 99), k: c.k, x: cx - Math.floor(fw / 2), y: cy - Math.floor(fd / 2), flip: c.flip || 0 }; if (c.rot) n.rot = c.rot;
   if (c.layer) n.layer = c.layer;
   MAP.objects.push(n); changed(); dirty = true; return n;
 }
@@ -551,7 +560,7 @@ cv.addEventListener('pointerdown', e => {
   else if (tool === 'rand') { snapshot(); down.mode = 'zone'; down.ch = zoneAt(cx, cy); down.last = [cx, cy]; }
 });
 cv.addEventListener('pointermove', e => {
-  if (e.pointerType === 'mouse') { mouseCell = cellAt(e.clientX, e.clientY); mouseXY = [e.clientX, e.clientY]; }
+  if (e.pointerType === 'mouse') { const mc = cellAt(e.clientX, e.clientY); if (tool === 'place' && (!mouseCell || mc[0] !== mouseCell[0] || mc[1] !== mouseCell[1])) dirty = true; mouseCell = mc; mouseXY = [e.clientX, e.clientY]; }
   if (tool === 'paint' && e.pointerType === 'mouse') { hover = cellAt(e.clientX, e.clientY); dirty = true; }
   if (!ptrs.has(e.pointerId)) return; ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (pinch && ptrs.size >= 2) { const [a, b] = [...ptrs.values()], dd = Math.hypot(a.x - b.x, a.y - b.y), z = Math.max(.08, Math.min(3, pinch.z * dd / pinch.d)), r = cv.getBoundingClientRect();
@@ -588,7 +597,7 @@ const up = e => {
   else if (tool === 'erase') { if (o) erase(o); }
   else if (tool === 'place') {
     if (!palKey) { toast('เลือกของด้านล่างก่อน'); return; }
-    const n = pasteAt(cx, cy, palClip && palClip.k === palKey ? palClip : { k: palKey, flip: 0 });
+    const n = pasteAt(cx, cy, palClip && palClip.k === palKey ? palClip : { k: palKey, flip: palRot & 1, rot: palRot });
     toast(valid(n) ? `วาง${CAT.items[palKey].name}แล้ว` : 'วางแล้ว แต่ทับของอื่น — ใช้เครื่องมือย้ายขยับได้', 'เอาออก', () => $('undo').click());
   }
 };
@@ -665,6 +674,7 @@ $('dlBtn').onclick = () => {   // the map file to keep or attach in the chat for
   toast(ok ? 'โหลดไฟล์แผนที่แล้ว · แนบไฟล์นี้ในแชทให้ Claude ได้เลย' : 'โหลดไฟล์ไม่ได้');
 };
 window.__mm = { get MAP() { return MAP; }, get SMOOTH() { return SMOOTH; }, get TILES() { return TILES; }, get ORIG() { return ORIG; } };
+document.addEventListener('contextmenu', e => e.preventDefault());   // no browser right-click menu on the editor
 boot();
 window.__mm = { loadMap, get MAP() { return MAP; }, P, view, cv, T, redraw: () => { dirty = true; } };   // for automated checks
 })();

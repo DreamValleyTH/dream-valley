@@ -67,6 +67,7 @@ function playScene(sc) {
   el.classList.remove('hidden'); DV.sfx('card'); show();
 }
 DV.sceneOpen = () => !!scenePlaying;
+DV.playScene = sc => { if (scenePlaying) return false; playScene(sc); return true; };   // ad-hoc cutscenes (art = assets/story/<id>.png)
 // what the main story wants next (shown in 📜 and as a morning reminder)
 DV.storyHints = () => {
   const s = S(), out = [];
@@ -126,6 +127,7 @@ DV.showCard = c => {
 };
 function resolveChoice(e, c) {
   $('cardWrap').classList.add('hidden');
+  if (e.walk && DV.walkThen) { const w = e.walk, e2 = Object.assign({}, e); delete e2.walk; return DV.walkThen(w, () => resolveChoice(e2, c)); }   // v2.0: go there first, then it happens
   if (e.faintDay) { DV.fade(() => DV.newDay(true)); return; }
   if (e.chance) { const p = (S().prayedDay === S().day && e.chance.pIfPrayed) || e.chance.p, base = Object.assign({}, e); delete base.chance; delete base.text; e = Object.assign(base, Math.random() < p ? e.chance.win : e.chance.lose); }
   const faint = e.faint; const e2 = Object.assign({}, e); delete e2.faint;
