@@ -125,7 +125,7 @@ DV.showCard = c => {
 function resolveChoice(e, c) {
   $('cardWrap').classList.add('hidden');
   if (e.faintDay) { DV.fade(() => DV.newDay(true)); return; }
-  if (e.chance) { const p = (S().prayedDay === S().day && e.chance.pIfPrayed) || e.chance.p; e = Math.random() < p ? e.chance.win : e.chance.lose; }
+  if (e.chance) { const p = (S().prayedDay === S().day && e.chance.pIfPrayed) || e.chance.p, base = Object.assign({}, e); delete base.chance; delete base.text; e = Object.assign(base, Math.random() < p ? e.chance.win : e.chance.lose); }
   const faint = e.faint; const e2 = Object.assign({}, e); delete e2.faint;
   const msgs = DV.applyEffect(e2, { npc: c && c.npc || 'taew' });
   DV.hud(); DV.save();
@@ -149,6 +149,18 @@ DV.ghostCard = () => {
       { label: 'วิ่งกลับบ้านสุดแรง', hint: 'แรง −15 · ปลอดภัย', effect: { energy: -15, goHome: true, text: 'วิ่งจนถึงบันไดบ้าน หัวใจเต้นแรง' } },
       { label: 'ยกมือไหว้ขอทาง', hint: 'ไหว้ศาลพระภูมิ/เช่าผ้ายันต์ไว้จะดีกว่า', effect: { chance: { p: S().amuletDay === S().day ? .95 : .5, pIfPrayed: .9, win: { text: 'ลมเย็นพัดผ่าน แล้วทุกอย่างก็เงียบ' }, lose: { faint: true, text: 'ขาอ่อนจนทรุดลงกับพื้น…' } } } },
       { label: 'ยืนนิ่ง หลับตา นับหนึ่งถึงสิบ', hint: 'สุ่ม', effect: { chance: { p: .5, win: { energy: -5, text: 'พอลืมตา ก็ไม่มีอะไรแล้ว' }, lose: { faint: true, text: 'มีมือเย็น ๆ แตะไหล่…' } } } },
+    ] };
+};
+
+// โจรกลางคืน: a motorbike with its headlight off — lose some cash unless you're lucky or fast
+DV.thiefCard = () => {
+  const cash = S().money, take = Math.min(300, Math.max(20, Math.round(cash * .2 / 10) * 10));
+  return { id: 'night_thief', type: 'night', art: 'night', title: 'มอเตอร์ไซค์ปิดไฟ', npc: 'sathian',
+    text: `เสียงเครื่องยนต์ค่อย ๆ ไหลมาข้างหลัง ไม่เปิดไฟหน้า ชายใส่หมวกกันน็อกเต็มใบชะลอข้าง ๆ "น้อง… มีตังค์ติดตัวไหม"`,
+    choices: [
+      { label: `ยื่นเงินให้ (−฿${take})`, hint: 'ปลอดภัย', effect: { money: -take, text: 'เขารับเงินแล้วบิดหายไปในความมืด ใจยังสั่นอยู่เลย · พรุ่งนี้ไปแจ้งดาบเสถียรดีไหมนะ' } },
+      { label: 'วิ่งเข้าซอย', hint: 'แรง −15 · ลุ้น', effect: { energy: -15, chance: { p: .6, win: { text: 'ลัดเข้าดงกล้วยจนเสียงเครื่องเงียบไป รอดหวุดหวิด' }, lose: { money: -take, text: 'สะดุดรากไม้ เขาคว้ากระเป๋าไปได้…' } } } },
+      { label: 'ตะโกนให้คนช่วย', hint: 'สุ่ม · ใกล้บ้านคนจะดีกว่า', effect: { chance: { p: S().map === 'town' ? .7 : .35, win: { text: 'หมาทั้งซอยเห่าพร้อมกัน ไฟบ้านข้าง ๆ เปิด มอเตอร์ไซค์บิดหนีไป' }, lose: { money: -Math.round(take * 1.5), text: 'ไม่มีใครได้ยิน… เขาเอาไปมากกว่าเดิมเพราะหงุดหงิด' } } } },
     ] };
 };
 

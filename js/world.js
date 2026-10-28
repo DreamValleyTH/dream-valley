@@ -464,9 +464,15 @@ function arrive() {
   const ex = (DV.M.exits || []).find(e => e.cells.some(([a, b]) => a === player.cx && b === player.cy));
   if (ex && steps) { player.onArrive = null; return DV.travel(ex.to, ex.spawn); }
   if (steps && S.min >= DV.NIGHT && !safeSpot() && !DV.uiOpen()) {
-    const amulet = S.amuletDay === S.day;
-    const p = amulet ? 0.05 : S.prayedDay === S.day ? 0.12 : 0.3;
-    if (Math.random() < p) { player.onArrive = null; return DV.showCard(DV.ghostCard()); }
+    // one roll per night: ผีหลอก 50% · โจร 20% · ไม่เจออะไร 30% — happens once, the first time you're out walking after dark
+    if (!S.night || S.night.day !== S.day) { const r = Math.random(); S.night = { day: S.day, kind: r < .5 ? 'ghost' : r < .7 ? 'thief' : 'none', done: 0 }; }
+    if (!S.night.done && S.night.kind !== 'none' && Math.random() < .5) {
+      let kind = S.night.kind;
+      if (kind === 'ghost' && S.amuletDay === S.day && Math.random() < .9) kind = 'none';          // ผ้ายันต์ไล่ผีได้ ไล่โจรไม่ได้
+      else if (kind === 'ghost' && S.prayedDay === S.day && Math.random() < .6) kind = 'none';
+      S.night.done = 1;
+      if (kind !== 'none') { player.onArrive = null; return DV.showCard(kind === 'ghost' ? DV.ghostCard() : DV.thiefCard()); }
+    }
   }
   DV.checkVisit && DV.checkVisit();
   const f = player.onArrive; player.onArrive = null; if (f) f();
