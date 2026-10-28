@@ -144,7 +144,7 @@ const TERR_COL = { '.': '#6f9a3a', a: '#5c5a58', c: '#c4bdac', l: '#c4673a', p: 
 const TERR_NAME = { '.': 'หญ้า', a: 'ถนนลาดยาง', c: 'ทางคอนกรีต', l: 'ดินลูกรัง', p: 'ทางเดินดิน', y: 'ลานดินบ้าน', s: 'ทรายลานวัด', w: 'น้ำ / คลอง', r: 'นาข้าว', g: 'แปลงผัก' };
 const CAT_NAME = { farm: 'ของในฟาร์ม', building: 'อาคาร', tree: 'ต้นไม้', prop: 'ของตกแต่ง', animal: 'สัตว์' };
 const HINT = {
-  move: '<b>ย้าย:</b> แตะของที่จะย้าย แล้วกดลูกศรเลื่อนทีละช่อง · ลากนิ้วบนแผนที่เพื่อเลื่อนดู',
+  move: '<b>ย้าย:</b> ลากของไปวางได้เลย หรือแตะของแล้วกดลูกศรเลื่อนทีละช่อง · ลากที่ว่างเพื่อเลื่อนดูแผนที่',
   rotate: '<b>หมุน:</b> แตะของเพื่อหันไปอีกด้าน',
   place: '<b>วางของ:</b> เลือกของด้านล่าง แล้วแตะจุดบนแผนที่',
   erase: '<b>ลบ:</b> แตะของที่ต้องการลบ (กด ↶ เพื่อเอาคืน)',
@@ -359,10 +359,14 @@ function paintAt(cx, cy) { let ch = false; for (const [x, y] of brushCells(cx, c
 const ptrs = new Map(); let down = null, pinch = null;
 cv.addEventListener('pointerdown', e => {
   cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), z: view.z, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, vx: view.x, vy: view.y }; if (down && down.mode === 'paint') undo.pop(); down = null; return; }
+  if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), z: view.z, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, vx: view.x, vy: view.y }; if (down && down.mode === 'paint') undo.pop(); if (down && down.mode === 'drag' && down.snap) changed(); down = null; return; }
   const [cx, cy] = cellAt(e.clientX, e.clientY);
   down = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y, mode: 'pan', moved: false };
   if (tool === 'paint') { snapshot(); down.mode = 'paint'; down.ch = paintAt(cx, cy); }
+  else if (tool === 'move') {   // press on an object = drag it along the grid; press on empty ground = pan
+    const o = hitObject(e.clientX, e.clientY) || (sel && cellsOf(sel).some(c => c[0] === cx && c[1] === cy) ? sel : null);
+    if (o) { down.mode = 'drag'; down.o = o; down.gx = cx - o.x; down.gy = cy - o.y; down.x0 = o.x; down.y0 = o.y; }
+  }
   else if (tool === 'door') { const pid = Object.keys(MAP.places).find(k => MAP.places[k].door[0] === cx && MAP.places[k].door[1] === cy); if (pid) { snapshot(); dragDoor = pid; down.mode = 'door'; dirty = true; } }
 });
 cv.addEventListener('pointermove', e => {
@@ -375,6 +379,11 @@ cv.addEventListener('pointermove', e => {
   if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8) down.moved = true;
   const [cx, cy] = cellAt(e.clientX, e.clientY);
   if (down.mode === 'pan' && down.moved) { view.x = down.vx - (e.clientX - down.x) / view.z; view.y = down.vy - (e.clientY - down.y) / view.z; dirty = true; }
+  if (down.mode === 'drag' && down.moved) {
+    const o = down.o; if (sel !== o) { if (sel) delete sel._moving; sel = o; renderDock(); }
+    const nx = cx - down.gx, ny = cy - down.gy;
+    if (nx !== o.x || ny !== o.y) { if (!down.snap) { snapshot(); down.snap = true; } o.x = nx; o.y = ny; dirty = true; updateSelInfo(); }
+  }
   if (down.mode === 'paint') { if (paintAt(cx, cy)) down.ch = true; if (e.pointerType !== 'mouse') { hover = [cx, cy]; } }
   if (down.mode === 'door' && dragDoor) { MAP.places[dragDoor].door = [cx, cy]; dirty = true; }
 });
@@ -383,6 +392,7 @@ const up = e => {
   if (!down || ptrs.size) return; const d = down; down = null;
   if (d.mode === 'paint') { if (d.ch) changed(); else undo.pop(); if (e.pointerType !== 'mouse') hover = null; return; }
   if (d.mode === 'door') { dragDoor = null; changed(); return; }
+  if (d.mode === 'drag' && d.moved) { if (d.snap) changed(); renderDock(); return; }
   if (d.moved) return;
   const o = hitObject(e.clientX, e.clientY), [cx, cy] = cellAt(e.clientX, e.clientY);
   if (tool === 'move') { if (sel) delete sel._moving; sel = o && o !== sel ? o : (o ? sel : null); renderDock(); dirty = true; }
@@ -433,7 +443,7 @@ $('menuBtn').onclick = () => {
     <label class="tg"><input type="checkbox" data-o="grid" ${opts.grid ? 'checked' : ''}> แสดงเส้นช่อง</label>
     <label class="tg"><input type="checkbox" data-o="doors" ${opts.doors ? 'checked' : ''}> แสดงจุดประตูและชื่อสถานที่</label>
     <div class="row"><button class="btn" id="dl">ดาวน์โหลด ${mapName}.json</button><label class="btn">นำเข้าไฟล์<input type="file" id="fi" accept=".json" hidden></label><button class="btn" id="rs">กลับไปผังต้นฉบับ</button></div>
-    <p>เครื่องมือ: ✋ ย้าย (แตะของ แล้วกดลูกศร) · ⟳ หมุน · ➕ วางของ · 🗑 ลบ · 🖌 ระบายพื้น · 🚪 ย้ายประตู · บนคอมใช้ปุ่มลูกศรบนคีย์บอร์ด, R หมุน, Ctrl+Z ย้อน</p>
+    <p>เครื่องมือ: ✋ ย้าย (ลากของ หรือแตะของแล้วกดลูกศร) · ⟳ หมุน · ➕ วางของ · 🗑 ลบ · 🖌 ระบายพื้น · 🚪 ย้ายประตู · บนคอมใช้ปุ่มลูกศรบนคีย์บอร์ด, R หมุน, Ctrl+Z ย้อน</p>
     <button class="btn primary" id="cl">ปิด</button>`);
   m.querySelectorAll('[data-o]').forEach(i => i.onchange = () => { opts[i.dataset.o] = i.checked; try { localStorage.setItem('dvmm_opts', JSON.stringify(opts)); } catch (_) {} dirty = true; });
   m.querySelector('#cl').onclick = () => m.remove();
