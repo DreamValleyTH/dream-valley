@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#241d16">
+<title>Dream Valley Map Maker</title>
+<link rel="icon" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
+<style>
+/* Mobile-first isometric map editor. Phone: top bar · tool row · map · control dock · palette sheet.
+   Desktop (≥900px): tools on the left, palette on the right. */
+:root{
+  --bg:#17130f; --panel:#241d16; --panel2:#2f261d; --line:#46392b; --fg:#f2e8d6; --muted:#b0a089;
+  --accent:#9ccb5c; --accent-ink:#1d2a0e; --gold:#e9c46a; --gold-ink:#2a1f0c; --danger:#e0685a;
+  --display:"Chakra Petch","IBM Plex Sans Thai",system-ui,sans-serif; --body:"IBM Plex Sans Thai","Chakra Petch",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;overflow:hidden;overscroll-behavior:none;user-select:none;-webkit-user-select:none}
+button,input,select,textarea{font:inherit;color:inherit}
+[hidden]{display:none!important}
+.app{height:100dvh;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr) auto auto;
+  grid-template-areas:"top" "tools" "stage" "dock" "side";padding-top:env(safe-area-inset-top,0px)}
+header{grid-area:top;display:flex;align-items:center;gap:6px;background:var(--panel);border-bottom:1px solid var(--line);padding-block:6px;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px))}
+.logo{width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg,var(--accent),#5f8f32);flex:none}
+.brand{font-family:var(--display);font-weight:700;font-size:16px;white-space:nowrap}
+.grow{flex:1}
+.btn{min-height:40px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:0 12px;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn:active{transform:translateY(1px)} .btn:disabled{opacity:.35}
+.btn.icon{width:40px;padding:0;font-size:18px}
+.btn.send{background:var(--gold);color:var(--gold-ink);border-color:var(--gold);font-weight:600}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+select{min-height:40px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:0 8px;min-width:0;max-width:44vw}
+nav.tools{grid-area:tools;display:flex;gap:4px;background:var(--panel);border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none;
+  padding-block:6px;padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px))}
+.tool{flex:1 0 auto;min-width:56px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px;border-radius:10px;border:1px solid transparent;background:none;cursor:pointer;color:var(--muted);font-size:12px}
+.tool b{font-size:21px;line-height:1.1;font-weight:400}
+.tool[aria-pressed=true]{color:var(--accent-ink);background:var(--accent)}
+main{grid-area:stage;position:relative;min-width:0;min-height:0;background:#0f0c09}
+#cv{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
+.status{position:absolute;left:8px;top:8px;right:8px;display:flex;gap:6px;flex-wrap:wrap;pointer-events:none;font-size:12px}
+.chip{background:rgba(36,29,22,.9);border:1px solid var(--line);border-radius:999px;padding:3px 10px}
+.chip.ok{color:var(--accent)}
+.zoom{position:absolute;right:max(8px,env(safe-area-inset-right,0px));bottom:8px;display:flex;flex-direction:column;gap:6px}
+.zoom .btn{width:44px;min-height:44px;padding:0;font-size:20px;background:rgba(47,38,29,.92)}
+/* control dock: what the current tool does / the move pad */
+.dock{grid-area:dock;background:var(--panel);border-top:1px solid var(--line);min-height:64px;display:flex;align-items:center;gap:10px;
+  padding-block:8px;padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px))}
+.dock .hint{color:var(--muted);font-size:13.5px;line-height:1.45;flex:1;min-width:0}
+.dock .hint b{color:var(--fg);font-weight:600}
+.selname{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.selname b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.selname small{font-size:12px;color:var(--muted)} .selname small.bad{color:var(--danger)}
+.pad{display:grid;grid-template-columns:repeat(3,46px);grid-template-rows:repeat(2,40px);gap:4px 6px;flex:none}
+.pad button{border:1px solid var(--line);background:var(--panel2);border-radius:10px;font-size:20px;cursor:pointer;touch-action:none}
+.pad button:active{background:var(--accent);color:var(--accent-ink)}
+.pad .rot{grid-column:2;grid-row:1/3;border-radius:12px;font-size:22px;background:var(--panel)}
+.dock .done{min-height:52px;min-width:52px;border-radius:12px;font-size:20px}
+/* palette sheet (place / paint) */
+aside{grid-area:side;background:var(--panel);border-top:1px solid var(--line);display:flex;flex-direction:column;height:32dvh;min-height:0;
+  padding-bottom:env(safe-area-inset-bottom,0px)}
+.tabs{display:flex;gap:6px;padding:8px 10px 6px;overflow-x:auto;scrollbar-width:none;flex:none}
+.tab{flex:none;font-size:13px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:none;cursor:pointer;color:var(--muted)}
+.tab[aria-selected=true]{background:var(--gold);color:var(--gold-ink);border-color:var(--gold);font-weight:600}
+.search{padding:0 10px 8px;flex:none}.search input{width:100%;min-height:38px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:0 10px;user-select:text}
+.pal{flex:1;overflow:auto;padding:0 10px 10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:6px;align-content:start}
+.it{border:1px solid var(--line);border-radius:9px;background:#3a4a24;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:4px 2px 4px;min-height:96px;gap:3px}
+.it[aria-pressed=true]{outline:3px solid var(--accent);outline-offset:-2px}
+.it img{max-width:74px;max-height:66px;image-rendering:pixelated}
+.it span{font-size:11.5px;text-align:center;line-height:1.15}
+.terr{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
+.terr button{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);padding:8px;cursor:pointer;text-align:left;min-height:46px}
+.terr button[aria-pressed=true]{outline:3px solid var(--accent);outline-offset:-2px}
+.terr i{width:24px;height:24px;border-radius:5px;flex:none}
+.sizes{grid-column:1/-1;display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px;padding-top:4px}
+.sizes .btn{min-width:44px}.sizes .btn[aria-pressed=true]{outline:3px solid var(--accent)}
+/* sheets & toasts */
+.modal{position:fixed;inset:0;background:rgba(10,8,6,.66);display:flex;align-items:flex-end;justify-content:center;z-index:20}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px 16px 0 0;width:min(560px,100%);display:flex;flex-direction:column;gap:12px;max-height:88dvh;overflow:auto;
+  padding:18px max(16px,env(safe-area-inset-right,0px)) max(18px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.card h2{margin:0;font-family:var(--display);font-size:19px;text-wrap:balance}
+.card p{margin:0;line-height:1.6;color:var(--muted)}
+.card textarea,.card input[type=text]{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:9px;color:var(--fg);padding:8px 10px;user-select:text}
+.card .row{display:flex;gap:8px;flex-wrap:wrap}
+.card label.tg{display:flex;align-items:center;gap:10px;min-height:44px;border-bottom:1px solid var(--line)}
+.card label.tg input{width:22px;height:22px;accent-color:var(--accent)}
+.toast{position:fixed;left:50%;bottom:calc(36dvh + 70px);transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 14px;z-index:30;font-size:14px;display:flex;gap:10px;align-items:center;max-width:calc(100% - 32px)}
+.toast button{background:none;border:0;color:var(--gold);font-weight:600;cursor:pointer;padding:0}
+.hide-sm{display:none}
+@media (min-width:900px){
+  .app{grid-template-columns:auto minmax(0,1fr) 320px;grid-template-rows:auto minmax(0,1fr) auto;grid-template-areas:"top top top" "tools stage side" "tools dock side"}
+  nav.tools{flex-direction:column;border-bottom:0;border-right:1px solid var(--line);padding:8px 6px;overflow:auto}
+  .tool{flex:none;width:66px}
+  aside{height:auto;border-top:0;border-left:1px solid var(--line)}
+  .hide-sm{display:inline}
+  .toast{bottom:90px}
+  .modal{align-items:center}.card{border-radius:14px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <span class="logo"></span><span class="brand hide-sm">Map Maker</span>
+    <select id="mapSel" aria-label="แผนที่"><option value="town">ใจกลางตำบล</option><option value="farm">ฟาร์มยาย</option></select>
+    <button class="btn icon" id="undo" title="ย้อนกลับ" aria-label="ย้อนกลับ">↶</button>
+    <button class="btn icon" id="redo" title="ทำซ้ำ" aria-label="ทำซ้ำ">↷</button>
+    <span class="grow"></span>
+    <button class="btn icon" id="menuBtn" title="ตัวเลือก" aria-label="ตัวเลือก">⋯</button>
+    <button class="btn send" id="sendBtn">📤 ส่งให้ Claude</button>
+  </header>
+  <nav class="tools" id="tools">
+    <button class="tool" data-t="move" aria-pressed="true"><b>✋</b>ย้าย</button>
+    <button class="tool" data-t="rotate"><b>⟳</b>หมุน</button>
+    <button class="tool" data-t="place"><b>➕</b>วางของ</button>
+    <button class="tool" data-t="erase"><b>🗑</b>ลบ</button>
+    <button class="tool" data-t="paint"><b>🖌</b>พื้น</button>
+    <button class="tool" data-t="door"><b>🚪</b>ประตู</button>
+  </nav>
+  <main>
+    <canvas id="cv"></canvas>
+    <div class="status"><span class="chip" id="stSave">กำลังโหลด…</span></div>
+    <div class="zoom"><button class="btn" id="zin" aria-label="ซูมเข้า">＋</button><button class="btn" id="zout" aria-label="ซูมออก">－</button><button class="btn" id="zfit" aria-label="ดูทั้งแผนที่">⤢</button></div>
+  </main>
+  <div class="dock" id="dock"></div>
+  <aside id="side">
+    <div class="tabs" id="tabs"></div>
+    <div class="search" id="searchBox"><input id="q" placeholder="ค้นหา เช่น บ้าน มะพร้าว เสาไฟ"></div>
+    <div class="pal" id="pal"></div>
+  </aside>
+</div>
+
+<script src="../js/firebase-config.js"></script>
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const T = 32, K = .75, MAP_NAMES = { town: 'ใจกลางตำบล', farm: 'ฟาร์มยาย' };
+const TERR_COL = { '.': '#6f9a3a', a: '#5c5a58', c: '#c4bdac', l: '#c4673a', p: '#a08a62', y: '#b39468', s: '#e2cd9c', w: '#3f8aa0', r: '#9cb653', g: '#7a5434' };
+const TERR_NAME = { '.': 'หญ้า', a: 'ถนนลาดยาง', c: 'ทางคอนกรีต', l: 'ดินลูกรัง', p: 'ทางเดินดิน', y: 'ลานดินบ้าน', s: 'ทรายลานวัด', w: 'น้ำ / คลอง', r: 'นาข้าว', g: 'แปลงผัก' };
+const CAT_NAME = { farm: 'ของในฟาร์ม', building: 'อาคาร', tree: 'ต้นไม้', prop: 'ของตกแต่ง', animal: 'สัตว์' };
+const HINT = {
+  move: '<b>ย้าย:</b> แตะของที่จะย้าย แล้วกดลูกศรเลื่อนทีละช่อง · ลากนิ้วบนแผนที่เพื่อเลื่อนดู',
+  rotate: '<b>หมุน:</b> แตะของเพื่อหันไปอีกด้าน',
+  place: '<b>วางของ:</b> เลือกของด้านล่าง แล้วแตะจุดบนแผนที่',
+  erase: '<b>ลบ:</b> แตะของที่ต้องการลบ (กด ↶ เพื่อเอาคืน)',
+  paint: '<b>ระบายพื้น:</b> เลือกชนิดพื้นด้านล่าง แล้วลากนิ้วระบาย · ใช้สองนิ้วเลื่อนแผนที่',
+  door: '<b>ประตู:</b> ลากช่องสีทอง (จุดเข้าร้าน/บ้าน) ไปที่ใหม่',
+};
+let CAT = null, MAP = null, mapName = 'town', IMG = {}, ALPHA = {}, GROUND = null;
+let view = { x: 0, y: 0, z: .5 }, tool = 'move', palKey = null, palTab = 'building', brush = { code: 'l', size: 1 };
+let sel = null, dirty = true, undo = [], redo = [], me = '', opts = { ground: true, grid: true, doors: true };
+try { me = localStorage.getItem('dvmm_me') || ''; Object.assign(opts, JSON.parse(localStorage.getItem('dvmm_opts') || '{}')); } catch (_) {}
+const cv = $('cv'), ctx = cv.getContext('2d');
+
+// ---------- geometry: the same projection as the game ----------
+const MG = () => MAP.mg || 120, OX = () => MAP.H * T * K + MG(), OY = () => MG();
+const P = (x, y) => [(x - y) * K + OX(), (x + y) * K / 2 + OY()];
+const unP = (sx, sy) => { const a = (sx - OX()) / K, b = (sy - OY()) / (K / 2); return [(a + b) / 2, (b - a) / 2]; };
+const fpOf = o => { const c = CAT.items[o.k]; if (!c) return [1, 1]; return o.flip && c.iso ? [c.fp[1], c.fp[0]] : c.fp; };
+function anchor(o) {   // sprite bottom-centre in iso px — exactly how the game places it
+  const c = CAT.items[o.k], [fw, fd] = fpOf(o);
+  if (c.iso) return [P((o.x + fw / 2) * T, (o.y + fd / 2) * T)[0], P((o.x + fw) * T, (o.y + fd) * T)[1] + (c.dy != null ? c.dy : 4)];
+  if (c.corner) { const q = P((o.x + fw) * T, (o.y + fd) * T); return [q[0] + c.corner[0], q[1] + c.corner[1]]; }
+  const ax = o.ax != null ? o.ax : c.ax, ay = o.ay != null ? o.ay : c.ay;
+  if (ax != null) return P(o.x * T + ax, o.y * T + ay);
+  return P((o.x + fw / 2) * T, (o.y + fd) * T - 3);
+}
+const depth = o => { const [fw, fd] = fpOf(o); return (o.x + fw / 2 + o.y + fd / 2) + (o.layer === 'front' ? 1e6 : o.layer === 'top' ? 2e6 : 0); };
+const cellsOf = o => { const [fw, fd] = fpOf(o), r = []; for (let y = o.y; y < o.y + fd; y++) for (let x = o.x; x < o.x + fw; x++) r.push([x, y]); return r; };
+const nameOf = o => { const c = CAT.items[o.k]; return o.label || (c && c.name) || o.k; };
+
+// ---------- online store: Firebase (same project as the game) — the page still works fully offline ----------
+const Store = {
+  ready: false, db: null, subs: {},
+  async init() {
+    const cfg = window.DV_FIREBASE; if (!cfg) return false;
+    const load = src => new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
+    try {
+      const V = 'https://www.gstatic.com/firebasejs/10.12.2/';
+      await load(V + 'firebase-app-compat.js'); await Promise.all([load(V + 'firebase-auth-compat.js'), load(V + 'firebase-database-compat.js')]);
+      const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(cfg);
+      await app.auth().signInAnonymously(); this.db = app.database(); this.ready = true; return true;
+    } catch (e) { console.warn('online off', e); return false; }
+  },
+  async get(path) { if (!this.ready) return null; try { const s = await this.db.ref(path).get(); return s.exists() ? s.val() : null; } catch (_) { return null; } },
+  async set(path, v) { if (!this.ready) throw new Error('offline'); await this.db.ref(path).set(v); },
+  watch(path, fn) { if (!this.ready) return () => {}; const r = this.db.ref(path), h = s => fn(s.val()); r.on('value', h, () => {}); return () => r.off('value', h); },
+};
+
+// ---------- loading ----------
+const loadImg = src => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = src; });
+async function boot() {
+  CAT = await fetch('mapkit/catalog.json').then(r => r.json());
+  await Promise.all(Object.keys(CAT.items).map(async k => { IMG[k] = await loadImg(`mapkit/s/${k}.png`); }));
+  for (const k in IMG) { const im = IMG[k]; if (!im) continue; const c = document.createElement('canvas'); c.width = im.width; c.height = im.height; const x = c.getContext('2d'); x.drawImage(im, 0, 0); ALPHA[k] = x.getImageData(0, 0, im.width, im.height).data; }
+  try { const m = localStorage.getItem('dvmm_last'); if (m && MAP_NAMES[m]) mapName = m; } catch (_) {}
+  $('mapSel').value = mapName;
+  await loadMap(mapName);
+  loop();
+  if (await Store.init()) await pullOnline(mapName); else setSave('ออฟไลน์ · บันทึกในเครื่องนี้');
+}
+let unwatch = null, lastSaved = '';
+async function loadMap(name) {
+  mapName = name; try { localStorage.setItem('dvmm_last', name); } catch (_) {}
+  if (unwatch) { unwatch(); unwatch = null; }
+  palTab = name === 'farm' ? 'farm' : 'building';
+  let local = null; try { local = JSON.parse(localStorage.getItem('dvmm_' + name) || 'null'); } catch (_) {}
+  MAP = local || await fetch(`maps/${name}.json`).then(r => r.json());
+  GROUND = await loadImg(`maps/${name}_ground.png`);
+  undo = []; redo = []; sel = null; fit(); setSave(local ? 'โหลดจากเครื่องนี้' : 'ผังจาก Claude');
+  renderTools(); buildPalette(); renderDock();
+  if (Store.ready) await pullOnline(name);
+}
+async function pullOnline(name) {
+  const d = await Store.get('maps/' + name);
+  if (d && d.json && mapName === name && d.json !== JSON.stringify(MAP)) { MAP = JSON.parse(d.json); lastSaved = d.json; sel = null; renderDock(); dirty = true; setSave(`ฉบับล่าสุดออนไลน์${d.by ? ' · ' + d.by : ''}`); }
+  else setSave('ออนไลน์ · บันทึกอัตโนมัติ');
+  unwatch = Store.watch('maps/' + name, v => { if (!v || !v.json || v.json === lastSaved || v.json === JSON.stringify(MAP) || mapName !== name) return; lastSaved = v.json; MAP = JSON.parse(v.json); sel = null; renderDock(); dirty = true; setSave(`${v.by || 'มีคน'}แก้ล่าสุด`); });
+}
+$('mapSel').onchange = e => loadMap(e.target.value);
+
+// ---------- saving + undo ----------
+let saveTimer = null;
+function changed() {
+  dirty = true; clearTimeout(saveTimer); setSave('กำลังบันทึก…');
+  saveTimer = setTimeout(async () => {
+    const json = JSON.stringify(MAP); lastSaved = json;
+    try { localStorage.setItem('dvmm_' + mapName, json); } catch (_) {}
+    if (Store.ready) { try { await Store.set('maps/' + mapName, { json, by: me || 'ไม่ระบุชื่อ', at: Date.now() }); setSave('บันทึกออนไลน์แล้ว'); } catch (_) { setSave('บันทึกในเครื่องแล้ว'); } }
+    else setSave('บันทึกในเครื่องแล้ว');
+  }, 800);
+}
+function snapshot() { undo.push(JSON.stringify(MAP)); if (undo.length > 80) undo.shift(); redo = []; }
+function restore(json) { MAP = JSON.parse(json); sel = sel && MAP.objects.find(o => o.id === sel.id) || null; renderDock(); changed(); }
+$('undo').onclick = () => { if (!undo.length) return toast('ไม่มีอะไรให้ย้อน'); redo.push(JSON.stringify(MAP)); restore(undo.pop()); };
+$('redo').onclick = () => { if (!redo.length) return; undo.push(JSON.stringify(MAP)); restore(redo.pop()); };
+addEventListener('keydown', e => {
+  if (e.target.matches('input,textarea')) return;
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); (e.shiftKey ? $('redo') : $('undo')).click(); return; }
+  if (sel && tool === 'move') { const k = { ArrowUp: [0, -1], ArrowRight: [1, 0], ArrowDown: [0, 1], ArrowLeft: [-1, 0] }[e.key]; if (k) { e.preventDefault(); nudge(...k); } if (e.key.toLowerCase() === 'r') rotate(sel); }
+  if (e.key === 'Escape') { sel = null; renderDock(); dirty = true; }
+});
+const setSave = t => { $('stSave').textContent = t; };
+function toast(t, act, fn) { document.querySelectorAll('.toast').forEach(x => x.remove()); const d = document.createElement('div'); d.className = 'toast'; d.textContent = t;
+  if (act) { const b = document.createElement('button'); b.textContent = act; b.onclick = () => { fn(); d.remove(); }; d.appendChild(b); }
+  document.body.appendChild(d); setTimeout(() => d.remove(), act ? 4000 : 2200); }
+
+// ---------- view ----------
+function size() { const r = cv.getBoundingClientRect(), d = devicePixelRatio || 1; cv.width = Math.round(r.width * d); cv.height = Math.round(r.height * d); dirty = true; }
+addEventListener('resize', size);
+function fit() { size(); const r = cv.getBoundingClientRect(), dw = (MAP.W + MAP.H) * T * K, dh = dw / 2; view.z = Math.max(.08, Math.min(r.width / (dw + 40), r.height / (dh + 100))); const c = P(MAP.W * T / 2, MAP.H * T / 2); view.x = c[0] - r.width / view.z / 2; view.y = c[1] - r.height / view.z / 2 - 30 / view.z; dirty = true; }
+function zoomAt(f, cx, cy) { const r = cv.getBoundingClientRect(); if (cx == null) { cx = r.left + r.width / 2; cy = r.top + r.height / 2; } const z = Math.max(.08, Math.min(3, view.z * f)), wx = (cx - r.left) / view.z + view.x, wy = (cy - r.top) / view.z + view.y; view.z = z; view.x = wx - (cx - r.left) / z; view.y = wy - (cy - r.top) / z; dirty = true; }
+$('zin').onclick = () => zoomAt(1.35); $('zout').onclick = () => zoomAt(1 / 1.35); $('zfit').onclick = fit;
+const toWorld = (cx, cy) => { const r = cv.getBoundingClientRect(); return [(cx - r.left) / view.z + view.x, (cy - r.top) / view.z + view.y]; };
+const cellAt = (cx, cy) => { const [sx, sy] = toWorld(cx, cy), [x, y] = unP(sx, sy); return [Math.floor(x / T), Math.floor(y / T)]; };
+function keepVisible(o) {   // after nudging, scroll so the object stays on screen
+  const r = cv.getBoundingClientRect(), [ax, ay] = anchor(o), m = 50 / view.z;
+  const x0 = view.x + m, x1 = view.x + r.width / view.z - m, y0 = view.y + m * 2, y1 = view.y + r.height / view.z - m;
+  if (ax < x0) view.x -= x0 - ax; if (ax > x1) view.x += ax - x1; if (ay < y0) view.y -= y0 - ay; if (ay > y1) view.y += ay - y1;
+}
+
+// ---------- drawing ----------
+function diamond(x, y) { const c = [[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1]].map(([a, b]) => P(a * T, b * T)); ctx.beginPath(); ctx.moveTo(...c[0]); for (const q of c.slice(1)) ctx.lineTo(...q); ctx.closePath(); }
+const blocks = o => { const it = CAT.items[o.k]; return !!it && it.block !== false && (it.iso || it.cat !== 'prop' || ['bush', 'bush2', 'pole'].indexOf(o.k) < 0); };
+function valid(o) {
+  if (!CAT.items[o.k]) return false;
+  const mine = new Set(cellsOf(o).map(c => c.join()));
+  for (const [x, y] of cellsOf(o)) { if (x < 0 || y < 0 || x >= MAP.W || y >= MAP.H) return false; if (!blocks(o)) continue; const t = MAP.terrain[y][x]; if (t === 'w' || (t === 'a' && CAT.items[o.k].cat === 'building')) return false; }
+  if (!blocks(o)) return true;
+  return !MAP.objects.some(q => q !== o && blocks(q) && cellsOf(q).some(c => mine.has(c.join())));
+}
+function draw() {
+  const d = devicePixelRatio || 1; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#0f0c09'; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.setTransform(view.z * d, 0, 0, view.z * d, -view.x * view.z * d, -view.y * view.z * d); ctx.imageSmoothingEnabled = view.z < 1;
+  if (opts.ground && GROUND) ctx.drawImage(GROUND, 0, 0);
+  else for (let y = 0; y < MAP.H; y++) { const row = MAP.terrain[y]; for (let x = 0; x < MAP.W; x++) { ctx.fillStyle = TERR_COL[row[x]] || '#6f9a3a'; diamond(x, y); ctx.fill(); } }
+  const [px0, py0, px1, py1] = MAP.play;
+  if (opts.grid && view.z > .3) { ctx.strokeStyle = 'rgba(255,255,255,.08)'; ctx.lineWidth = 1 / view.z; for (let y = 0; y <= MAP.H; y++) { ctx.beginPath(); ctx.moveTo(...P(0, y * T)); ctx.lineTo(...P(MAP.W * T, y * T)); ctx.stroke(); } for (let x = 0; x <= MAP.W; x++) { ctx.beginPath(); ctx.moveTo(...P(x * T, 0)); ctx.lineTo(...P(x * T, MAP.H * T)); ctx.stroke(); } }
+  ctx.setLineDash([10 / view.z, 8 / view.z]); ctx.strokeStyle = 'rgba(233,196,106,.85)'; ctx.lineWidth = 2 / view.z; ctx.beginPath();
+  [[px0, py0], [px1, py0], [px1, py1], [px0, py1]].forEach((c, i) => { const q = P(c[0] * T, c[1] * T); i ? ctx.lineTo(...q) : ctx.moveTo(...q); }); ctx.closePath(); ctx.stroke(); ctx.setLineDash([]);
+  if (sel) { ctx.fillStyle = valid(sel) ? 'rgba(120,230,110,.45)' : 'rgba(240,80,70,.5)'; cellsOf(sel).forEach(([x, y]) => { diamond(x, y); ctx.fill(); }); }
+  for (const o of MAP.objects.slice().sort((a, b) => depth(a) - depth(b))) { const im = IMG[o.k]; if (!im) continue; const [ax, ay] = anchor(o);
+    if (o.flip) { ctx.save(); ctx.translate(ax, 0); ctx.scale(-1, 1); ctx.drawImage(im, -im.width / 2, ay - im.height); ctx.restore(); }
+    else ctx.drawImage(im, ax - im.width / 2, ay - im.height); }
+  if (sel) { ctx.strokeStyle = valid(sel) ? '#8ef07a' : '#ff6a5a'; ctx.lineWidth = 2.5 / view.z; cellsOf(sel).forEach(([x, y]) => { diamond(x, y); ctx.stroke(); });
+    const im = IMG[sel.k]; if (im) { const [ax, ay] = anchor(sel); ctx.setLineDash([6 / view.z, 4 / view.z]); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5 / view.z; ctx.strokeRect(ax - im.width / 2, ay - im.height, im.width, im.height); ctx.setLineDash([]); } }
+  if (opts.doors || tool === 'door') { ctx.font = `${Math.max(10, 12 / view.z)}px "IBM Plex Sans Thai",sans-serif`; ctx.textAlign = 'center';
+    for (const [pid, pl] of Object.entries(MAP.places)) { const [x, y] = pl.door; ctx.fillStyle = dragDoor === pid ? 'rgba(255,240,140,.95)' : 'rgba(233,196,106,.6)'; diamond(x, y); ctx.fill();
+      if (view.z > .28) { const [qx, qy] = P((x + .5) * T, (y + .5) * T); ctx.lineWidth = 3 / view.z; ctx.strokeStyle = '#000'; ctx.strokeText(pl.name, qx, qy - 8 / view.z); ctx.fillStyle = '#fff'; ctx.fillText(pl.name, qx, qy - 8 / view.z); } } }
+  if (tool === 'paint' && hover) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5 / view.z; for (const [x, y] of brushCells(...hover)) { diamond(x, y); ctx.stroke(); } }
+}
+function loop() { if (dirty) { dirty = false; draw(); } requestAnimationFrame(loop); }
+function hitObject(cx, cy) {   // pixel-accurate on the sprite, front-most first
+  const [sx, sy] = toWorld(cx, cy);
+  for (const o of MAP.objects.slice().sort((a, b) => depth(b) - depth(a))) { const im = IMG[o.k]; if (!im) continue; const [ax, ay] = anchor(o); let lx = Math.floor(sx - (ax - im.width / 2)), ly = Math.floor(sy - (ay - im.height));
+    if (lx < 0 || ly < 0 || lx >= im.width || ly >= im.height) continue; if (o.flip) lx = im.width - 1 - lx;
+    if (ALPHA[o.k][(ly * im.width + lx) * 4 + 3] > 40) return o; }
+  return null;
+}
+
+// ---------- tools ----------
+let hover = null, dragDoor = null;
+function renderTools() { document.querySelectorAll('.tool').forEach(x => x.setAttribute('aria-pressed', x.dataset.t === tool)); $('side').hidden = !(tool === 'place' || tool === 'paint') && innerWidth < 900; size(); }
+function setTool(t) { tool = t; if (t !== 'move') sel = null; renderTools(); buildPalette(); renderDock(); dirty = true; }
+document.querySelectorAll('.tool').forEach(b => b.onclick = () => setTool(b.dataset.t));
+addEventListener('resize', renderTools);
+
+function nudge(dx, dy) {   // move the selected object one cell along the grid
+  if (!sel) return; if (!sel._moving) { snapshot(); sel._moving = true; }
+  sel.x += dx; sel.y += dy; keepVisible(sel); changed(); renderDock();
+}
+function rotate(o) { snapshot(); o.flip = o.flip ? 0 : 1; changed(); renderDock(); }
+function erase(o) { snapshot(); const n = nameOf(o); MAP.objects = MAP.objects.filter(q => q !== o); if (sel === o) sel = null; changed(); renderDock(); toast(`ลบ${n}แล้ว`, 'เอาคืน', () => $('undo').click()); }
+
+// the control dock: hint, or the move pad for the selected object
+function renderDock() {
+  const d = $('dock');
+  if (tool === 'move' && sel) {
+    const ok = valid(sel), pn = sel.place && MAP.places[sel.place] ? MAP.places[sel.place].name : '', nm = nameOf(sel);
+    d.innerHTML = `<div class="selname"><b>${nm}</b><small class="${ok ? '' : 'bad'}">${ok ? (pn && pn !== nm ? pn + ' · ' : '') + 'ช่อง ' + sel.x + ', ' + sel.y : 'ทับของอื่น / อยู่บนน้ำ — ขยับอีกนิด'}</small></div>
+      <div class="pad"><button data-d="-1,0" aria-label="เลื่อนขึ้นซ้าย">↖</button><button class="rot" data-r aria-label="หมุน">⟳</button><button data-d="0,-1" aria-label="เลื่อนขึ้นขวา">↗</button>
+      <button data-d="0,1" aria-label="เลื่อนลงซ้าย">↙</button><button data-d="1,0" aria-label="เลื่อนลงขวา">↘</button></div>
+      <button class="btn primary done" id="selDone" aria-label="เสร็จ">✓</button>`;
+    d.querySelectorAll('[data-d]').forEach(b => {   // press = one cell, hold = keep moving
+      let t1 = null, t2 = null; const [dx, dy] = b.dataset.d.split(',').map(Number);
+      const stop = () => { clearTimeout(t1); clearInterval(t2); };
+      b.onpointerdown = e => { e.preventDefault(); nudge(dx, dy); t1 = setTimeout(() => { t2 = setInterval(() => nudge(dx, dy), 110); }, 380); };
+      b.onpointerup = b.onpointerleave = b.onpointercancel = stop;
+    });
+    d.querySelector('[data-r]').onclick = () => rotate(sel);
+    $('selDone').onclick = () => { if (sel) delete sel._moving; sel = null; renderDock(); dirty = true; };
+  } else {
+    let h = HINT[tool]; if (tool === 'place' && palKey) h = `<b>วางของ:</b> แตะจุดบนแผนที่เพื่อวาง “${CAT.items[palKey].name}”`;
+    if (tool === 'paint') h = `<b>ระบายพื้น:</b> “${TERR_NAME[brush.code]}” ขนาด ${brush.size} · ลากนิ้วระบาย · สองนิ้วเลื่อนแผนที่`;
+    d.innerHTML = `<div class="hint">${h}</div>`;
+  }
+}
+function brushCells(cx, cy) { const r = brush.size - 1, out = []; for (let y = cy - r; y <= cy + r; y++) for (let x = cx - r; x <= cx + r; x++) if (x >= 0 && y >= 0 && x < MAP.W && y < MAP.H && Math.abs(x - cx) + Math.abs(y - cy) <= r + (r > 1 ? 1 : 0)) out.push([x, y]); return out; }
+function paintAt(cx, cy) { let ch = false; for (const [x, y] of brushCells(cx, cy)) { const row = MAP.terrain[y]; if (row[x] !== brush.code) { MAP.terrain[y] = row.slice(0, x) + brush.code + row.slice(x + 1); ch = true; } } if (ch) { opts.ground = false; dirty = true; } return ch; }
+
+// pointer input: dragging the map always pans (nothing moves by accident); a tap uses the current tool
+const ptrs = new Map(); let down = null, pinch = null;
+cv.addEventListener('pointerdown', e => {
+  cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), z: view.z, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, vx: view.x, vy: view.y }; if (down && down.mode === 'paint') undo.pop(); down = null; return; }
+  const [cx, cy] = cellAt(e.clientX, e.clientY);
+  down = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y, mode: 'pan', moved: false };
+  if (tool === 'paint') { snapshot(); down.mode = 'paint'; down.ch = paintAt(cx, cy); }
+  else if (tool === 'door') { const pid = Object.keys(MAP.places).find(k => MAP.places[k].door[0] === cx && MAP.places[k].door[1] === cy); if (pid) { snapshot(); dragDoor = pid; down.mode = 'door'; dirty = true; } }
+});
+cv.addEventListener('pointermove', e => {
+  if (tool === 'paint' && e.pointerType === 'mouse') { hover = cellAt(e.clientX, e.clientY); dirty = true; }
+  if (!ptrs.has(e.pointerId)) return; ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pinch && ptrs.size >= 2) { const [a, b] = [...ptrs.values()], dd = Math.hypot(a.x - b.x, a.y - b.y), z = Math.max(.08, Math.min(3, pinch.z * dd / pinch.d)), r = cv.getBoundingClientRect();
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, wx = (pinch.cx - r.left) / pinch.z + pinch.vx, wy = (pinch.cy - r.top) / pinch.z + pinch.vy;
+    view.z = z; view.x = wx - (mx - r.left) / z; view.y = wy - (my - r.top) / z; dirty = true; return; }
+  if (!down) return;
+  if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8) down.moved = true;
+  const [cx, cy] = cellAt(e.clientX, e.clientY);
+  if (down.mode === 'pan' && down.moved) { view.x = down.vx - (e.clientX - down.x) / view.z; view.y = down.vy - (e.clientY - down.y) / view.z; dirty = true; }
+  if (down.mode === 'paint') { if (paintAt(cx, cy)) down.ch = true; if (e.pointerType !== 'mouse') { hover = [cx, cy]; } }
+  if (down.mode === 'door' && dragDoor) { MAP.places[dragDoor].door = [cx, cy]; dirty = true; }
+});
+const up = e => {
+  ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null;
+  if (!down || ptrs.size) return; const d = down; down = null;
+  if (d.mode === 'paint') { if (d.ch) changed(); else undo.pop(); if (e.pointerType !== 'mouse') hover = null; return; }
+  if (d.mode === 'door') { dragDoor = null; changed(); return; }
+  if (d.moved) return;
+  const o = hitObject(e.clientX, e.clientY), [cx, cy] = cellAt(e.clientX, e.clientY);
+  if (tool === 'move') { if (sel) delete sel._moving; sel = o && o !== sel ? o : (o ? sel : null); renderDock(); dirty = true; }
+  else if (tool === 'rotate') { if (o) rotate(o); else toast('แตะที่ตัวของเพื่อหมุน'); }
+  else if (tool === 'erase') { if (o) erase(o); }
+  else if (tool === 'place') {
+    if (!palKey) { toast('เลือกของด้านล่างก่อน'); return; }
+    snapshot(); const [fw, fd] = CAT.items[palKey].fp;
+    const n = { id: 'n' + Date.now().toString(36), k: palKey, x: cx - Math.floor(fw / 2), y: cy - Math.floor(fd / 2), flip: 0 };
+    MAP.objects.push(n); changed(); dirty = true;
+    toast(valid(n) ? `วาง${CAT.items[palKey].name}แล้ว` : 'วางแล้ว แต่ทับของอื่น — ใช้เครื่องมือย้ายขยับได้', 'เอาออก', () => $('undo').click());
+  }
+};
+cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+cv.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') { hover = null; dirty = true; } });
+cv.addEventListener('wheel', e => { e.preventDefault(); zoomAt(e.deltaY < 0 ? 1.15 : 1 / 1.15, e.clientX, e.clientY); }, { passive: false });
+
+// ---------- palette ----------
+function buildPalette() {
+  const tabs = $('tabs'), pal = $('pal');
+  if (tool === 'paint') {
+    tabs.innerHTML = ''; $('searchBox').hidden = true; pal.className = 'pal terr';
+    pal.innerHTML = Object.keys(TERR_NAME).map(c => `<button data-c="${c}" aria-pressed="${brush.code === c}"><i style="background:${TERR_COL[c]}"></i>${TERR_NAME[c]}</button>`).join('') +
+      `<div class="sizes">ขนาดแปรง ${[1, 2, 3].map(n => `<button class="btn" data-s="${n}" aria-pressed="${brush.size === n}">${n}</button>`).join('')}</div>`;
+    pal.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { brush.code = b.dataset.c; buildPalette(); renderDock(); });
+    pal.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { brush.size = +b.dataset.s; buildPalette(); renderDock(); });
+    return;
+  }
+  $('searchBox').hidden = false; pal.className = 'pal';
+  const cats = mapName === 'farm' ? ['farm', 'tree', 'prop', 'building', 'animal'] : ['building', 'tree', 'prop', 'animal', 'farm'];
+  tabs.innerHTML = cats.map(c => `<button class="tab" data-c="${c}" aria-selected="${palTab === c}">${CAT_NAME[c]}</button>`).join('');
+  tabs.querySelectorAll('.tab').forEach(b => b.onclick = () => { palTab = b.dataset.c; $('q').value = ''; buildPalette(); });
+  const q = $('q').value.trim();
+  const items = Object.entries(CAT.items).filter(([k, c]) => q ? c.name.includes(q) || k.includes(q) : c.cat === palTab);
+  pal.innerHTML = items.map(([k, c]) => `<button class="it" data-k="${k}" aria-pressed="${palKey === k}"><img src="mapkit/s/${k}.png" alt="" loading="lazy"><span>${c.name}</span></button>`).join('') || '<div class="hint" style="color:var(--muted)">ไม่พบ</div>';
+  pal.querySelectorAll('.it').forEach(b => b.onclick = () => { palKey = b.dataset.k; if (tool !== 'place') setTool('place'); else { buildPalette(); renderDock(); } });
+}
+$('q').oninput = buildPalette;
+
+// ---------- sheets: options menu, send to Claude ----------
+function sheet(html) { const m = document.createElement('div'); m.className = 'modal'; m.innerHTML = `<div class="card">${html}</div>`; m.onclick = e => { if (e.target === m) m.remove(); }; document.body.appendChild(m); return m; }
+async function download(name, text) {
+  try { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); return true; } catch (_) { return false; }
+}
+$('menuBtn').onclick = () => {
+  const m = sheet(`<h2>ตัวเลือก</h2>
+    <label class="tg"><input type="checkbox" data-o="ground" ${opts.ground ? 'checked' : ''}> แสดงภาพพื้นจากเกม (ปิด = เห็นช่องสีตามชนิดพื้น)</label>
+    <label class="tg"><input type="checkbox" data-o="grid" ${opts.grid ? 'checked' : ''}> แสดงเส้นช่อง</label>
+    <label class="tg"><input type="checkbox" data-o="doors" ${opts.doors ? 'checked' : ''}> แสดงจุดประตูและชื่อสถานที่</label>
+    <div class="row"><button class="btn" id="dl">ดาวน์โหลด ${mapName}.json</button><label class="btn">นำเข้าไฟล์<input type="file" id="fi" accept=".json" hidden></label><button class="btn" id="rs">กลับไปผังต้นฉบับ</button></div>
+    <p>เครื่องมือ: ✋ ย้าย (แตะของ แล้วกดลูกศร) · ⟳ หมุน · ➕ วางของ · 🗑 ลบ · 🖌 ระบายพื้น · 🚪 ย้ายประตู · บนคอมใช้ปุ่มลูกศรบนคีย์บอร์ด, R หมุน, Ctrl+Z ย้อน</p>
+    <button class="btn primary" id="cl">ปิด</button>`);
+  m.querySelectorAll('[data-o]').forEach(i => i.onchange = () => { opts[i.dataset.o] = i.checked; try { localStorage.setItem('dvmm_opts', JSON.stringify(opts)); } catch (_) {} dirty = true; });
+  m.querySelector('#cl').onclick = () => m.remove();
+  m.querySelector('#dl').onclick = () => download(mapName + '.json', JSON.stringify(MAP));
+  m.querySelector('#fi').onchange = async ev => { const f = ev.target.files[0]; if (!f) return; try { const d = JSON.parse(await f.text()); if (!d.terrain || !d.objects) throw 0; snapshot(); MAP = d; sel = null; changed(); fit(); renderDock(); m.remove(); toast('นำเข้าแล้ว'); } catch (_) { toast('ไฟล์นี้ไม่ใช่ผังแผนที่'); } };
+  m.querySelector('#rs').onclick = async () => { snapshot(); MAP = await fetch(`maps/${mapName}.json`).then(r => r.json()); sel = null; changed(); fit(); renderDock(); m.remove(); toast('กลับไปผังต้นฉบับแล้ว', 'ย้อน', () => $('undo').click()); };
+};
+$('sendBtn').onclick = () => {
+  const nm = MAP_NAMES[mapName] || mapName;
+  const m = sheet(`<h2>📤 ส่งแผนที่ “${nm}” ให้ Claude</h2>
+    <input type="text" id="who" placeholder="ชื่อคุณ (ไม่ใส่ก็ได้)" value="${(me || '').replace(/"/g, '')}">
+    <textarea id="note" rows="3" placeholder="อยากให้ Claude ทำอะไรต่อ เช่น ขยับร้านชำไปริมถนน เพิ่มต้นไม้ริมคลอง"></textarea>
+    <div class="row"><button class="btn send" id="go">ส่งให้ Claude</button><button class="btn" id="dl">ดาวน์โหลดไฟล์แทน</button><button class="btn" id="cl">ยกเลิก</button></div>
+    <p id="msg"></p>`);
+  m.querySelector('#cl').onclick = () => m.remove();
+  m.querySelector('#dl').onclick = () => download(mapName + '.json', JSON.stringify(MAP));
+  m.querySelector('#go').onclick = async () => {
+    const msg = m.querySelector('#msg'), note = m.querySelector('#note').value.trim(), j = JSON.stringify(MAP);
+    me = m.querySelector('#who').value.trim(); try { localStorage.setItem('dvmm_me', me); } catch (_) {}
+    if (!Store.ready) { msg.textContent = 'ตอนนี้ต่อออนไลน์ไม่ได้ — กด “ดาวน์โหลดไฟล์แทน” แล้วแนบไฟล์ให้ Claude ในแชท'; return; }
+    try {
+      await Store.set('maps/' + mapName, { json: j, by: me || 'ไม่ระบุชื่อ', at: Date.now() }); lastSaved = j;
+      await Store.set('handoff/' + mapName, { json: j, note, by: me || 'ไม่ระบุชื่อ', at: Date.now() });
+      const say = `ดึงแผนที่${nm}จาก Map Maker เข้าเกม`;
+      msg.innerHTML = `ส่งแล้ว ✓ พิมพ์บอก Claude ในแชทว่า <b style="color:var(--fg)">“${say}”</b>`;
+      try { await navigator.clipboard.writeText(say); msg.innerHTML += ' (คัดลอกข้อความไว้ให้แล้ว)'; } catch (_) {}
+      setSave('ส่งให้ Claude แล้ว');
+    } catch (e) { msg.textContent = 'ส่งไม่ได้ — กด “ดาวน์โหลดไฟล์แทน” แล้วแนบไฟล์ให้ Claude'; }
+  };
+};
+boot();
+})();
+</script>
+</body>
+</html>

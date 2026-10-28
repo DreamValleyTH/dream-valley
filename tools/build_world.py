@@ -220,7 +220,7 @@ maps['house'] = dict(name='house', W=W6, H=H6, T=32, bg='house_room.png', blocke
 print('town ok')
 
 # ---- Map Maker kit (MAPKIT=<dir>): catalog + sprites + every editable map with its bare ground picture ----
-KIT = os.environ.get('MAPKIT')
+KIT = os.environ.get('MAPKIT', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'mapmaker'))   # the editor ships inside the game repo at /mapmaker/
 if KIT:
     os.makedirs(f'{KIT}/mapkit/s', exist_ok=True); os.makedirs(f'{KIT}/maps', exist_ok=True)
     cat = mapdata.catalog_json()
