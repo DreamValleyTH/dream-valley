@@ -296,7 +296,11 @@ DV.newPlot = () => {
   const [PX, PY, PWc, PHc] = MAPS.farm.plot, cells = {};
   const DEB = ['debris_05', 'debris_06', 'debris_24', 'debris_25', 'debris_00', 'debris_04'];
   let r = 11; const rnd = () => (r = (r * 9301 + 49297) % 233280) / 233280;
-  for (let y = PY; y < PY + PHc; y++) for (let x = PX; x < PX + PWc; x++) {
+  const list = MAPS.farm.plotCells || []; if (!list.length) for (let y = PY; y < PY + PHc; y++) for (let x = PX; x < PX + PWc; x++) list.push([x, y]);
+  if (MAPS.farm.plotCells) { list.forEach(([x, y], i) => { const c = { soil: false, wet: false, crop: null, debris: null };   // v1.8: beds = the map's garden cells
+      if (i < 2) { c.soil = true; c.crop = { k: 'chili', st: 4 }; } else if (i < 4) { c.soil = true; c.crop = { k: 'basil', st: 3 }; } else if (i < 7) c.soil = true; else if (rnd() < 0.35) c.debris = DEB[Math.floor(rnd() * DEB.length)];
+      cells[x + ',' + y] = c; }); return cells; }
+  for (const [x, y] of list) {
     const c = { soil: false, wet: false, crop: null, debris: null };
     if (x < PX + 2 && y < PY + 2) { c.soil = true; c.crop = { k: 'chili', st: 4 }; }
     else if (x < PX + 4 && y < PY + 2) { c.soil = true; c.crop = { k: 'basil', st: 3 }; }

@@ -12,6 +12,12 @@ DV.begin = (state, fresh, storyDelay) => {
     if (state.gone) for (const k in state.gone) if (/^(peb|br|stump|rock|weed|tree)/.test(k)) delete state.gone[k];
     if (state.map === 'farm') { state.px = 16; state.py = 6; }
   }
+  if ((state.farmV || 0) < 3) {   // v1.8: grandma's farm from the Map Maker — new beds, new layout
+    state.farmV = 3; delete state.cells; ['moved', 'stored', 'flip'].forEach(k => { if (state[k]) delete state[k].farm; }); state.trees = {};
+    if (state.flags) delete state.flags.yaiBox;
+    if (state.gone) for (const k in state.gone) if (/^(peb|br|stump|rock|weed|tree|nmv|rmv)/.test(k)) delete state.gone[k];
+    if (state.map === 'farm') { const h = DV.MAPS.farm.spawns.home; state.px = h[0]; state.py = h[1]; }
+  }
   DV.S = state; DV.bindState(state);
   DV.enterMap(state.map || 'farm', [state.px, state.py], true);
   $('title').classList.add('hidden'); $('hud').classList.remove('hidden'); $('bar').classList.remove('hidden');

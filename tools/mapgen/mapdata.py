@@ -183,6 +183,7 @@ def build_world(data, World, T=32):
     grid = np.array([list(r.ljust(W, '.')[:W]) for r in data['terrain']])
     if data.get('mg'): w.MG = data['mg']
     if data.get('plot'): w.plot = list(data['plot'])
+    w.plot_cells = data.get('plot_cells')
     if data.get('tiles'):   # v1.0: ground from PixelLab Wang tile sets on a dual grid (see tiles.py)
         import tiles
         w.tile_layers = tiles.compose(grid)

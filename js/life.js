@@ -100,11 +100,11 @@ const pickFish = (big, lv) => { const pool = FISH.map(([k, w], i) => [k, w * (bi
 DV.fishAt = (cx, cy) => {
   const s = S(), cost = 4;
   if (DV.isVisiting && DV.isVisiting() && s.map === 'farm') { /* fishing in a friend's pond is fine */ }
-  if (hour() >= 21 || hour() < 6) return DV.toast('มืดแล้ว ตกปลาตอนนี้ ระวังผีพราย…');
-  if (s.energy <= cost) return DV.toast('เหนื่อยเกินไปจะตกปลา');
   const worm = DV.has('worm'), lv = DV.skLv('fish');
-  DV.openSheet('ตกปลา', `ทักษะตกปลา Lv ${lv}${worm ? ' · มีไส้เดือนเป็นเหยื่อ (ปลาฉกง่ายขึ้น)' : ''}`, ic('misc_fishing_line'), [
-    { label: 'เหวี่ยงเบ็ด', icon: ic('misc_fishing_line'), cost, extra: worm ? 'ใช้ไส้เดือน 1 ตัว' : 'ไม่มีเหยื่อ (ขุดหาไส้เดือนได้ตามพุ่มไม้)',
+  DV.openSheet('ริมน้ำ', `ทักษะตกปลา Lv ${lv}${worm ? ' · มีไส้เดือนเป็นเหยื่อ (ปลาฉกง่ายขึ้น)' : ''}`, ic('misc_fishing_line'), [
+    { label: 'ตักน้ำเติมบัวรดน้ำ', icon: ['ui', 'water'], cost: 1, extra: `บัว ${s.water}/${DV.CAN_MAX}`, disabled: s.water >= DV.CAN_MAX && 'เต็มแล้ว',
+      run: () => DV.doAction({ energy: 1, tool: DV.TOOL.bucket, fx: 'water', targets: [[cx, cy]], apply: () => { s.water = DV.CAN_MAX; }, after: () => DV.toast(`เติมน้ำเต็มแล้ว (${DV.CAN_MAX} ครั้ง)`) }) },
+    { label: 'เหวี่ยงเบ็ด', icon: ic('misc_fishing_line'), cost, disabled: (hour() >= 21 || hour() < 6) && 'มืดแล้ว ระวังผีพราย…', extra: worm ? 'ใช้ไส้เดือน 1 ตัว' : 'ไม่มีเหยื่อ (ขุดหาไส้เดือนได้ตามพุ่มไม้)',
       run: () => { DV.closeSheet(); DV.addEnergy(-cost); if (worm) DV.addItem('worm', -1); DV.addMins(20); DV.sfx('water');
         MG.pick(['timing', 'tension', 'hold'], { key: 'fish', title: '🎣 ปลากินเบ็ด!', per: { timing: { rounds: 3, zone: .2 + lv * .012 + (worm ? .06 : 0), speed: 1.05, shrink: .85, btn: 'ดึง!' },
             tension: { bar: .24 + lv * .012 + (worm ? .05 : 0), time: 14, icon: '🐟' }, hold: { rounds: 3, zone: .15 + lv * .01 + (worm ? .04 : 0), btn: 'กดค้าง = รอกสาย แล้วปล่อย' } },
@@ -212,7 +212,8 @@ DV.openBox = o => {
 const placeYaiBox = DV.placeYaiBox = () => { const s = S(); if (!s || s.flags.yaiBox || s.map !== 'farm' || own) return; const M = DV.M;
   s.deco = s.deco || []; const id = 'deco_box_m#yai'; if (!s.deco.some(d => d.id === id)) s.deco.push({ id, tpl: 'deco_box_m' }); DV.ensureDeco(); DV.rebuildBlocked();
   const o = M.objects.find(q => q.id === id); if (!o) return; const b0 = (o._b0 || o.block)[0];
-  for (const [x, y] of [[14, 7], [13, 7], [14, 8], [12, 7], [13, 8], [15, 8], [12, 8], [19, 7]]) {
+  const d = (M.places.home || {}).door || M.spawns.home, cand = []; for (let r = 2; r <= 5; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (Math.max(Math.abs(dx), Math.abs(dy)) === r) cand.push([d[0] + dx, d[1] + dy]);
+  for (const [x, y] of cand) {
     if (!DV.walkable(x, y, true) || (s.cells && s.cells[x + ',' + y]) || (x === DV.player.cx && y === DV.player.cy)) continue;
     s.moved = s.moved || {}; (s.moved.farm = s.moved.farm || {})[id] = { dx: x - b0[0], dy: y - b0[1] }; s.flags.yaiBox = s.day; DV.rebuildBlocked(); DV.save(); return; } };
 const em = DV.onEnterMap; DV.onEnterMap = m => { em && em(m); setTimeout(placeYaiBox, 300); };

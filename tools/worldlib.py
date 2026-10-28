@@ -491,7 +491,7 @@ class World:
         self.render_iso(f'{out_dir}/{self.name}_iso.png', isoo)
         return dict(name=self.name, W=self.W, H=self.H, T=T, bg=None, blocked=self.blocked.tolist(),
                     path=self.walk_bonus.tolist(), water=self.water.astype(int).tolist(), objects=objs, places=self.places,
-                    exits=self.exits, spawns=self.spawns, plot=self.plot,
+                    exits=self.exits, spawns=self.spawns, plot=self.plot, plotCells=getattr(self, 'plot_cells', None),
                     iso=dict(K=K, OX=OX, OY=self.MG, SW=SW, SH=SH, bg=f'{self.name}_iso.png', rtShadow=True))
 
 class Atlas:
