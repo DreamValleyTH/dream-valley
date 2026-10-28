@@ -337,6 +337,13 @@ def town_iso(w):
 for o in town.objects:
     if o['id'] == 'bridge' or (o['id'].startswith('cw') and o['im'].size[1] < 30): o['flat'] = True
 maps['town'] = town.export(OUT, atlas, town_iso(town))
+# ---- v0.8: the town is one painted map (PixelLab over a blueprint after ต.บางกะพี้), with occluders cut from the painting ----
+PAINTED = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapgen', 'town_painted.png')
+if os.path.exists(PAINTED):
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapgen'))
+    import town_painted
+    maps['town'] = town_painted.build(PAINTED, atlas)
+    Image.open(PAINTED).convert('RGB').save(f'{OUT}/town_iso.png')
 # ---- grandma's house interior: one PixelLab isometric room, logical 6x6 floor fitted onto it ----
 W6 = H6 = 6
 blk = [[0] * W6 for _ in range(H6)]
