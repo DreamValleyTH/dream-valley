@@ -1,5 +1,5 @@
 # Build farm + town maps for the web game.   python3 build_world.py <out assets dir>
-import sys, os, json
+import sys, os, json, shutil
 import numpy as np
 from PIL import Image
 from worldlib import World, Atlas, L, T, ART_B, PL
@@ -30,28 +30,32 @@ def plant_tall(w, kinds, n, area, seed, avoid=()):
         if any(w.blocked[b, a] or w.walk_bonus[b, a] or w.water[b, a] for a, b in cells): continue
         if any(abs(a - ax) + abs(b - ay) < 2 for a, b in cells for ax, ay in avoid): continue
         k = kinds[r.randint(len(kinds))]
-        o = w.place(tall_img(k), px(x + 1.0), px(y + .95), block=cells, oid=f'tall_{k}_{x}_{y}', shadow='tree', flip=r.rand() < .5)
-        o['label'] = {'sugarcane': 'กออ้อย', 'coconut': 'ต้นมะพร้าว', 'sugarpalm': 'ต้นตาล', 'raintree': 'ต้นจามจุรี', 'bamboo': 'กอไผ่', 'banana': 'กอกล้วย', 'papaya': 'ต้นมะละกอ', 'tamarind_big': 'ต้นมะขามใหญ่'}[k]
+        place_tall(w, k, x, y, r.rand() < .5)
         placed += 1
     return placed
+def place_tall(w, k, x, y, flip):
+        o = w.place(tall_img(k), px(x + 1.0), px(y + .95), block=[(x, y), (x + 1, y)], oid=f'tall_{k}_{x}_{y}', shadow='tree', flip=flip)
+        o['label'] = {'sugarcane': 'กออ้อย', 'coconut': 'ต้นมะพร้าว', 'sugarpalm': 'ต้นตาล', 'raintree': 'ต้นจามจุรี', 'bamboo': 'กอไผ่', 'banana': 'กอกล้วย', 'papaya': 'ต้นมะละกอ', 'tamarind_big': 'ต้นมะขามใหญ่'}[k]
 
 atlas = Atlas('sprites')
 maps = {}
 
 # =====================================================================  FARM (ฟาร์มยาย)
-def build_farm():
+def build_farm(ov=None, grid=None, tall=None):
     w = World('farm', 32, 24, seed=3)
+    if ov: w.ov = ov
     # --- ground surfaces (organic) ---
+    if grid is not None: mapdata.add_terrain(w, grid)   # edited in the Map Maker: ground comes from the cell grid
     lane = w.poly([(22.5, 24.5), (22.3, 19), (21.2, 15.5), (17.5, 11.3), (12.5, 10.2), (9.6, 9.4)], 2.3)
-    w.add_surface('laterite', w.roughen(lane, 2.5, 7, 1))
+    if grid is None: w.add_surface('laterite', w.roughen(lane, 2.5, 7, 1))
     yard = w.ellipse(6.4, 8.6, 5.6, 2.6) | w.ellipse(9.4, 9.0, 2.2, 1.6)
-    w.add_surface('yard', w.roughen(yard, 4, 6, 2))
+    if grid is None: w.add_surface('yard', w.roughen(yard, 4, 6, 2))
     foot1 = w.poly([(9.8, 10.2), (10.6, 12.3)], 1.0)                 # yard -> pump/plot corner
     foot2 = w.poly([(23.2, 15.0), (24.5, 10.6), (25.4, 9.8)], 1.0)    # lane -> pond bench
     foot3 = w.poly([(16.0, 11.0), (15.6, 6.6)], 0.9)                  # lane -> orchard
-    w.add_surface('path', w.roughen(foot1 | foot2 | foot3, 1.6, 4, 3))
+    if grid is None: w.add_surface('path', w.roughen(foot1 | foot2 | foot3, 1.6, 4, 3))
     pond = w.ellipse(26.0, 5.0, 3.6, 2.3) | w.ellipse(28.3, 6.8, 2.2, 1.6) | w.ellipse(24.4, 6.4, 1.8, 1.3)
-    w.add_surface('water', w.roughen(pond, 2.5, 6, 4))
+    if grid is None: w.add_surface('water', w.roughen(pond, 2.5, 6, 4))
     # vegetable plot bed (game draws tilled soil on top)
     PX, PY, PWc, PHc = 11, 13, 8, 5
     w.plot = [PX, PY, PWc, PHc]
@@ -130,10 +134,15 @@ def build_farm():
         if o['id'].startswith(('rock',)): o['tap'] = 'boulder'
     # tall plants: sugarcane by the lane, coconuts and banana near the pond, papaya by the yard
     pl = [(7, 8), (13, 10), (22, 22)]
-    plant_tall(w, ['sugarcane'], 3, (18, 16, 29, 22), 11, pl)
-    plant_tall(w, ['coconut', 'banana'], 3, (21, 2, 30, 10), 12, pl)
-    plant_tall(w, ['papaya', 'banana'], 2, (1, 12, 9, 20), 13, pl)
-    plant_tall(w, ['bamboo', 'sugarpalm'], 2, (1, 1, 9, 4), 14, pl)
+    if tall is not None:   # rebuilding with edits: the same tall plants as the generated layout (positions come from the overlay)
+        for oid, fl in tall:
+            _, k, x, y = oid.rsplit('_', 3) if oid.count('_') >= 3 else (None,) * 4
+            place_tall(w, k, int(x), int(y), fl)
+    else:
+        plant_tall(w, ['sugarcane'], 3, (18, 16, 29, 22), 11, pl)
+        plant_tall(w, ['coconut', 'banana'], 3, (21, 2, 30, 10), 12, pl)
+        plant_tall(w, ['papaya', 'banana'], 2, (1, 12, 9, 20), 13, pl)
+        plant_tall(w, ['bamboo', 'sugarpalm'], 2, (1, 1, 9, 4), 14, pl)
     # places / spawns / exits
     w.add_place('home', 'บ้านยาย', (7, 8), kind='home')
     w.add_place('farm_visit', 'หน้าบ้านยาย', (13, 10), spots=[(13, 10), (14, 10), (12, 11)])
@@ -141,6 +150,9 @@ def build_farm():
     w.exits = [dict(cells=[[21, 23], [22, 23], [23, 23]], to='town', spawn='from_farm', label='ไปใจกลางตำบล')]
     return w
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapgen'))
+import mapdata, farmdata
+MAPDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'maps')
 farm = build_farm()
 ISO = '/home/claude/art_work/iso'
 def isoim(f, flip=False):
@@ -159,190 +171,36 @@ def farm_iso(w):
         if o['id'].startswith('fb'): a[o['id']] = dict(im=fx, dx=-12, dy=-2)
         if o['id'].startswith('fl'): a[o['id']] = dict(im=fy, dx=-36, dy=-2)
     return a
+# ---- farm as editable data: write the generated layout once, then apply Map Maker edits as an overlay ----
+fbase, fitems, fimgs = farmdata.record(farm, farm_iso(farm))
+fitems = farmdata.save_kit(fitems, fimgs)
+FJ = f'{MAPDIR}/farm.json'
+json.dump(fbase, open(f'{MAPDIR}/farm_base.json', 'w'), ensure_ascii=False)
+if os.path.exists(FJ):
+    ov, fnew, fgrid, fdoors = farmdata.diff(fbase, json.load(open(FJ)))
+    if ov or fnew or fgrid is not None or fdoors:
+        farm = build_farm(ov, fgrid, [(o['id'], o.get('flip')) for o in farm.objects if o['id'].startswith('tall_')])
+        extra_art = {}
+        for o in fnew: mapdata.place_obj(farm, o, extra_art, extra=fitems)
+        for pid, d in fdoors.items():
+            farm.places[pid]['door'] = list(d); farm.places[pid]['spots'] = [list(d)]
+            if pid == 'home': farm.spawns['home'] = list(d)
+        print('farm edits:', len([v for v in ov.values() if v]), 'moved,', len([v for v in ov.values() if v is None]), 'removed,', len(fnew), 'new,',
+              'ground edited' if fgrid is not None else 'ground as drawn')
+else:
+    json.dump(fbase, open(FJ, 'w'), ensure_ascii=False)
+farm.objects = [o for o in farm.objects if not o.get('removed')]
 for o in farm.objects:
     if o['id'] in ('lotus1', 'lotus2'): o['flat'] = True
 farm.mirror_ground = True   # the paddy land around the farm continues seamlessly
 farm.rt_shadow = True   # farm objects can be moved in build mode, so their shadows are drawn live
-maps['farm'] = farm.export(OUT, atlas, farm_iso(farm))
+fart = farm_iso(farm)
+if os.path.exists(FJ) and 'extra_art' in dir(): fart.update(extra_art)
+maps['farm'] = farm.export(OUT, atlas, fart)
 print('farm ok', len(farm.objects))
 
-# =====================================================================  TOWN (ใจกลางตำบลบ้านดงเย็น)
-def build_town():
-    w = World('town', 56, 40, seed=11)
-    RY = 20                                    # main asphalt road rows 20-21
-    road = w.rect(0, RY - .1, 56, RY + 2.1)
-    w.add_surface('asphalt', road)
-    w.dash_rows = [(int((RY + 1) * T) - 1, 0, 56 * T)]
-    # canal on the west with a concrete bridge
-    canal = w.rect(3.2, -1, 5.8, 41, .0)
-    canal = w.roughen(canal, 1.5, 6, 7) & ~w.rect(0, RY - .6, 9, RY + 2.6)
-    w.add_surface('water', canal)
-    # back lane (laterite) behind the shop row + alleys + south lanes
-    laneB = w.poly([(6.5, 13.0), (55.5, 13.0)], 1.8)
-    alleys = None
-    for x in (13.5, 25.5, 37.5, 49.5):
-        a = w.poly([(x, 13.0), (x, RY - .2)], 1.2); alleys = a if alleys is None else (alleys | a)
-    laneS = w.poly([(7.0, RY + 2), (7.0, 30.0), (35.0, 30.0)], 1.8) | w.poly([(21.0, RY + 2), (21.0, 30)], 1.4)
-    toTemple = w.poly([(45.5, RY + 2), (45.5, 25.0)], 2.0)
-    toFields = w.poly([(30.5, 13.0), (30.5, 6.2), (40.0, 4.6)], 1.3) | w.poly([(12.0, 13.0), (12.0, 7.0)], 1.2)
-    w.add_surface('laterite', w.roughen(laneB | laneS | toTemple, 2.0, 7, 2))
-    w.add_surface('path', w.roughen(alleys | toFields, 1.4, 5, 3))
-    # concrete fronts of the shop row + market plaza
-    w.add_surface('concrete', w.rect(6.6, RY - 1.6, 55.4, RY - .05) | w.rect(8.2, RY + 2.05, 19.8, 27.6, .3))
-    # temple yard (sand) + school field
-    w.add_surface('sand', w.roughen(w.rect(36.5, 24.5, 55.5, 39.5, 1.0), 2, 8, 5))
-    w.add_surface('sand', w.roughen(w.rect(27.0, 2.0, 33.0, 6.0, .8), 1.5, 6, 6))
-    # coop organic beds (kla)
-    w.add_surface('plotbed', w.rect(9.0, 2.0, 21.0, 6.0, .4))
-
-    def B(img, tx0, base, oid, tap=None, place=None, label=None, depth=2, shadow='building'):
-        im = L(img); bb = im.getbbox(); wpx = bb[2] - bb[0]
-        cx = px(tx0) + wpx // 2
-        c0 = int(px(tx0) // T); c1 = int((px(tx0) + wpx - 1) // T)
-        blk = [(c, r) for c in range(c0, c1 + 1) for r in range(base - depth, base)]
-        return w.place(img, cx, px(base) - 2, block=blk, tap=tap, place=place, oid=oid, label=label, shadow=shadow)
-    # ---- north shop row facing the road (doors on row RY-1) ----
-    row = [('taew_shop', bld('02_shops_a', 1), 'ร้านชำป้าแต๋ว'), ('noi_noodle', bld('02_shops_a', 3), 'ร้านก๋วยเตี๋ยวพี่หน่อย'),
-           ('store24', bld('02_shops_a', 2), 'ร้าน 24 ชม.'), ('pharmacy', bld('03_shops_b', 0), 'ร้านขายยา'),
-           ('heng_shop', bld('03_shops_b', 3), 'ร้านปุ๋ยยาเสี่ยเฮง'), ('rice_yard', bld('04_shops_c', 2), 'ลานรับซื้อข้าวเสี่ยเฮง'),
-           ('garage', bld('03_shops_b', 1), 'อู่บอล'), ('workshop', bld('03_shops_b', 2), 'ร้านช่างเปี๊ยก')]
-    xs = [7.6, 14.2, 19.8, 26.2, 31.8, 38.2, 43.8, 50.2]
-    for (pid, img, name), x in zip(row, xs):
-        o = B(img, x, RY - 1, pid, tap='place', place=pid, label=name, depth=3)
-        dc = int(o['x'] // T)
-        w.add_place(pid, name, (dc, RY - 1), spots=[(dc, RY - 1), (dc + 1, RY - 1), (dc - 1, RY - 1)])
-    # ---- second row (doors on the back lane, row 14) ----
-    row2 = [('obt', bld('01_gov', 0), 'ที่ทำการ อบต.ดงเย็น'), ('police', bld('01_gov', 1), 'ป้อมตำรวจ'), ('clinic', bld('01_gov', 2), 'รพ.สต.ดงเย็น'),
-            ('school', bld('01_gov', 3), 'โรงเรียนบ้านดงเย็น'), ('bank', bld('02_shops_a', 0), 'ธนาคารเกษตร'), ('coffee', bld('04_shops_c', 3), 'ร้านกาแฟ'),
-            ('kamnan_house', bld('10_houses_c', 1), 'บ้านกำนัน'), ('company_office', bld('14_district2', 3), 'สำนักงานบริษัท')]
-    xs2 = [7.4, 14.0, 19.6, 25.6, 31.6, 37.4, 42.6, 49.4]
-    for (pid, img, name), x in zip(row2, xs2):
-        o = B(img, x, 12, pid, tap='place', place=pid, label=name, depth=3)
-        dc = int(o['x'] // T)
-        w.add_place(pid, name, (dc, 12), spots=[(dc, 12), (dc + 1, 12), (dc - 1, 12)])
-    # ---- south: market plaza, sala + broadcast tower, bus stop, water tower ----
-    for i, (x, y, img) in enumerate([(9.6, 23.4, prop('03_market_a', 0)), (12.2, 23.4, prop('03_market_a', 2)), (14.8, 23.4, prop('03_market_b', 0)),
-                                     (17.4, 23.4, prop('03_market_a', 3)), (9.6, 26.4, prop('03_market_b', 1)), (12.2, 26.4, prop('03_market_b', 2)),
-                                     (14.8, 26.4, prop('03_market_b', 5)), (17.4, 26.4, prop('03_market_a', 4))]):
-        w.place(img, px(x), px(y), block=[(int(x), int(y) - 1)], oid=f'stall{i}', tap='place', place='market', label='ตลาดนัด')
-    w.add_place('market', 'ตลาดนัด', (13, 24), spots=[(13, 24), (11, 24), (16, 25), (10, 25)])
-    o = B(bld('05_village', 1), 22.6, 27, 'sala', tap='place', place='sala', label='ศาลาหมู่บ้าน', depth=2)
-    w.add_place('sala', 'ศาลาหมู่บ้าน', (24, 27), spots=[(24, 27), (25, 27), (23, 27), (26, 28), (22, 28), (24, 28)])
-    w.place(prop('02_street_a', 2), px(28.4), px(26.6), block=[(28, 25)], oid='loudspeaker', tap='place', place='sala', label='หอกระจายข่าว')
-    o = B(bld('05_village', 3), 26.4, RY + 3, 'bus_stop', tap='place', place='bus_stop', label='ป้ายรถเมล์', depth=1)
-    w.add_place('bus_stop', 'ป้ายรถเมล์', (28, RY + 3), spots=[(28, RY + 3), (29, RY + 3)])
-    w.place(bld('05_village', 0), px(33.0), px(28.0), block=[(32, 27), (33, 27)], oid='water_tower', tap='place', place='water_tower', label='หอถังน้ำ')
-    w.add_place('water_tower', 'หอถังน้ำ', (33, 28))
-    # ---- temple compound (south-east) ----
-    B(bld('07_temple2', 0), 42.6, 25, 'temple_gate', tap='place', place='temple', label='ประตูวัดดงเย็น', depth=1)
-    B(bld('06_temple', 0), 41.0, 32, 'ubosot', tap='place', place='temple', label='อุโบสถ', depth=3)
-    B(bld('06_temple', 1), 48.6, 31, 'chedi', depth=2)
-    B(bld('06_temple', 2), 36.8, 37, 'temple_sala', tap='place', place='temple', label='ศาลาการเปรียญ', depth=2)
-    B(bld('06_temple', 3), 49.0, 38, 'kuti', depth=2)
-    w.place(bld('07_temple2', 1), px(53.4), px(36.0), block=[(53, 35)], oid='belltower')
-    w.place(prop('04_spiritual', 2), px(45.6), px(33.6), block=[(45, 33)], oid='incense')
-    w.place(prop('04_spiritual', 4), px(37.6), px(27.8), block=[(37, 27)], oid='sacredtree')
-    w.add_place('temple', 'วัดดงเย็น', (45, 33), spots=[(45, 34), (44, 34), (46, 34), (41, 35), (42, 35)])
-    # ---- houses (south-west lane) ----
-    houses = [('house_bua', bld('09_houses_b', 0), 'บ้านยายบัว', 8.0), ('house_thongbai', bld('08_houses_a', 3), 'บ้านป้าทองใบ', 13.4),
-              ('house_sommai', bld('09_houses_b', 1), 'บ้านลุงสมหมาย', 18.8), ('house_chan', bld('08_houses_a', 2), 'บ้านยายจันทร์', 24.2),
-              ('nok_house', bld('09_houses_b', 2), 'บ้านนก', 29.6)]
-    for pid, img, name, x in houses:
-        o = B(img, x, 37, pid, tap='place', place=pid, label=name, depth=3)
-        dc = int(o['x'] // T)
-        w.add_place(pid, name, (dc, 37), spots=[(dc, 37), (dc + 1, 37), (dc - 1, 37)])
-        lane = w.poly([(dc + .5, 30.6), (dc + .5, 37.4)], 1.0)
-        w.add_surface('path', w.roughen(lane, 1.2, 4, int(x)))
-    # ---- north fringe: kla's organic beds, pasture, forest edge ----
-    w.place(bld('04_shops_c', 0), px(22.6), px(6.6), block=[(22, 5), (23, 5), (24, 5), (25, 5)], oid='coop', tap='place', place='coop_garden', label='สหกรณ์ผักอินทรีย์กล้า', shadow='building')
-    w.add_place('coop_garden', 'สวนผักอินทรีย์', (15, 6), spots=[(15, 6), (16, 6), (14, 7)])
-    crops = [L(f'{PL}/p1_world_all/crop_{k}/{s:02d}.png') for k in ('chili', 'basil', 'morning_glory', 'corn') for s in (3, 4)]
-    r = np.random.RandomState(3)
-    for yy in (3, 5):
-        for xx in range(10, 21):
-            if xx == 15: continue
-            im = crops[r.randint(len(crops))]
-            w.place(im, px(xx + .5), px(yy + .9), block=[(xx, yy)], oid=f'kc{xx}_{yy}', shadow=None)
-    for xx in range(41, 55, 1):
-        w.place(f'{OBJ}/fence_h.png', px(xx + .5), px(7.0), block=[(xx, 6)], oid=f'pf{xx}', shadow=None)
-    bufpath = f'{PL}/animals_all/buffalo/Idle/rotations/south-east.png'
-    if os.path.exists(bufpath):
-        w.place(bufpath, px(46.0), px(4.4), block=[(45, 3), (46, 3)], oid='buffalo1', tap='place', place='pasture', label='ควายตาเผือก')
-        w.place(bufpath, px(51.0), px(3.2), block=[(50, 2), (51, 2)], oid='buffalo2', flip=True)
-    w.place(prop('01_yard_a', 6), px(43.4), px(5.0), block=[(43, 4)], oid='trough')
-    w.add_place('pasture', 'ทุ่งเลี้ยงควาย', (41, 8), spots=[(41, 8), (42, 8)])
-    rng = np.random.RandomState(9)
-    for (x, y) in [(1.0, 2.0), (2.6, 4.6), (1.2, 7.4), (6.4, 1.6), (1.8, 11.0), (1.4, 26.0), (2.2, 31.5), (1.0, 36.5), (2.6, 39.2)]:
-        w.place(prop('06_forest_a', 5 if rng.rand() < .6 else 6), px(x), px(y), block=[(int(x), int(y) - 1)], oid=f'fe{x}_{y}', flip=rng.rand() < .5)
-    w.add_place('forest_edge', 'ชายป่าท้ายหมู่บ้าน', (7, 4), spots=[(7, 4), (8, 4)])
-    def tree(img, tx, ty, oid):
-        return w.place(f'{TREES}/{img}.png', px(tx), px(ty), block=[(int(tx), int(ty) - 1)], oid=oid, shadow='tree')
-    for i, (img, x, y) in enumerate([('tree_tamarind', 3.0, 15.6), ('tree_mango', 26.0, 1.6), ('tree_tamarind', 36.0, 2.6), ('tree_mango', 54.0, 9.6),
-                                     ('tree_tamarind', 52.6, 27.8), ('tree_mango', 38.6, 24.0), ('tree_tamarind', 54.4, 39.0), ('tree_mango', 35.6, 34.6),
-                                     ('tree_mango', 10.6, 33.8), ('tree_tamarind', 30.8, 33.0), ('tree_mango_fruit_mid', 20.0, 33.8), ('tree_mango', 8.4, 29.0)]):
-        tree(img, x, y, f'tt{i}')
-    # street furniture
-    for i, x in enumerate([10.4, 22.4, 34.4, 46.4]):
-        w.place(prop('02_street_a', 0), px(x), px(RY - .05), block=[], oid=f'pole{i}', shadow=None)
-    for i, x in enumerate([16.4, 40.4]):
-        w.place(prop('02_street_a', 1), px(x), px(RY + 2.9), block=[(int(x), RY + 2)], oid=f'lamp{i}')
-    w.place(prop('02_street_b', 4), px(5.8), px(RY - 1.3), block=[(5, RY - 2)], oid='roadshrine')
-    w.place(prop('04_spiritual', 0), px(7.0), px(9.6), block=[(6, 8), (7, 8)], oid='shrine', tap='place', place='shrine', label='ศาลปู่ตา')
-    w.add_place('shrine', 'ศาลปู่ตา', (7, 10))
-    w.place(prop('07_community', 2), px(28.8), px(4.6), block=[(28, 3), (29, 3)], oid='takraw')
-    w.place(prop('07_community', 4), px(31.6), px(4.0), block=[(31, 3)], oid='swing')
-    bridge = f'{PL}/props_big_v2/05_water_big_v2/01.png'
-    w.place(bridge, px(4.5), px(RY + 2.6), block=[], oid='bridge', shadow=None)
-    w.add_place('canal', 'คลองส่งน้ำ', (6, 24))
-
-    # ---- life details: yards, canal plants, street bits ----
-    r2 = np.random.RandomState(21)
-    for i, (pid, img, name, x) in enumerate(houses):
-        bx = px(x)
-        w.place(prop('01_yard_a', [0, 2, 4, 7, 3][i]), bx - 10, px(38.9), block=[(int((bx - 10) // T), 38)], oid=f'hy{i}')
-        w.place(prop('01_yard_b', [5, 7, 6, 0, 3][i]), bx + 150, px(36.2), block=[(int((bx + 150) // T), 35)], oid=f'hz{i}')
-    for i, y in enumerate([3.4, 8.2, 12.6, 27.4, 33.8, 38.6]):
-        w.place(prop('05_water_small', [0, 1, 3, 0, 1, 4][i]), px(4.5 + (r2.rand() - .5) * .8), px(y), block=[], oid=f'cw{i}', shadow=None, flip=r2.rand() < .5)
-    w.place(prop('07_community', 7), px(13.2), px(13.0), block=[(13, 12)], oid='noticeboard')
-    w.place(prop('02_street_a', 6), px(20.2), px(18.9), block=[(20, 18)], oid='bin1')
-    w.place(prop('02_street_b', 0), px(36.6), px(18.9), block=[(36, 18)], oid='watercooler')
-    w.place(prop('02_street_b', 1), px(30.4), px(23.2), block=[(30, 22)], oid='bench_bus')
-    w.place(prop('01_yard_b', 3), px(18.6), px(24.6), block=[(18, 23)], oid='chairs')
-    w.place(prop('03_market_a', 5), px(19.2), px(26.6), block=[(19, 25)], oid='cooler')
-    w.place(prop('02_street_b', 7), px(46.5), px(18.9), block=[(46, 18)], oid='drum')
-    w.place(prop('01_yard_a', 1), px(52.6), px(18.9), block=[(52, 18)], oid='tank')
-    w.place(prop('08_company', 0), px(51.0), px(14.9), block=[], oid='wire1', shadow=None)
-    w.place(prop('08_company', 2), px(53.6), px(14.9), block=[(53, 14)], oid='keepout')
-    w.place(prop('04_spiritual', 3), px(47.6), px(33.9), block=[(47, 33)], oid='candles')
-    w.place(prop('04_spiritual', 5), px(44.0), px(26.6), block=[(44, 26)], oid='donation')
-    w.place(prop('06_forest_a', 5), px(55.2), px(23.6), block=[(55, 22)], oid='bam_e1')
-    w.place(prop('06_forest_a', 6), px(55.3), px(31.2), block=[(55, 30)], oid='ban_e1')
-    for i, (x, y) in enumerate([(21.4, 29.0), (26.8, 29.0), (32.2, 28.8), (11.0, 29.0)]):
-        w.place(prop('06_forest_b', 6 if i % 2 else 7), px(x), px(y), block=[], oid=f'bush{i}', shadow='prop')
-    avoid = [tuple(pl['door']) for pl in w.places.values()] + [tuple(c) for pl in w.places.values() for c in pl['spots']]
-    plant_tall(w, ['sugarpalm', 'coconut'], 5, (1, 23, 20, 38), 21, avoid)      # houses side
-    plant_tall(w, ['raintree'], 2, (8, 2, 50, 10), 22, avoid)                     # behind the second row
-    plant_tall(w, ['sugarcane', 'banana', 'bamboo'], 5, (36, 24, 54, 38), 23, avoid)
-    plant_tall(w, ['coconut', 'sugarpalm'], 3, (1, 1, 12, 18), 24, avoid)
-    w.spawns = {'from_farm': [1, RY], 'bus': [28, RY + 3], 'center': [24, RY + 2]}
-    w.exits = [dict(cells=[[0, RY], [0, RY + 1]], to='farm', spawn='from_town', label='กลับฟาร์มยาย')]
-    return w
-
-USE_DATA_TOWN = os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'maps', 'town.json'))
-town = None if USE_DATA_TOWN else build_town()
-def town_iso(w):
-    a = {}
-    for o in w.objects:
-        f = f'{ISO}/{o["id"]}_0.png'
-        if o['block'] and os.path.exists(f): a[o['id']] = dict(im=isoim(f'{o["id"]}_0.png'), center=True, dy=4)
-    return a
-for o in (town.objects if town else []):
-    if o['id'] == 'bridge' or (o['id'].startswith('cw') and o['im'].size[1] < 30): o['flat'] = True
-if town: maps['town'] = town.export(OUT, atlas, town_iso(town))
+# =====================================================================  TOWN (data: data/maps/town.json)
 # ---- v0.9: maps are DATA (data/maps/<name>.json: terrain grid + placed objects) built here into ground + sprites ----
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapgen'))
-import mapdata
-MAPDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'maps')
 if os.path.exists(f'{MAPDIR}/town.json'):
     tw, tart = mapdata.build_world(json.load(open(f'{MAPDIR}/town.json')), World)
     tw.MG = 120; tw.mirror_ground = True
@@ -361,7 +219,23 @@ maps['house'] = dict(name='house', W=W6, H=H6, T=32, bg='house_room.png', blocke
                      spawns={'in': [3, 4]}, plot=None, iso=dict(K=.75, KY=.44, OX=190, OY=108, SW=384, SH=320, bg='house_room.png'))
 print('town ok')
 
-json.dump(maps, open(OUT + '/maps_tmp.json', 'w'))
+# ---- Map Maker kit (MAPKIT=<dir>): catalog + sprites + every editable map with its bare ground picture ----
+KIT = os.environ.get('MAPKIT')
+if KIT:
+    os.makedirs(f'{KIT}/mapkit/s', exist_ok=True); os.makedirs(f'{KIT}/maps', exist_ok=True)
+    cat = mapdata.catalog_json()
+    for k, c in mapdata.CATALOG.items():
+        f = f'{KIT}/mapkit/s/{k}.png'
+        if not os.path.exists(f): mapdata.load_img(c).save(f)
+    for k, it in fitems.items():
+        cat[k] = {kk: v for kk, v in it.items() if kk != 'src'}
+        Image.open(it['src']).save(f'{KIT}/mapkit/s/{k}.png')
+    json.dump(dict(items=cat, terrain=mapdata.TERRAIN), open(f'{KIT}/mapkit/catalog.json', 'w'), ensure_ascii=False)
+    for name, wld, src in (('town', tw, f'{MAPDIR}/town.json'), ('farm', farm, FJ)):
+        shutil.copy(src, f'{KIT}/maps/{name}.json')
+        wld.render_iso(f'{KIT}/maps/{name}_ground.png', [])
+    print('map kit ->', KIT)
+
 extra = {}
 for k in ['debris_05', 'debris_06', 'debris_24', 'debris_25', 'debris_00', 'debris_04']:
     extra[k] = atlas.add(L(f'{OBJ}/{k}.png').crop(L(f'{OBJ}/{k}.png').getbbox()))

@@ -4,7 +4,7 @@ ROOT = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.dirname(os.
 files = []
 for d, _, fs in os.walk(ROOT):
     rel = os.path.relpath(d, ROOT)
-    if rel.startswith(('tools', '.git', 'content')) or '/.' in rel: continue
+    if rel.startswith(('tools', '.git', 'content', 'assets_src')) or '/.' in rel: continue
     for f in fs:
         if f.endswith(('.py', '.md', '.json')) and f != 'manifest.webmanifest': continue
         if f in ('sw.js', 'artifact.html', 'game.js', 'data.js') or f.startswith('.'): continue

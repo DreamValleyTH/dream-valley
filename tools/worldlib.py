@@ -121,6 +121,12 @@ class World:
     # ---------- objects ----------
     def place(self, img, x, y, block=None, tap=None, place=None, oid=None, shadow='auto', flip=False, front=False, label=None, decal_clear=True):
         """img: path or Image; (x, y) = base centre in PIXELS (feet line). block: list of (cx,cy) cells or 'auto' rows"""
+        ov = getattr(self, 'ov', None)
+        if ov is not None and oid in ov:   # map-editor overrides (data/maps/<name>.json): moved / flipped / removed
+            e = ov[oid]
+            if e is None: return dict(id=oid, block=[], im=None, x=x, y=y, removed=True)
+            x += e[0] * T; y += e[1] * T; flip = bool(flip) ^ bool(e[2])
+            if isinstance(block, list): block = [(c + e[0], r + e[1]) for c, r in block]
         im = img if isinstance(img, Image.Image) else L(img)
         if flip: im = im.transpose(Image.FLIP_LEFT_RIGHT)
         bb = im.getbbox(); im = im.crop(bb)
@@ -277,8 +283,8 @@ class World:
         target = img * .4 + shade_col * .35
         img = img * (1 - s) + target * s
         out = Image.fromarray(np.clip(img, 0, 255).astype('uint8')).convert('RGBA')
-        self.decals(out)
-        out.save(out_png)
+        if out_png:   # the front-view picture is only needed for maps without an iso view
+            self.decals(out); out.save(out_png)
         return out
 
     def decals(self, out):
@@ -430,20 +436,22 @@ class World:
     def export(self, out_dir, atlas, iso_art=None):
         """atlas: shared Atlas object; returns map json dict"""
         os.makedirs(out_dir, exist_ok=True)
-        self.render(f'{out_dir}/{self.name}_bg.png')
-        objs = []; isoo = []
         iso_art = iso_art or {}
+        self.render(None)
+        objs = []; isoo = []
         # flat things (bridges, lily pads) lie on the ground: bake them into the ground before the iso warp
         gimg = Image.fromarray(np.clip(self.ground_np, 0, 255).astype('uint8')).convert('RGBA')
         for o in self.objects:
             if o.get('flat'): gimg.alpha_composite(o['im'], (int(o['x'] - o['w'] / 2), int(o['y'] - o['h'])))
         self.ground_np = np.asarray(gimg)[..., :3].astype(float)
         for o in self.objects:
-            key = atlas.add(o['im'])
+            ia = iso_art.get(o['id'])
+            if o.get('flat'): key = None
+            elif ia is not None and o['block']: key = atlas.add(ia['im'])   # iso art replaces the old front-view sprite entirely
+            else: key = atlas.add(o['im'])
             d = dict(id=o['id'], s=key, x=o['x'], y=o['y'], w=o['w'], h=o['h'], block=o['block'], tap=o['tap'],
                      place=o['place'], front=o['front'], label=o['label'])
             # iso: replacement art (anchored at the footprint's front corner) or the original sprite stood at its foot point
-            ia = iso_art.get(o['id'])
             if o.get('flat'):
                 d.update(ix=0, iy=0, si=None, iw=0, ih=0, dep=0, shadow=None); objs.append(d); continue
             if ia is not None and o['block']:
@@ -460,7 +468,7 @@ class World:
             objs.append(d); isoo.append(d)
         K, OX, SW, SH = self.iso_geom()
         self.render_iso(f'{out_dir}/{self.name}_iso.png', isoo)
-        return dict(name=self.name, W=self.W, H=self.H, T=T, bg=f'{self.name}_bg.png', blocked=self.blocked.tolist(),
+        return dict(name=self.name, W=self.W, H=self.H, T=T, bg=None, blocked=self.blocked.tolist(),
                     path=self.walk_bonus.tolist(), water=self.water.astype(int).tolist(), objects=objs, places=self.places,
                     exits=self.exits, spawns=self.spawns, plot=self.plot,
                     iso=dict(K=K, OX=OX, OY=self.MG, SW=SW, SH=SH, bg=f'{self.name}_iso.png', rtShadow=bool(getattr(self, 'rt_shadow', False))))

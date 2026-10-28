@@ -85,23 +85,53 @@ def load_img(c, flip=False):
 def catalog_json():
     return {k: dict(name=c['name'], cat=c['cat'], fp=c['fp'], iso=c['iso']) for k, c in CATALOG.items()}
 
-def build_world(data, World, T=32):
-    """data (map json) -> worldlib.World with surfaces, objects (and iso art dict), places, spawns, exits"""
-    from scipy import ndimage
-    W, H = data['W'], data['H']
-    w = World(data['name'], W, H, seed=data.get('seed', 7))
-    grid = np.array([list(r.ljust(W, '.')[:W]) for r in data['terrain']])
+KIND2CODE = {k: c for c, k in TERRAIN.items()}
+
+def add_terrain(w, grid, T=32):
+    """cell grid (numpy array of terrain chars) -> smooth organic ground surfaces on World w"""
+    from smoothmask import smooth_mask
     for kind in ORDER:
         codes = [c for c, k in TERRAIN.items() if k == kind]
         cm = np.isin(grid, codes)
         if not cm.any(): continue
-        m = np.kron(cm, np.ones((T, T), bool))
-        # rounded, organic edges: blur the blocky cell mask then roughen (roads stay a bit cleaner)
-        sig = {'asphalt': 7, 'concrete': 5, 'water': 12, 'paddy': 6}.get(kind, 10)
-        m = ndimage.gaussian_filter(m.astype(float), sig) > .5
-        amp = {'asphalt': 1.0, 'concrete': .6, 'paddy': .8, 'water': 2.5}.get(kind, 2.2)
-        if kind not in ('paddy',): m = w.roughen(m, amp, 6, ORDER.index(kind) + 3)
+        # smooth curved edges like the hand-drawn farm lane: rounded SDF blobs + smoothed centre-line strokes
+        m = smooth_mask(cm, T, kind)
+        amp = {'asphalt': 0, 'concrete': .5, 'paddy': 0, 'water': 1.6, 'laterite': 1.2, 'path': 1.0}.get(kind, 1.6)
+        if amp: m = w.roughen(m, amp, 6, ORDER.index(kind) + 3)
         w.add_surface(kind, m)
+
+def place_obj(w, o, iso_art, T=32, extra=None):
+    """one map object {id,k,x,y,flip,...} -> sprite on World w. extra: additional catalog (e.g. the farm kit)"""
+    c = CATALOG.get(o['k']) or (extra or {}).get(o['k'])
+    if not c: print('unknown asset', o['k']); return None
+    W, H = w.W, w.H
+    fw, fd = c['fp']; ox, oy = o['x'], o['y']
+    if o.get('flip') and c['iso']: fw, fd = fd, fw      # a flipped iso building swaps its footprint axes
+    cells = [(cx, cy) for cy in range(oy, oy + fd) for cx in range(ox, ox + fw) if 0 <= cx < W and 0 <= cy < H]
+    block = cells if (c['iso'] or c.get('block', True)) else []
+    im = load_img(c, o.get('flip'))
+    tap = o.get('tap') or ('place' if o.get('place') else None)
+    if c['iso']:
+        ob = w.place(im, int((ox + fw / 2) * T), int((oy + fd) * T) - 2, block=block, tap=tap, place=o.get('place'),
+                     oid=o['id'], label=o.get('label') or c['name'], shadow='building')
+        iso_art[o['id']] = dict(im=im, center=True, dy=c.get('dy', 4))
+    else:
+        sh = c.get('shadow', 'prop')
+        ax, ay = o.get('ax', c.get('ax')), o.get('ay', c.get('ay'))
+        x = ox * T + ax if ax is not None else int((ox + fw / 2) * T); y = oy * T + ay if ay is not None else int((oy + fd) * T) - 3
+        ob = w.place(im, x, y, block=block, tap=tap, place=o.get('place'), oid=o['id'], label=o.get('label') or c['name'], shadow=sh if sh else None)
+        if c.get('corner'): iso_art[o['id']] = dict(im=im, dx=c['corner'][0], dy=c['corner'][1])
+    if o.get('layer') == 'front': ob['front'] = True
+    if o.get('layer') == 'top': ob['top'] = True
+    ob['k'] = o['k']
+    return ob
+
+def build_world(data, World, T=32):
+    """data (map json) -> worldlib.World with surfaces, objects (and iso art dict), places, spawns, exits"""
+    W, H = data['W'], data['H']
+    w = World(data['name'], W, H, seed=data.get('seed', 7))
+    grid = np.array([list(r.ljust(W, '.')[:W]) for r in data['terrain']])
+    add_terrain(w, grid, T)
     w.dash_lines = data.get('lines', [])
     # walk mask: water + everything outside the playable rectangle
     x0, y0, x1, y1 = data['play']
@@ -110,25 +140,7 @@ def build_world(data, World, T=32):
             if grid[y][x] in WALK_BLOCK: w.blocked[y, x] = 1
             if not (x0 <= x < x1 and y0 <= y < y1): w.blocked[y, x] = 1
     iso_art = {}
-    for o in data['objects']:
-        c = CATALOG.get(o['k'])
-        if not c: print('unknown asset', o['k']); continue
-        fw, fd = c['fp']; ox, oy = o['x'], o['y']
-        if o.get('flip') and c['iso']: fw, fd = fd, fw      # a flipped iso building swaps its footprint axes
-        cells = [(cx, cy) for cy in range(oy, oy + fd) for cx in range(ox, ox + fw) if 0 <= cx < W and 0 <= cy < H]
-        block = cells if (c['iso'] or c.get('block', True)) else []
-        im = load_img(c, o.get('flip'))
-        if c['iso']:
-            ob = w.place(im, int((ox + fw / 2) * T), int((oy + fd) * T) - 2, block=block, tap='place' if o.get('place') else None, place=o.get('place'),
-                         oid=o['id'], label=o.get('label') or c['name'], shadow='building')
-            iso_art[o['id']] = dict(im=im, center=True, dy=4)
-        else:
-            sh = c.get('shadow', 'prop')
-            ob = w.place(im, int((ox + fw / 2) * T), int((oy + fd) * T) - 3, block=block, tap='place' if o.get('place') else None, place=o.get('place'),
-                         oid=o['id'], label=o.get('label') or c['name'], shadow=sh if sh else None)
-        if o.get('layer') == 'front': ob['front'] = True
-        if o.get('layer') == 'top': ob['top'] = True
-        ob['k'] = o['k']
+    for o in data['objects']: place_obj(w, o, iso_art, T)
     # places: door + spots in front of the door
     def free(x, y):
         best = None
