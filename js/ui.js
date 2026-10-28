@@ -43,7 +43,7 @@ DV.openSheet = (title, sub, icon, opts, vis) => {
 };
 DV.closeSheet = () => $('sheet').classList.add('hidden');
 $('sheetClose').onclick = DV.closeSheet;
-DV.uiOpen = () => ['cardWrap', 'talk', 'map', 'phone', 'scene', 'title', 'panel', 'mg'].some(id => !$(id).classList.contains('hidden'));
+DV.uiOpen = () => ['cardWrap', 'talk', 'map', 'phone', 'scene', 'title', 'panel', 'mg', 'scare'].some(id => { const e = $(id); return e && !e.classList.contains('hidden'); });
 DV.closeAll = () => { DV.closeSheet(); ['talk', 'map', 'phone', 'panel'].forEach(id => $(id).classList.add('hidden')); };
 
 // ---------- HUD ----------
@@ -272,6 +272,7 @@ DV.openMenu = () => DV.openSheet('เมนู', `${S().name} · รหัส ${
   { label: 'อัปเดตเกม' + (DV.clUnseen() ? ' (ใหม่)' : ''), icon: null, run: () => { DV.closeSheet(); DV.openChangelog(); } },
   { label: 'โหมดจัดฟาร์ม (ย้ายของ ใช้แรง)', icon: ['ui', 'settings'], run: () => DV.startBuild() },
   { label: 'ปรับเสียงเพลง / เอฟเฟกต์', icon: null, run: () => { DV.closeSheet(); DV.openSound(); } },
+  { label: `ความน่ากลัวตอนเจอผี: ${({ soft: 'เบา', mid: 'ปกติ', max: 'สะดุ้งสุด' })[DV.scareLevel()]}`, icon: null, extra: 'แตะเพื่อเปลี่ยน', run: () => { const o = ['soft', 'mid', 'max'], n = o[(o.indexOf(DV.scareLevel()) + 1) % 3]; try { localStorage.setItem('dv_scare', n); } catch (_) {} DV.openMenu(); } },
   { label: DV.muted ? 'เปิดเสียงทั้งหมด' : 'ปิดเสียงทั้งหมด', icon: null, run: () => { DV.muted = !DV.muted; DV.music(!DV.muted); DV.closeSheet(); } },
   { label: 'กลับมาที่ตัวละคร / ซูมปกติ', icon: null, run: () => { DV.recenter(); DV.setZoom(1); DV.closeSheet(); } },
   { label: 'บันทึกตอนนี้', icon: null, run: () => { DV.save(true); DV.toast('บันทึกแล้ว — เข้าเล่นต่อด้วยชื่อ + รหัสเดิม'); DV.closeSheet(); } },

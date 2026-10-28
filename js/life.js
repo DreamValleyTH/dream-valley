@@ -24,56 +24,10 @@ Object.assign(cat, {
   tomyum_fish: { name: 'ต้มยำปลาตะเพียน', buy: null, sell: 65, where: 'อาหาร', icon: 'food_khao_tom_pla' },
 });
 
-// ================= minigames (one overlay, three kinds) =================
-const mg = document.createElement('div'); mg.id = 'mg'; mg.className = 'hidden'; document.body.appendChild(mg);
-let mgOn = null;
-const mgClose = () => { mg.classList.add('hidden'); mg.innerHTML = ''; if (mgOn && mgOn.raf) cancelAnimationFrame(mgOn.raf); mgOn = null; };
-DV.mgOpen = () => !!mgOn;
-// timing: a marker sweeps across a bar; tap while it is inside the green zone. rounds, zone width 0..1, speed (bars/s)
-DV.timingGame = ({ title, sub, rounds = 3, zone = .22, speed = 1.1, shrink = .9, pic, onEnd }) => {
-  let r = 0, hits = 0, pos = 0, dir = 1, z = zone, zx = 0, t0 = performance.now(), lock = 0;
-  const place = () => { zx = .08 + Math.random() * (.84 - z); };
-  mg.innerHTML = `<div class="mg-box"><div class="mg-h">${title}</div><div class="mg-sub">${sub || 'แตะตอนเข็มอยู่ในช่องเขียว'}</div>${pic ? `<div class="mg-pic">${pic}</div>` : ''}
-    <div class="mg-bar"><i class="mg-zone"></i><b class="mg-pin"></b></div><div class="mg-dots">${'<i></i>'.repeat(rounds)}</div><button class="mg-go">แตะ!</button><div class="mg-msg"></div></div>`;
-  mg.classList.remove('hidden'); place();
-  const zEl = mg.querySelector('.mg-zone'), pin = mg.querySelector('.mg-pin'), dots = mg.querySelectorAll('.mg-dots i'), msg = mg.querySelector('.mg-msg');
-  const draw = () => { zEl.style.left = zx * 100 + '%'; zEl.style.width = z * 100 + '%'; pin.style.left = pos * 100 + '%'; };
-  const st = mgOn = { raf: 0 };
-  const loop = now => { if (mgOn !== st) return; const dt = Math.min(.05, (now - t0) / 1000); t0 = now;
-    if (!lock) { pos += dir * speed * dt * (1 + r * .12); if (pos > 1) { pos = 1; dir = -1; } if (pos < 0) { pos = 0; dir = 1; } }
-    draw(); st.raf = requestAnimationFrame(loop); };
-  const hit = () => { if (lock || mgOn !== st) return; const ok = pos >= zx && pos <= zx + z; hits += ok; dots[r].className = ok ? 'ok' : 'no';
-    msg.textContent = ok ? DV.pick(['เยี่ยม!', 'ตรงเป๊ะ!', 'ดีมาก!']) : DV.pick(['พลาด!', 'เร็วไปนิด', 'ช้าไปหน่อย']); DV.sfx(ok ? 'coin' : 'dirt');
-    r++; lock = 1; setTimeout(() => { lock = 0; msg.textContent = ''; if (r >= rounds) { mgClose(); onEnd && onEnd(hits, rounds); } else { z *= shrink; place(); } }, 520); };
-  mg.querySelector('.mg-go').onclick = hit; mg.onpointerdown = e => { if (e.target.closest('.mg-go')) return; if (e.target === mg || e.target.closest('.mg-bar')) hit(); };
-  st.raf = requestAnimationFrame(loop);
-};
-// tap targets: things pop up on a grid; tap as many as you can before time runs out
-DV.tapGame = ({ title, sub, time = 15, items = ['🍂', '🥤', '🧻', '🍃'], cols = 4, rowsN = 3, onEnd }) => {
-  let got = 0, miss = 0, left = time; const N = cols * rowsN;
-  mg.innerHTML = `<div class="mg-box"><div class="mg-h">${title}</div><div class="mg-sub">${sub || 'แตะเก็บให้ไวที่สุด'}</div>
-    <div class="mg-grid" style="grid-template-columns:repeat(${cols},1fr)">${'<button></button>'.repeat(N)}</div><div class="mg-row"><span class="mg-t">⏱ ${time}</span><span class="mg-s">เก็บได้ 0</span></div></div>`;
-  mg.classList.remove('hidden');
-  const cells = [...mg.querySelectorAll('.mg-grid button')], tEl = mg.querySelector('.mg-t'), sEl = mg.querySelector('.mg-s');
-  const st = mgOn = { raf: 0 }; const timers = [];
-  const pop = () => { if (mgOn !== st) return; const free = cells.filter(c => !c.dataset.on); if (free.length) { const c = DV.pick(free); c.dataset.on = 1; c.textContent = DV.pick(items);
-      const k = setTimeout(() => { if (c.dataset.on) { delete c.dataset.on; c.textContent = ''; miss++; } }, 1500 - Math.min(700, got * 25)); timers.push(k); }
-    timers.push(setTimeout(pop, Math.max(260, 650 - got * 18))); };
-  cells.forEach(c => c.onclick = () => { if (!c.dataset.on || mgOn !== st) return; delete c.dataset.on; c.textContent = '✨'; setTimeout(() => { if (!c.dataset.on) c.textContent = ''; }, 160); got++; sEl.textContent = `เก็บได้ ${got}`; DV.sfx('tick'); });
-  const tick = setInterval(() => { left--; tEl.textContent = `⏱ ${left}`; if (left <= 0 || mgOn !== st) { clearInterval(tick); timers.forEach(clearTimeout); if (mgOn === st) { mgClose(); onEnd && onEnd(got, miss); } } }, 1000);
-  pop(); pop();
-};
-// mash: tap the two feet buttons in turn as fast as you can to fill the bar before the time (or the ghost) catches you
-DV.mashGame = ({ title, sub, need = 26, time = 6, pic, onEnd }) => {
-  let n = 0, last = '', left = time * 10;
-  mg.innerHTML = `<div class="mg-box run"><div class="mg-h">${title}</div><div class="mg-sub">${sub || 'สลับกดซ้าย–ขวาให้เร็วที่สุด!'}</div>${pic ? `<div class="mg-pic">${pic}</div>` : ''}
-    <div class="mg-run"><i class="mg-fill"></i></div><div class="mg-feet"><button data-f="L">ซ้าย</button><button data-f="R">ขวา</button></div><div class="mg-t">⏱ ${time.toFixed(1)}</div></div>`;
-  mg.classList.remove('hidden');
-  const fill = mg.querySelector('.mg-fill'), tEl = mg.querySelector('.mg-t'); const st = mgOn = { raf: 0 };
-  const end = ok => { if (mgOn !== st) return; clearInterval(tk); mgClose(); onEnd && onEnd(ok, n / need); };
-  mg.querySelectorAll('.mg-feet button').forEach(b => b.onpointerdown = e => { e.preventDefault(); if (b.dataset.f === last) return; last = b.dataset.f; n++; fill.style.width = Math.min(100, n / need * 100) + '%'; DV.sfx('tick'); if (n >= need) end(true); });
-  const tk = setInterval(() => { left--; tEl.textContent = `⏱ ${(left / 10).toFixed(1)}`; if (left <= 0) end(false); }, 100);
-};
+// ================= minigames: js/minigames.js (12 kinds); each activity draws a random one from its own pool =================
+window.MG.sfx = k => DV.sfx(k);
+DV.mgOpen = () => window.MG.open();
+const tier = sc => sc >= .9 ? 3 : sc >= .6 ? 2 : sc >= .3 ? 1 : 0;   // score 0..1 → 0..3 (how well it went)
 
 // ================= skills =================
 const SK = { farm: ['ทำไร่', 'crop_chili', 'เก็บผักได้เพิ่ม'], fish: ['ตกปลา', 'item_fish_tilapia_fresh', 'ช่องเขียวกว้างขึ้น ปลาใหญ่ขึ้น'], cook: ['ทำอาหาร', 'food_khai_jiao', 'คุมไฟง่ายขึ้น อาหารให้แรงมากขึ้น'],
@@ -144,8 +98,9 @@ DV.fishAt = (cx, cy) => {
   DV.openSheet('ตกปลา', `ทักษะตกปลา Lv ${lv}${worm ? ' · มีไส้เดือนเป็นเหยื่อ (ปลาฉกง่ายขึ้น)' : ''}`, ic('misc_fishing_line'), [
     { label: 'เหวี่ยงเบ็ด', icon: ic('misc_fishing_line'), cost, extra: worm ? 'ใช้ไส้เดือน 1 ตัว' : 'ไม่มีเหยื่อ (ขุดหาไส้เดือนได้ตามพุ่มไม้)',
       run: () => { DV.closeSheet(); DV.addEnergy(-cost); if (worm) DV.addItem('worm', -1); DV.addMins(20); DV.sfx('water');
-        DV.timingGame({ title: '🎣 ปลากินเบ็ด!', sub: 'แตะตอนเข็มอยู่ในช่องเขียว ดึงให้ได้ 3 ครั้ง', rounds: 3, zone: .2 + lv * .012 + (worm ? .06 : 0), speed: 1.05, shrink: .85,
-          onEnd: h => { let msg; if (h === 0) { msg = DV.pick(['ปลาสะบัดหลุดไป เหลือแต่เบ็ดเปล่า', 'ได้รองเท้าแตะข้างเดียว… ทิ้งดีกว่า']); }
+        MG.pick(['timing', 'tension', 'hold'], { key: 'fish', title: '🎣 ปลากินเบ็ด!', per: { timing: { rounds: 3, zone: .2 + lv * .012 + (worm ? .06 : 0), speed: 1.05, shrink: .85, btn: 'ดึง!' },
+            tension: { bar: .24 + lv * .012 + (worm ? .05 : 0), time: 14, icon: '🐟' }, hold: { rounds: 3, zone: .15 + lv * .01 + (worm ? .04 : 0), btn: 'กดค้าง = รอกสาย แล้วปล่อย' } },
+          onEnd: sc => { const h = tier(sc); let msg; if (h === 0) { msg = DV.pick(['ปลาสะบัดหลุดไป เหลือแต่เบ็ดเปล่า', 'ได้รองเท้าแตะข้างเดียว… ทิ้งดีกว่า']); }
             else { const k = h === 1 ? (Math.random() < .5 ? 'fish_perch' : null) : pickFish(h === 3, lv);
               if (k) { DV.addItem(k); DV.xp('fish', h + (k === 'fish_golden' ? 10 : 0)); DV.stat('fish'); msg = `ได้${DV.item(k).name}! ${k === 'fish_golden' ? '✨ หายากมาก!' : ''}`; } else msg = 'ปลาตัวเล็กเกินไป ปล่อยคืนบ่อ'; }
             DV.toast(msg); DV.hud(); DV.save(); DV.checkFaint && DV.checkFaint(); } }); } }]);
@@ -169,8 +124,11 @@ DV.openCook = () => {
     const list = Object.entries(r.need).map(([k, n]) => `${DV.item(k).name}${n > 1 ? '×' + n : ''}`).join(' + ');
     return { label: r.name, icon: ic(DV.item(r.out).icon), cost: 3, extra: list, disabled: !need && `ต้องมี ${list}`,
       run: () => { DV.closeSheet(); DV.addEnergy(-3); DV.addMins(30); DV.sfx('spark');
-        DV.timingGame({ title: `🍳 ${r.name}`, sub: 'คุมไฟ! แตะตอนเข็มอยู่ในช่องเขียว 3 จังหวะ', rounds: 3, zone: .24 + lv * .015, speed: 1.2, shrink: .88,
-          onEnd: h => { Object.entries(need).forEach(([k, n]) => DV.addItem(k, -n));
+        const ING = Object.keys(need).map(k => ({ egg_chicken: '🥚', egg_duck: '🥚', basil: '🌿', chili: '🌶️', morning_glory: '🥬', corn: '🌽', fish_tilapia_fresh: '🐟', fish_snakehead: '🐟', fish_catfish: '🐟', fish_barb: '🐟' }[k] || '🧂'));
+        MG.pick(['timing', 'stir', 'sequence', 'hold'], { key: 'cook', title: `🍳 ${r.name}`, per: { timing: { rounds: 3, zone: .24 + lv * .015, speed: 1.2, shrink: .88, btn: 'กลับด้าน!', sub: 'คุมไฟ! แตะตอนเข็มอยู่ในช่องเขียว' },
+            stir: { need: 7 - Math.min(3, Math.floor(lv / 3)), time: 9, icon: '🍳' }, sequence: { symbols: [...new Set([...ING, '🧄', '🧂', '🍋', '🫙'])].slice(0, 4), len: 4 + (lv >= 5 ? 0 : 0), prompt: 'ใส่เครื่องตามลำดับ!' },
+            hold: { rounds: 3, zone: .17 + lv * .01, btn: 'กดค้าง = เทน้ำปลา แล้วปล่อย' } },
+          onEnd: sc => { const h = tier(sc); Object.entries(need).forEach(([k, n]) => DV.addItem(k, -n));
             if (h === 0) { DV.addItem('trash'); DV.toast('ไหม้เป็นถ่าน… กลิ่นลอยไปถึงบ้านป้าแต๋ว'); }
             else { const q = [0, .7, 1, 1.35][h]; DV.addItem(r.out); s.cookQ = s.cookQ || {}; s.cookQ[r.out] = Math.max(s.cookQ[r.out] || 0, q);
               DV.xp('cook', h + 1); DV.stat('cooked'); DV.toast(h === 3 ? `${r.name} อร่อยเหมือนฝีมือยาย! ⭐ (กินแล้วแรงเพิ่มขึ้น)` : h === 2 ? `ได้${r.name} หน้าตาดีใช้ได้` : `${r.name} ไหม้นิดหน่อย แต่ยังกินได้`); }
@@ -192,10 +150,12 @@ DV.placeExtras = (pid, opts) => {
   if (j) { const h = hour(), done = s.jobDay && s.jobDay[pid] === s.day, lv = DV.skLv('clean'), pay = Math.round(j[2] * (1 + (lv - 1) * .08));
     opts.push({ label: `รับจ้าง${j[0]}`, icon: ic('item_trash'), cost: 15, extra: `ค่าจ้าง ~฿${pay}+ · 1 ชม.`, disabled: done ? 'วันนี้ทำแล้ว' : (h < 7 || h >= 17) && 'รับงาน 07:00–17:00',
       run: () => { DV.closeSheet(); if (s.energy <= 15) return DV.toast('เหนื่อยเกินไป พักก่อนนะ'); s.jobDay = s.jobDay || {}; s.jobDay[pid] = s.day; DV.addEnergy(-15); DV.addMins(60);
-        DV.tapGame({ title: `🧹 ${j[0]}`, sub: 'แตะเก็บขยะ/ใบไม้ให้ไวที่สุด 15 วินาที', items: j[1], onEnd: (got, miss) => {
+        MG.pick(['taps', 'sweep', 'catch', 'pairs'], { key: 'clean', title: `🧹 ${j[0]}`, per: { taps: { items: j[1], bad: ['🐝'], need: 22 }, sweep: { items: j[1], n: 24, time: 11 },
+            catch: { good: j[1], bad: ['🐍', '🪨'], basket: '🗑️', need: 14, bg: '#d9c79c', sub: 'ลากถังขยะไปรับ หลบงูกับก้อนหิน' }, pairs: { symbols: ['🧹', '🪣', '🧽', '🧴', '🗑️', '🧤'], time: 28, sub: 'จัดของเข้าที่: เปิดจับคู่ให้ครบ' } },
+          onEnd: sc => { const got = Math.round(sc * 22);
           const g = Math.round(pay * Math.min(1.6, .5 + got / 22)); s.money += g; DV.xp('clean', 2 + Math.floor(got / 6)); DV.stat('jobs');
           if (j[3] && got >= 14) DV.addHeart(j[3], .5);
-          DV.toast(`เก็บได้ ${got} ชิ้น · ได้ค่าจ้าง ฿${g}${got >= 18 ? ' · “ขยันจริง พรุ่งนี้มาอีกนะ”' : ''}`); DV.sfx('coin'); DV.hud(); DV.save(); } }); } });
+          DV.toast(`ผลงาน ${sc >= .9 ? '⭐⭐⭐' : sc >= .6 ? '⭐⭐' : sc >= .3 ? '⭐' : 'ยังไม่เรียบร้อย'} · ได้ค่าจ้าง ฿${g}${got >= 18 ? ' · “ขยันจริง พรุ่งนี้มาอีกนะ”' : ''}`); DV.sfx('coin'); DV.hud(); DV.save(); } }); } });
   }
   if (pid === 'police' && s.fine) opts.push({ label: `จ่ายค่าปรับ ฿${s.fine.amt}`, icon: ic('item_money_envelope'), hl: true, extra: s.fine.summons ? 'มีหมายศาลแล้ว รีบจ่าย!' : `ค้างมา ${s.day - s.fine.day} วัน`,
     disabled: s.money < s.fine.amt && `เงินไม่พอ (มี ฿${s.money})`, run: () => { s.money -= s.fine.amt; DV.toast(`จ่ายค่าปรับ ฿${s.fine.amt} แล้ว ดาบเสถียร: “ครั้งหน้าอย่าทำอีกนะ”`); s.fine = null; delete s.flags.gossip_thief; DV.sfx('coin'); DV.closeSheet(); DV.hud(); DV.save(); } });
@@ -273,8 +233,10 @@ DV.stealMenu = o => {
   if (s.stealDay === s.day) return DV.toast('วันนี้เสี่ยงไปแล้ว อย่าเลย…');
   DV.openSheet('ลิ้นชักโต๊ะ', 'ไม่มีใครเห็น… หรือเปล่า?', null, [
     { label: 'แอบค้นลิ้นชัก (มินิเกม)', icon: ic('item_money_envelope'), extra: 'สำเร็จ = ได้เงิน 3–8% ของเพื่อน · พลาด = โดนปรับ', run: () => { DV.closeSheet(); s.stealDay = s.day;
-      DV.timingGame({ title: '🤫 แงะลิ้นชักเงียบ ๆ', sub: 'ต้องตรงช่องเขียวอย่างน้อย 3 ใน 4 ครั้ง ไม่งั้นเสียงดัง!', rounds: 4, zone: .2, speed: 1.35, shrink: .8,
-        onEnd: h => { if (h >= 3) { const pct = h === 4 ? .08 : .03 + Math.random() * .02, amt = Math.max(0, Math.min(3000, Math.round(hm * pct)));
+      MG.pick(['timing', 'hold', 'sequence', 'arrows'], { key: 'steal', title: '🤫 แอบค้นลิ้นชักเงียบ ๆ', per: { timing: { rounds: 4, zone: .2, speed: 1.35, shrink: .8, btn: 'งัด!', sub: 'แงะกลอน: ต้องตรงอย่างน้อย 3 ใน 4' },
+          hold: { rounds: 4, zone: .13, btn: 'ค่อย ๆ ดึงลิ้นชัก', sub: 'ดึงช้า ๆ ปล่อยตอนอยู่ในช่องเขียว ไม่งั้นเอี๊ยด!' }, sequence: { symbols: ['1️⃣', '2️⃣', '3️⃣', '4️⃣'], len: 5, prompt: 'หมุนรหัสกุญแจตามที่จำได้', sub: 'แอบดูรหัสกุญแจ แล้วหมุนให้ถูก' },
+          arrows: { n: 8, limit: 1000, sub: 'หลบสายตาเพื่อน! กดลูกศรให้ทัน' } },
+        onEnd: sc => { const h = sc >= .99 ? 4 : sc >= .7 ? 3 : 0; if (h >= 3) { const pct = h === 4 ? .08 : .03 + Math.random() * .02, amt = Math.max(0, Math.min(3000, Math.round(hm * pct)));
             if (!amt) return DV.toast('ลิ้นชักว่างเปล่า… เพื่อนจนกว่าที่คิด');
             s.money += amt; DV.netEvSend({ k: 'steal', amt }); DV.setFlag('stole_once'); DV.sfx('coin'); DV.toast(`ได้เงินมา ฿${amt} …หัวใจเต้นแรงมาก`); }
           else { const fine = Math.max(200, Math.round(s.money * .12 / 10) * 10); DV.giveFine(fine, 'ลักทรัพย์'); DV.netEvSend({ k: 'caught', fine }); DV.sfx('line');
@@ -285,10 +247,40 @@ DV.stealMenu = o => {
 };
 
 // ================= ghosts: run-away card becomes a minigame =================
-DV.runFromGhost = (name, pic) => DV.mashGame({ title: `👻 ${name || 'ผี'}ไล่ตาม!`, sub: 'สลับกดซ้าย–ขวา วิ่งให้ถึงบ้าน!', need: 24, time: 5.5, pic,
-  onEnd: ok => { if (ok) { DV.addEnergy(-6); DV.toast('วิ่งถึงบันไดบ้านทัน! หอบนิดหน่อย (แรง −6)'); DV.goHome && DV.goHome(); }
+DV.runFromGhost = (name, emo) => MG.pick(['mash', 'dodge', 'arrows'], { key: 'ghostrun', dark: true, title: `👻 ${name || 'ผี'}ไล่ตาม!`,
+  per: { mash: { need: 24, time: 5.5, chaser: emo || '👻', sub: 'สลับกดซ้าย–ขวา วิ่งให้ถึงบ้าน!' }, dodge: { time: 8, lives: 3, chaser: emo || '👻', obstacles: ['🌳', '🪨', '🐍', '🕸️', '🎋'], sub: 'วิ่งหนีในความมืด! แตะซ้าย/ขวา หลบสิ่งกีดขวาง' },
+    arrows: { n: 8, limit: 1050, sub: 'เลี้ยวหลบให้ทัน! กดลูกศรตามที่ขึ้น' } },
+  onEnd: sc => { const ok = sc >= .7; if (ok) { DV.addEnergy(-6); DV.toast('วิ่งถึงบันไดบ้านทัน! หอบนิดหน่อย (แรง −6)'); DV.goHome && DV.goHome(); }
     else { DV.addEnergy(-35); DV.toast('ขาพันกันล้มกลางทาง… กว่าจะคลานถึงบ้านแรงหมด (แรง −35)'); DV.goHome && DV.goHome(); }
     DV.hud(); DV.save(); DV.checkFaint && DV.checkFaint(); } });
+
+// ================= ghost encounter (js/ghosts.js): darkness → place → the ghost comes out of the screen → choose, each choice a minigame =================
+DV.scareLevel = () => { try { return localStorage.getItem('dv_scare') || 'mid'; } catch (_) { return 'mid'; } };
+const nearWater = () => { const M = DV.M, p = DV.player; if (!M.water) return false; for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) if ((M.water[p.cy + dy] || [])[p.cx + dx]) return true; return false; };
+DV.ghostScare = () => {
+  const s = S(), pool = window.GS.LIST.filter(g => g.id !== s.lastGhost), G = DV.pick(pool); s.lastGhost = G.id;   // never the same ghost two nights running
+  const bg = nearWater() ? 'swamp' : s.map === 'town' ? DV.pick(['forest', 'field']) : DV.pick(['field', 'swamp', 'forest']);
+  DV.closeAll(); DV.setBusy && DV.setBusy(false); DV.player.path = []; DV.stat('ghosts');
+  const amulet = s.amuletDay === s.day, prayed = s.prayedDay === s.day, lv = 0;
+  const done = (ok, win, lose, ew, el, faint) => { window.GS.end(); setTimeout(() => {
+    if (ok) { DV.addEnergy(-ew); DV.toast(`${win} (แรง −${ew})`); } else { DV.addEnergy(-el); DV.toast(`${lose} (แรง −${el})`); }
+    DV.goHome && DV.goHome(); DV.hud(); DV.save(); if (!ok && faint) DV.faint('ขาอ่อนทรุดลงกับพื้นกลางทาง…'); else DV.checkFaint && DV.checkFaint(); }, 500); };
+  window.GS.play({ id: G.id, bg, level: DV.scareLevel(), onReady: api => {
+    const card = api.say(`<h2>${G.name}!</h2><p>${G.line}</p>
+      <button data-c="run">🏃 วิ่งหนีกลับบ้าน!<small>มินิเกม · รอด = แรง −6 · ล้ม = แรง −35</small></button>
+      <button data-c="pray">🙏 ยกมือไหว้ ท่องคาถา<small>มินิเกมจำลำดับ · รอด = แรง −3 · ผิด = แรง −40${amulet ? ' · มีผ้ายันต์ ท่องสั้นลง' : prayed ? ' · ไหว้ศาลเมื่อเช้า ท่องสั้นลง' : ''}</small></button>
+      <button data-c="still">😶 ยืนนิ่ง กลั้นหายใจ<small>มินิเกมกดค้าง · รอด = แรง −5 · พลาด = แรง −40</small></button>`);
+    card.onclick = e => { const b = e.target.closest('button'); if (!b) return; api.hideSay(); const c = b.dataset.c;
+      if (c === 'run') MG.pick(['mash', 'dodge', 'arrows'], { key: 'ghostrun', dark: true, title: `${G.name}ไล่ตาม!`,
+          per: { mash: { need: 24, time: 5.5, sub: 'สลับกดซ้าย–ขวา วิ่งให้ถึงบ้าน!' }, dodge: { time: 8, lives: 3, obstacles: ['🌳', '🪨', '🐍', '🕸️', '🎋'], sub: 'วิ่งหนีในความมืด! แตะซ้าย/ขวา หลบสิ่งกีดขวาง' },
+            arrows: { n: 8, limit: 1050, sub: 'เลี้ยวหลบให้ทัน! กดลูกศรตามที่ขึ้น' } },
+          onEnd: sc => done(sc >= .7, 'วิ่งถึงบันไดบ้านทัน! หอบนิดหน่อย', 'ขาพันกันล้มกลางทาง… กว่าจะคลานถึงบ้านแรงหมด', 6, 35) });
+      else if (c === 'pray') MG.play('sequence', { dark: true, title: '🙏 ท่องคาถาให้ถูก', symbols: ['🙏', '📿', '🕯️', '🪷'], len: amulet || prayed ? 3 : 5, prompt: 'ท่องตามลำดับ… อย่าให้ผิด!',
+          onEnd: sc => done(sc >= .99, `ลมเย็นพัดผ่าน ${G.name}ค่อย ๆ จางหายไป`, 'ท่องผิดคำเดียว… เสียงหัวเราะดังอยู่ข้างหู', 3, 40) });
+      else MG.play('hold', { dark: true, title: '😶 กลั้นหายใจ… อย่าขยับ', rounds: 2, zone: .16, btn: 'กดค้าง = กลั้นหายใจ', sub: 'ปล่อยตอนแถบอยู่ในช่องเขียว',
+          onEnd: sc => done(sc >= .99, 'พอลืมตา ก็ไม่มีอะไรแล้ว…', 'มีมือเย็น ๆ แตะไหล่ ขาอ่อนจนทรุด', 5, 40) });
+    }; } });
+};
 
 // ================= daily hooks =================
 const morning = DV.onMorning;

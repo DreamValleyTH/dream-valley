@@ -587,7 +587,7 @@ function arrive() {
       if (kind === 'ghost' && S.amuletDay === S.day && Math.random() < .9) kind = 'none';          // ผ้ายันต์ไล่ผีได้ ไล่โจรไม่ได้
       else if (kind === 'ghost' && S.prayedDay === S.day && Math.random() < .6) kind = 'none';
       S.night.done = 1;
-      if (kind !== 'none') { player.onArrive = null; return DV.showCard(kind === 'ghost' ? DV.ghostCard() : DV.thiefCard()); }
+      if (kind !== 'none') { player.onArrive = null; if (kind === 'ghost' && DV.ghostScare) return DV.ghostScare(); return DV.showCard(kind === 'ghost' ? DV.ghostCard() : DV.thiefCard()); }
     }
   }
   DV.checkVisit && DV.checkVisit();
