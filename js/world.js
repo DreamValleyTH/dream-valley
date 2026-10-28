@@ -15,7 +15,7 @@ DV.P = P; DV.unP = unP;
 // ---------- canvas ----------
 const cv = $('game'), ctx = cv.getContext('2d');
 let dpr = 1, zoom = 2, VW = 0, VH = 0, uz = 1;   // uz = player pinch zoom
-const CROP_K = .68;
+const CROP_K = .55, DEBRIS_K = .6, DROP_PX = 16;   // proportions against the 57px player
 const camOff = { x: 0, y: 0 };                  // one-finger look-around offset (screen px)
 DV.camOff = camOff;
 function resize() {
@@ -676,12 +676,12 @@ function drawChar(e, sheet, feet) {
   if (!e.lift) shadow(ex, ey, 22);
   ctx.drawImage(im, col * 64, row * 64, 64, 64, Math.round(ex - 32), Math.round(ey - feet + dy - (e.lift || 0)), 64, 64);
 }
-function drawSpr(key, x, y, alpha, flip) {
+function drawSpr(key, x, y, alpha, flip, k) {
   const r = WORLD.atlas.rects[key]; if (!r) return;
-  const [sh, sx, sy, w, h] = r;
+  const [sh, sx, sy, w, h] = r, dw = k ? Math.round(w * k) : w, dh = k ? Math.round(h * k) : h;
   if (alpha != null) ctx.globalAlpha = alpha;
-  if (flip) { ctx.save(); ctx.translate(Math.round(x), 0); ctx.scale(-1, 1); ctx.drawImage(IMG['sheet' + sh], sx, sy, w, h, Math.round(-w / 2), Math.round(y - h), w, h); ctx.restore(); }
-  else ctx.drawImage(IMG['sheet' + sh], sx, sy, w, h, Math.round(x - w / 2), Math.round(y - h), w, h);
+  if (flip) { ctx.save(); ctx.translate(Math.round(x), 0); ctx.scale(-1, 1); ctx.drawImage(IMG['sheet' + sh], sx, sy, w, h, Math.round(-dw / 2), Math.round(y - dh), dw, dh); ctx.restore(); }
+  else ctx.drawImage(IMG['sheet' + sh], sx, sy, w, h, Math.round(x - dw / 2), Math.round(y - dh), dw, dh);
   if (alpha != null) ctx.globalAlpha = 1;
 }
 DV.drawSpr = drawSpr;
@@ -694,7 +694,11 @@ function render(dt) {
   camLift += (lift - camLift) * Math.min(1, dt * 8);
   if (DV.camMode === 'free') {   // free camera: the view stays put while the player walks
     if (lastPs) { camOff.x -= psx - lastPs[0]; camOff.y -= psy - lastPs[1]; }
-  } else if (player.path.length || player.moving) { const k = Math.min(1, dt * 4); camOff.x -= camOff.x * k; camOff.y -= camOff.y * k; }
+  } else if (player.path.length || player.moving) {   // follow: the view only moves when the player nears the edge (no snap back while walking to a task)
+    const bx = VW * .3, by = VH * .26, k = Math.min(1, dt * 6);
+    if (camOff.x > bx) camOff.x -= (camOff.x - bx) * k; else if (camOff.x < -bx) camOff.x -= (camOff.x + bx) * k;
+    if (camOff.y > by) camOff.y -= (camOff.y - by) * k; else if (camOff.y < -by) camOff.y -= (camOff.y + by) * k;
+  }
   lastPs = [psx, psy];
   const lim = (v, a, b) => Math.max(a, Math.min(b, v));
   camOff.x = lim(camOff.x, -PW, PW); camOff.y = lim(camOff.y, -PH, PH);
@@ -749,7 +753,7 @@ function render(dt) {
   const CELLS = S.map === 'farm' && ((DV.visitCells && DV.visitCells()) || S.cells);
   if (S.map === 'farm') for (const k in CELLS) {
     const c = CELLS[k]; const [x, y] = k.split(',').map(Number);
-    if (c.debris) { const key = WORLD.atlas.debris[c.debris]; const r = WORLD.atlas.rects[key]; const [dx, dy] = P(x * T + 16, y * T + 22); if (r) list.push({ y: depth(x * T + 16, y * T + 22), d: () => drawSpr(key, dx, dy + 4) }); }
+    if (c.debris) { const key = WORLD.atlas.debris[c.debris]; const r = WORLD.atlas.rects[key]; const [dx, dy] = P(x * T + 16, y * T + 22); if (r) list.push({ y: depth(x * T + 16, y * T + 22), d: () => drawSpr(key, dx, dy + 4, null, false, DEBRIS_K) }); }
     if (c.crop) {
       const cr = DV.CROPS[c.crop.k], bb = CROPMETA.crops[cr.row][c.crop.st], w = bb[2] - bb[0], h = bb[3] - bb[1];
       const sway = c.crop.st >= 2 ? Math.sin(now / 700 + x * 1.3 + y) * .6 : 0;
@@ -761,7 +765,7 @@ function render(dt) {
     }
   }
   (S.dropped && S.dropped[S.map] || []).filter(groundLive).forEach(d => { const [qx, qy] = P(d.x * T + 16, d.y * T + 18); const ic = DV.icon(DV.item(d.k).icon);
-    list.push({ y: depth(d.x * T + 16, d.y * T + 18), d: () => { shadow(qx, qy + 2, 16); ctx.drawImage(IMG.icons, (ic % 32) * 32, Math.floor(ic / 32) * 32, 32, 32, Math.round(qx - 12), Math.round(qy - 22 + Math.sin(now / 500 + d.x) * 1), 24, 24); } }); });
+    list.push({ y: depth(d.x * T + 16, d.y * T + 18), d: () => { shadow(qx, qy + 2, 11); ctx.drawImage(IMG.icons, (ic % 32) * 32, Math.floor(ic / 32) * 32, 32, 32, Math.round(qx - DROP_PX / 2), Math.round(qy - DROP_PX - 2 + Math.sin(now / 500 + d.x) * 1), DROP_PX, DROP_PX); } }); });
   for (const n of DV.npcsHere) list.push({ y: depth(n.x, n.y), d: () => { drawChar(n, n.id, (CMETA[n.id] || { feet: 60 }).feet); drawMark(n); } });
   list.push({ y: depth(player.x, player.y), d: () => drawChar(player, 'player_' + S.gender, (CMETA['player_' + S.gender] || { feet: 60 }).feet) });
   // friends on the call: drawn from their presence, eased towards the latest position

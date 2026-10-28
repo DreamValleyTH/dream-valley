@@ -247,6 +247,8 @@ addEventListener('keydown', e => {
   if (e.target.matches('input,textarea')) return;
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveNow(); return; }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); (e.shiftKey ? $('redo') : $('undo')).click(); return; }
+  if (e.key === 'Delete' || e.key === 'Backspace') {   // delete in any tool: the selected thing, or the one under the mouse
+    const o = sel || (mouseXY && hitObject(...mouseXY)); if (o) { e.preventDefault(); erase(o); } return; }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') { const o = sel || (mouseXY && hitObject(...mouseXY)); if (o) { e.preventDefault(); const keep = sel; sel = o; copySel(); sel = keep; } else toast('ชี้เมาส์ที่ของ หรือแตะเลือกของก่อนกด Ctrl+C'); return; }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v' && clip) { e.preventDefault(); if (!mouseCell) return toast('ชี้เมาส์บนแผนที่ตรงที่จะวาง'); const n = pasteAt(...mouseCell); if (n && tool === 'move') { sel = n; renderDock(); } return; }
   if (sel && tool === 'move') { const k = { ArrowUp: [0, -1], ArrowRight: [1, 0], ArrowDown: [0, 1], ArrowLeft: [-1, 0] }[e.key]; if (k) { e.preventDefault(); nudge(...k); } if (e.key.toLowerCase() === 'r') rotate(sel); }
@@ -602,12 +604,12 @@ function download(name, text) {
   try { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); return true; } catch (_) { return false; }
 }
 $('menuBtn').onclick = () => {
-  const m = sheet(`<h2>ตัวเลือก <small style="font-size:12px;color:var(--muted);font-weight:400">รุ่น 2.4</small></h2>
+  const m = sheet(`<h2>ตัวเลือก <small style="font-size:12px;color:var(--muted);font-weight:400">รุ่น 2.5</small></h2>
     <label class="tg"><input type="checkbox" data-o="ground" ${opts.ground ? 'checked' : ''}> แสดงภาพพื้นจากเกม (ปิด = วาดพื้นใหม่จากชุดลายทั้งแผ่น)</label>
     <label class="tg"><input type="checkbox" data-o="grid" ${opts.grid ? 'checked' : ''}> แสดงเส้นช่อง</label>
     <label class="tg"><input type="checkbox" data-o="doors" ${opts.doors ? 'checked' : ''}> แสดงจุดประตูและชื่อสถานที่</label>
     <div class="row"><label class="btn">นำเข้าไฟล์<input type="file" id="fi" accept=".json" hidden></label><button class="btn" id="rs">กลับไปผังต้นฉบับ</button><button class="btn" id="wipe" style="color:var(--danger)">🧹 ล้างแผนที่</button></div>
-    <p>เครื่องมือ: ✋ ย้าย (ลากของ หรือแตะของแล้วกดลูกศร) · ⟳ หมุน · ➕ วางของ · 🗑 ลบ · 🖌 ระบายพื้น · 📍 ย้ายประตู/จุดเกิด/บ้าน · 🎲 สุ่มของตามโซน · Ctrl+C ก๊อปของที่เลือกหรือที่เมาส์ชี้ · Ctrl+V วางตรงเมาส์ · 💾 บันทึก = เก็บในเครื่องนี้ (กดเองเท่านั้น) · ⬇ โหลดไฟล์แผนที่ = ไฟล์ไว้แนบให้ Claude · บนคอม: ลูกศรคีย์บอร์ดเลื่อน, R หมุน, Ctrl+Z ย้อน, Ctrl+S บันทึก</p>
+    <p>เครื่องมือ: ✋ ย้าย (ลากของ หรือแตะของแล้วกดลูกศร) · ⟳ หมุน · ➕ วางของ · 🗑 ลบ · 🖌 ระบายพื้น · 📍 ย้ายประตู/จุดเกิด/บ้าน · 🎲 สุ่มของตามโซน · Ctrl+C ก๊อปของที่เลือกหรือที่เมาส์ชี้ · Ctrl+V วางตรงเมาส์ · Delete ลบของที่เลือกหรือที่เมาส์ชี้ · 💾 บันทึก = เก็บในเครื่องนี้ (กดเองเท่านั้น) · ⬇ โหลดไฟล์แผนที่ = ไฟล์ไว้แนบให้ Claude · บนคอม: ลูกศรคีย์บอร์ดเลื่อน, R หมุน, Ctrl+Z ย้อน, Ctrl+S บันทึก</p>
     <button class="btn primary" id="cl">ปิด</button>`);
   m.querySelectorAll('[data-o]').forEach(i => i.onchange = () => { opts[i.dataset.o] = i.checked; smoothDirty = true; try { localStorage.setItem('dvmm_opts', JSON.stringify(opts)); } catch (_) {} dirty = true; });
   m.querySelector('#cl').onclick = () => m.remove();
