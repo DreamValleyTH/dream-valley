@@ -247,3 +247,6 @@ meta['debris'] = extra; meta['alt'] = alt
 json.dump(dict(maps=maps, atlas=meta), open(OUT + '/world.json', 'w'), ensure_ascii=False)
 # smaller downloads for phones
 import subprocess; subprocess.run([sys.executable, os.path.join(os.path.dirname(__file__), 'shrink_png.py'), f'{OUT}/farm_iso.png', f'{OUT}/town_iso.png'])
+# the game loads the world from data/world.js (works from file:// too) — keep it in step with world.json
+with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'world.js'), 'w', encoding='utf-8') as f:
+    f.write('window.DV_WORLD=' + json.dumps(json.load(open(OUT + '/world.json')), ensure_ascii=False, separators=(',', ':')) + ';\n')
