@@ -8,13 +8,13 @@ DV.CROPS = {
   corn: { name: 'ข้าวโพดหวาน', row: 2, regrow: -1 }, morning_glory: { name: 'ผักบุ้ง', row: 3, regrow: 2 },
 };
 const CROP_KEYS = Object.keys(DV.CROPS);
-const COST = { clear: 2, pick: 1, hoe: 2, plant: 1, water: 1, harvest: 1, refill: 1, fruit: 3, pods: 2, chop: 6, stump: 8, gather: 1 };
+const COST = { clear: 2, pick: 1, hoe: 2, plant: 1, water: 1, harvest: 1, refill: 1, fruit: 3, pods: 2, chop: 6, stump: 8, gather: 1, weeds: 3 };
 const TOOL = { hoe: 0, can: 1, sickle: 2, hand: 3, bucket: 4, axe: 5, saw: 6, rake: 7 };
 DV.TOOL = TOOL;
 const ic = n => ['icons', DV.icon(n)];
 
 // ---------- object kinds ----------
-const DECO = { pebble: 1, branch: 1, stump: 1, boulder: 1 };
+const DECO = { pebble: 1, branch: 1, stump: 1, boulder: 1, weeds: 1 };
 DV.tapOf = o => o.tap || null;
 const treeInfo = o => {
   const img = o.label || '';
@@ -24,7 +24,7 @@ const treeInfo = o => {
 };
 const treeState = o => S().trees[o.id] || (S().trees[o.id] = { fruitDay: -99, cutDay: 0 });
 const hasFruit = o => { const ti = treeInfo(o); return ti.fruit > 0 && S().day - treeState(o).fruitDay >= 3; };
-DV.objSprite = o => (o.tap === 'tree' && DV.S.map === 'farm' && treeInfo(o).fruit && !hasFruit(o)) ? WORLD.atlas.alt[treeInfo(o).bare] : o.s;
+DV.objSprite = o => (o.tap === 'coop' && DV.S.coopFixed) ? WORLD.atlas.alt.coop_fixed : (o.tap === 'tree' && DV.S.map === 'farm' && treeInfo(o).fruit && !hasFruit(o)) ? WORLD.atlas.alt[treeInfo(o).bare] : o.s;
 
 DV.costLabel = (e, n = 1) => e ? `แรง −${e * n}` : 'ไม่ใช้แรง';
 const cellOf = o => o.block.length ? o.block[0] : [Math.floor(o.x / T), Math.floor((o.y - 2) / T)];
@@ -65,6 +65,13 @@ function openDeco(o, kind) {
     { label: 'ผ่าตอไม้', icon: ['tools', TOOL.axe], cost: COST.stump, run: () => { let mush = false; DV.doAction({ energy: COST.stump, tool: TOOL.axe, fx: 'wood',
       targets: [cellOf(o)], apply: () => { DV.addItem('wood', 3); DV.stat('wood', 3); DV.gainForage(2); if (Math.random() < 0.4) { DV.addItem('mushroom', 2); mush = true; } },
       after: () => done(99999, mush ? 'ได้ไม้ฟืน 3 มัด + เห็ดโคนไม้ 2 ดอก!' : 'ได้ไม้ฟืน 3 มัด')() }); } }], spr);
+  if (kind === 'weeds') return DV.openSheet('กอหญ้ารก', 'หญ้าขึ้นรกตั้งแต่ยายไม่สบาย ถางออกแล้วที่ตรงนี้จะโล่ง', null, [
+    { label: 'ถางหญ้า', icon: ['tools', TOOL.sickle], cost: COST.weeds, run: () => DV.doAction({ energy: COST.weeds, tool: TOOL.sickle, fx: 'grass',
+      targets: [cellOf(o)], apply: () => { DV.stat('cleared'); if (Math.random() < .25) DV.addItem('worm'); }, after: done(99999, 'ถางแล้ว ที่ตรงนี้โล่งขึ้น') }) },
+    ...(() => { const n = DV.M.objects.filter(q => q.tap === 'weeds' && !(S().gone[q.id] > S().day)).length; return n > 1 ? [{ label: `ถางกอหญ้าทั้งหมด (${n} กอ)`, icon: ['tools', TOOL.sickle], cost: COST.weeds, n,
+      run: () => { const L = DV.M.objects.filter(q => q.tap === 'weeds' && !(S().gone[q.id] > S().day));
+        DV.doAction({ energy: COST.weeds * L.length, tool: TOOL.sickle, fx: 'grass', targets: L.map(cellOf), apply: () => DV.stat('cleared'),
+          after: () => { L.forEach(q => { S().gone[q.id] = 99999; }); DV.rebuildBlocked(); DV.toast(`ถางหญ้ารก ${L.length} กอ ฟาร์มโล่งขึ้นเยอะ`); } }); } }] : []; })()], spr);
   if (kind === 'boulder') return DV.openSheet('หินก้อนใหญ่', 'ต้องใช้ค้อนปอนด์ (ยังไม่มีขาย)', null, [{ info: true, label: 'มือเปล่ายกไม่ไหว' }], spr);
 }
 DV.openObject = o => {
@@ -104,6 +111,15 @@ DV.openObject = o => {
   if (t === 'bundle') return DV.openSheet('ห่อผ้าเก่า', 'ผ้าขาวม้าคลุมของบางอย่างไว้', null, [
     { label: 'เปิดดู', icon: ['ui', 'use'], disabled: s.flags.bundleOpened && 'เปิดแล้ว',
       run: () => { s.flags.bundleOpened = 1; DV.closeSheet(); DV.addItem('marble'); DV.addItem('lottery_ticket'); DV.toast('ข้างในมีลูกแก้วของเล่นตอนเด็ก กับสลากเก่าหนึ่งใบ… ยายเก็บไว้ทำไมนะ'); DV.save(); } }]);
+  if (t === 'coop') {
+    if (s.coopFixed) return DV.openSheet('เล้าไก่', 'ซ่อมเสร็จแล้ว หลังคาไม่รั่ว ตาข่ายแน่นหนา · รอไก่มาอยู่', null, [{ info: true, label: 'เร็ว ๆ นี้: ซื้อลูกไก่จากตลาดนัดมาเลี้ยง' }], { spr: DV.objSprite(o) });
+    const wood = (s.items && s.items.wood) || 0, cost = 300, need = 5;
+    return DV.openSheet('เล้าไก่พัง', 'หลังคาสังกะสีรั่ว ไม้ผุ ตาข่ายขาด · ต้องซ่อมก่อนถึงจะเลี้ยงไก่ได้', null, [
+      { label: 'ซ่อมเล้าไก่', icon: ['tools', TOOL.saw], cost: 30, extra: `ไม้ฟืน ${need} มัด + ฿${cost} ค่าสังกะสี/ตาข่าย`,
+        disabled: (wood < need && `ไม้ไม่พอ (มี ${wood}/${need} · เก็บกิ่งไม้ ผ่าตอไม้)`) || (s.money < cost && `เงินไม่พอ (ต้องมี ฿${cost})`),
+        run: () => DV.doAction({ energy: 30, tool: TOOL.saw, fx: 'wood', targets: [cellOf(o)], apply: () => { s.items.wood -= need; s.money -= cost; s.coopFixed = s.day; },
+          after: () => { DV.toast('ซ่อมเล้าไก่เสร็จแล้ว! หลังคาใหม่ ตาข่ายใหม่'); DV.sfx('spark'); DV.hud(); } }) }], { spr: o.s });
+  }
   if (t === 'bench') return DV.openSheet('ม้านั่งไม้', 'ที่ยายชอบนั่งดูแปลงผักตอนเย็น', null, [
     { label: 'นั่งพัก', icon: ic('food_water'), extra: 'แรงฟื้นเร็วกว่ายืน', run: () => { DV.closeSheet(); DV.sitDown('บนม้านั่ง', [o.x, o.y + 1], 11); } }], { spr: o.s });
   if (t === 'pump') return DV.openSheet('ปั๊มน้ำโยก', `บัวรดน้ำ ${s.water}/${DV.CAN_MAX}`, null, [

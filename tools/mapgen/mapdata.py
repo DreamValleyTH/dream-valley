@@ -26,7 +26,7 @@ ART_B = os.environ.get('ART_B', '/mnt/user-data/uploads/Dream_Valley/art_b')
 PLANTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'assets_src', 'plants')
 ANIMALS = '/home/claude/artsrc/animals_all'
 
-TERRAIN = {'.': 'grass', 'a': 'asphalt', 'c': 'concrete', 'l': 'laterite', 'p': 'path', 'y': 'yard', 's': 'sand', 'w': 'water', 'r': 'paddy', 'g': 'plotbed'}
+TERRAIN = {'.': 'grass', 'a': 'asphalt', 'c': 'concrete', 'l': 'laterite', 'p': 'path', 'y': 'yard', 's': 'sand', 'v': 'gravel', 'w': 'water', 'r': 'paddy', 'g': 'plotbed'}
 WALK_BLOCK = {'w'}            # terrain that blocks walking (paddies are walkable along the bunds — kept open on purpose)
 ORDER = ['paddy', 'plotbed', 'yard', 'sand', 'path', 'laterite', 'concrete', 'asphalt', 'water']   # Back first, Paths later
 
@@ -78,12 +78,24 @@ CATALOG = {c['k']: c for c in [
     _p('buffalo', 'ควาย', f'{ANIMALS}/buffalo/Idle/rotations/south-east.png', (2, 1), cat='animal'),
 ]}
 
+# ---- grandma's farm kit (sprites cut from the hand-built farm) + the v1.0 farm art (PixelLab, same style) ----
+_HERE = os.path.dirname(os.path.abspath(__file__))
+try:
+    for _k, _c in json.load(open(os.path.join(_HERE, 'farmkit', 'catalog.json'))).items():
+        CATALOG[_k] = dict(_c, k=_k, src=os.path.join(_HERE, 'farmkit', _k + '.png'))
+except FileNotFoundError: pass
+_A2 = os.path.join(_HERE, 'art2')
+for _k, _n, _fp, _iso, _blk in [('coop_broken', 'เล้าไก่ (พัง)', (3, 3), True, True), ('fish_cage', 'กระชังปลา', (2, 2), True, False),
+                                ('farm_gate', 'ประตูรั้วไม้', (2, 1), True, False)] + [(f'weeds_{i}', 'กอหญ้ารก', (1, 1), False, True) for i in range(8)]:
+    CATALOG[_k] = dict(k=_k, name=_n, cat='farm', src=os.path.join(_A2, _k + '.png'), iso=_iso, fp=list(_fp), block=_blk, shadow='prop', dy=2)
+
 def load_img(c, flip=False):
     im = Image.open(c['src']).convert('RGBA'); bb = im.getbbox(); im = im.crop(bb) if bb else im
     return im.transpose(Image.FLIP_LEFT_RIGHT) if flip else im
 
 def catalog_json():
-    return {k: dict(name=c['name'], cat=c['cat'], fp=c['fp'], iso=c['iso']) for k, c in CATALOG.items()}
+    keep = ('name', 'cat', 'fp', 'iso', 'block', 'dy', 'corner', 'ax', 'ay', 'shadow')
+    return {k: {kk: v for kk, v in c.items() if kk in keep} for k, c in CATALOG.items()}
 
 KIND2CODE = {k: c for c, k in TERRAIN.items()}
 
@@ -131,7 +143,16 @@ def build_world(data, World, T=32):
     W, H = data['W'], data['H']
     w = World(data['name'], W, H, seed=data.get('seed', 7))
     grid = np.array([list(r.ljust(W, '.')[:W]) for r in data['terrain']])
-    add_terrain(w, grid, T)
+    if data.get('mg'): w.MG = data['mg']
+    if data.get('plot'): w.plot = list(data['plot'])
+    if data.get('tiles'):   # v1.0: ground from PixelLab Wang tile sets on a dual grid (see tiles.py)
+        import tiles
+        w.tile_layers = tiles.compose(grid)
+        for code, kind in TERRAIN.items():   # cell masks still drive walking / water / decal rules
+            cm = grid == code
+            if cm.any() and kind != 'grass': w.add_surface(kind, np.kron(cm, np.ones((T, T), bool)))
+    else:
+        add_terrain(w, grid, T)
     w.dash_lines = data.get('lines', [])
     # walk mask: water + everything outside the playable rectangle
     x0, y0, x1, y1 = data['play']

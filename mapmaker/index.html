@@ -141,9 +141,9 @@ aside{grid-area:side;background:var(--panel);border-top:1px solid var(--line);di
 'use strict';
 const $ = id => document.getElementById(id);
 const T = 32, K = .75, MAP_NAMES = { town: 'ใจกลางตำบล', farm: 'ฟาร์มยาย' };
-const TERR_COL = { '.': '#8db84c', a: '#57575b', c: '#c9c3b2', l: '#d5703c', p: '#b39466', y: '#c68a55', s: '#e6d3a3', w: '#4b95a6', r: '#a3c058', g: '#7a5434' };
-const TERR_ORDER = ['.', 'r', 'g', 'y', 's', 'p', 'l', 'c', 'a', 'w'];   // back first, roads and water last (as the game builds it)
-const TERR_NAME = { '.': 'หญ้า', a: 'ถนนลาดยาง', c: 'ทางคอนกรีต', l: 'ดินลูกรัง', p: 'ทางเดินดิน', y: 'ลานดินบ้าน', s: 'ทรายลานวัด', w: 'น้ำ / คลอง', r: 'นาข้าว', g: 'แปลงผัก' };
+const TERR_COL = { '.': '#8db84c', a: '#57575b', c: '#c9c3b2', l: '#d5703c', p: '#b39466', y: '#c68a55', s: '#e6d3a3', v: '#c9cbc6', w: '#4b95a6', r: '#a3c058', g: '#7a5434' };
+const TERR_ORDER = ['.', 'r', 'g', 'y', 's', 'v', 'p', 'l', 'c', 'a', 'w'];   // back first, roads and water last (as the game builds it)
+const TERR_NAME = { '.': 'หญ้า', a: 'ถนนลาดยาง', c: 'ทางคอนกรีต', l: 'ดินลูกรัง', p: 'ทางเดินดิน', v: 'ทางกรวด', y: 'ลานดินบ้าน', s: 'ทรายลานวัด', w: 'น้ำ / คลอง', r: 'นาข้าว', g: 'แปลงผัก' };
 const CAT_NAME = { farm: 'ของในฟาร์ม', building: 'อาคาร', tree: 'ต้นไม้', prop: 'ของตกแต่ง', animal: 'สัตว์' };
 const HINT = {
   move: '<b>ย้าย:</b> ลากของไปวางได้เลย หรือแตะของแล้วกดลูกศรเลื่อนทีละช่อง · ลากที่ว่างเพื่อเลื่อนดูแผนที่',
@@ -184,6 +184,7 @@ async function boot() {
   for (const k in IMG) { const im = IMG[k]; if (!im) continue; const c = document.createElement('canvas'); c.width = im.width; c.height = im.height; const x = c.getContext('2d'); x.drawImage(im, 0, 0); ALPHA[k] = x.getImageData(0, 0, im.width, im.height).data; }
   try { const m = localStorage.getItem('dvmm_last'); if (m && MAP_NAMES[m]) mapName = m; } catch (_) {}
   $('mapSel').value = mapName;
+  await loadTiles();
   await loadMap(mapName);
   loop();
 }
@@ -192,9 +193,11 @@ async function loadMap(name) {
   mapName = name; try { localStorage.setItem('dvmm_last', name); } catch (_) {}
   palTab = name === 'farm' ? 'farm' : 'building';
   let local = null; try { local = JSON.parse(localStorage.getItem('dvmm_' + name) || 'null'); } catch (_) {}
-  MAP = local || await fetch(`maps/${name}.json`).then(r => r.json());
+  const base = await fetch(`maps/${name}.json`, { cache: 'no-cache' }).then(r => r.json());
+  if (local && (local.rev || 0) !== (base.rev || 0)) local = null;   // Claude rebuilt this map: older saved edits no longer fit
+  MAP = local || base;
   GROUND = await loadImg(`maps/${name}_ground.png`);
-  try { ORIG = (await fetch(`maps/${name}.json`).then(r => r.json())).terrain; } catch (_) { ORIG = null; }
+  ORIG = base.terrain.slice();   // a copy: painting edits MAP.terrain in place
   smoothDirty = true;
   undo = []; redo = []; sel = null; fit(); markUnsaved(false); setSave(local ? 'ฉบับที่บันทึกในเครื่องนี้' : 'ผังจาก Claude');
   renderTools(); buildPalette(); renderDock();
@@ -264,11 +267,39 @@ function blurMask(cells, W, H, rad) {   // 1px-per-cell mask -> SCx, blurred, th
   for (let i = 3; i < q.length; i += 4) q[i] = q[i] > 92 ? 255 : 0;   // threshold just under half keeps 1-cell lanes connected
   bx.putImageData(d, 0, 0); return b;
 }
+let TILES = null;   // PixelLab tile sets (same as the game) for maps built from tiles
+async function loadTiles() {
+  try { const j = await fetch('mapkit/tiles.json').then(r => r.json()); const sheets = {};
+    await Promise.all(Object.keys(j.tiles).map(async n => { sheets[n] = await loadImg(`mapkit/tiles/${n}.png`); }));
+    j.sheets = sheets; j.grass = await loadImg('mapkit/tiles/grass.png'); TILES = j; smoothDirty = true; dirty = true; } catch (_) {}
+}
+const thash = (x, y, salt) => { const h = x * 31 + y * 17 + salt * 7; return (h * h + x * y) % 9973; };
+function buildTiles(changed) {   // exactly the game's dual-grid layout, drawn top-down at 32px per cell
+  const W = MAP.W, H = MAP.H, t = MAP.terrain, out = document.createElement('canvas'); out.width = W * 32; out.height = H * 32;
+  const ox = out.getContext('2d'); ox.fillStyle = ox.createPattern(TILES.grass, 'repeat'); ox.fillRect(0, 0, out.width, out.height);
+  const at = (x, y) => t[Math.max(0, Math.min(H - 1, y))][Math.max(0, Math.min(W - 1, x))] || '.';
+  TILES.order.forEach((code, si) => {
+    const sets = TILES.sets[code]; if (!sets) return;
+    for (let vy = 0; vy <= H; vy++) for (let vx = 0; vx <= W; vx++) {
+      const nw = at(vx - 1, vy - 1) === code, ne = at(vx, vy - 1) === code, sw = at(vx - 1, vy) === code, se = at(vx, vy) === code;
+      if (!(nw || ne || sw || se)) continue;
+      const name = sets[thash(vx, vy, si) % sets.length], key = [nw, ne, sw, se].map(b => b ? '1' : '0').join(''), i = TILES.tiles[name].indexOf(key);
+      if (i >= 0 && TILES.sheets[name]) ox.drawImage(TILES.sheets[name], i * 32, 0, 32, 32, vx * 32 - 16, vy * 32 - 16, 32, 32);
+    }
+  });
+  if (opts.ground && GROUND && ORIG) {   // over the game picture: only the edited cells (+1 around) are redrawn
+    const m = document.createElement('canvas'); m.width = out.width; m.height = out.height; const mx = m.getContext('2d'); mx.fillStyle = '#000';
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (changed[y * W + x]) mx.fillRect(x * 32 - 32, y * 32 - 32, 96, 96);
+    ox.globalCompositeOperation = 'destination-in'; ox.drawImage(m, 0, 0); ox.globalCompositeOperation = 'source-over';
+  }
+  SMOOTH = out; SMOOTH.sc = 32;
+}
 function buildSmooth() {
   smoothDirty = false; const W = MAP.W, H = MAP.H, t = MAP.terrain;
   const changed = new Uint8Array(W * H); let any = false;
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (!ORIG || !ORIG[y] || ORIG[y][x] !== t[y][x]) { changed[y * W + x] = 1; any = true; }
   if (!any && opts.ground && GROUND) { SMOOTH = null; return; }
+  if (MAP.tiles && TILES) return buildTiles(changed);
   const out = document.createElement('canvas'); out.width = W * SC; out.height = H * SC; const ox = out.getContext('2d');
   for (const code of TERR_ORDER) {
     const cells = new Uint8Array(W * H); let has = false;
@@ -286,12 +317,12 @@ function buildSmooth() {
     mx.filter = 'blur(3px)'; mx.drawImage(cm, 0, 0); mx.filter = 'none';
     ox.globalCompositeOperation = 'destination-in'; ox.drawImage(cm, 0, 0); ox.globalCompositeOperation = 'source-over';
   }
-  SMOOTH = out;
+  SMOOTH = out; SMOOTH.sc = SC;
 }
 function drawGround() {
   if (smoothDirty) buildSmooth();
   if (opts.ground && GROUND) ctx.drawImage(GROUND, 0, 0);
-  if (SMOOTH) { ctx.save(); ctx.transform(K * T / SC, K / 2 * T / SC, -K * T / SC, K / 2 * T / SC, OX(), OY()); ctx.imageSmoothingEnabled = true; ctx.drawImage(SMOOTH, 0, 0); ctx.restore(); }
+  if (SMOOTH) { const sc = SMOOTH.sc || SC; ctx.save(); ctx.transform(K * T / sc, K / 2 * T / sc, -K * T / sc, K / 2 * T / sc, OX(), OY()); ctx.imageSmoothingEnabled = true; ctx.drawImage(SMOOTH, 0, 0); ctx.restore(); }
 }
 // ---------- drawing ----------
 function diamond(x, y) { const c = [[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1]].map(([a, b]) => P(a * T, b * T)); ctx.beginPath(); ctx.moveTo(...c[0]); for (const q of c.slice(1)) ctx.lineTo(...q); ctx.closePath(); }
@@ -463,7 +494,7 @@ function download(name, text) {
   try { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); return true; } catch (_) { return false; }
 }
 $('menuBtn').onclick = () => {
-  const m = sheet(`<h2>ตัวเลือก <small style="font-size:12px;color:var(--muted);font-weight:400">รุ่น 1.5</small></h2>
+  const m = sheet(`<h2>ตัวเลือก <small style="font-size:12px;color:var(--muted);font-weight:400">รุ่น 2.0</small></h2>
     <label class="tg"><input type="checkbox" data-o="ground" ${opts.ground ? 'checked' : ''}> แสดงภาพพื้นจากเกม (ปิด = เห็นพื้นเป็นสีตามชนิด)</label>
     <label class="tg"><input type="checkbox" data-o="grid" ${opts.grid ? 'checked' : ''}> แสดงเส้นช่อง</label>
     <label class="tg"><input type="checkbox" data-o="doors" ${opts.doors ? 'checked' : ''}> แสดงจุดประตูและชื่อสถานที่</label>
@@ -479,6 +510,7 @@ $('dlBtn').onclick = () => {   // the map file to keep or attach in the chat for
   const ok = download(`dreamvalley_${mapName}.json`, JSON.stringify(MAP));
   toast(ok ? 'โหลดไฟล์แผนที่แล้ว · แนบไฟล์นี้ในแชทให้ Claude ได้เลย' : 'โหลดไฟล์ไม่ได้');
 };
+window.__mm = { get MAP() { return MAP; }, get SMOOTH() { return SMOOTH; }, get TILES() { return TILES; }, get ORIG() { return ORIG; } };
 boot();
 })();
 </script>

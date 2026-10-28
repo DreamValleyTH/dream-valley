@@ -113,7 +113,7 @@ class World:
         if kind in ('laterite', 'asphalt', 'path'):
             self.road_mask = (getattr(self, 'road_mask', None) if getattr(self, 'road_mask', None) is not None else np.zeros_like(m)) | m
         self.no_decal |= ndimage.binary_dilation(m, iterations=6)
-        if kind in ('laterite', 'path', 'asphalt', 'concrete', 'sand', 'yard'):
+        if kind in ('laterite', 'path', 'asphalt', 'concrete', 'sand', 'yard', 'gravel'):
             self.walk_bonus[self.cells_of(m, .4)] = 1
         if kind == 'water':
             c = self.cells_of(m, .35); self.water |= c; self.blocked[c] = 1
@@ -200,7 +200,9 @@ class World:
             band = (d > 0) & (d <= width)
             return band, amount
 
+        TL = getattr(self, 'tile_layers', None)
         for kind, m in self.surfaces:
+            if TL is not None and kind != 'paddy': continue   # tile mode: the tile sets draw every surface except paddies
             if kind in ('laterite', 'path'):
                 base = tex(f'{ART_B}/tiles/dirt_laterite.png', PW, PH, 5 if kind == 'laterite' else 40, 3)
                 fill = grade(base, (1.02, .80, .72), (6, 0, -6)) if kind == 'laterite' else grade(base, (.66, .62, .58), (40, 30, 16))
@@ -276,6 +278,9 @@ class World:
                 img[bank] = np.array([104, 78, 48.])
                 img[(~m) & (dout > 4) & (dout <= 5)] = np.array([70, 52, 32.])
                 img[m & (din <= 1)] = np.array([54, 42, 28.])
+        if TL is not None:
+            a = TL[..., 3:4].astype(float) / 255
+            img = img * (1 - a) + TL[..., :3].astype(float) * a
         self.ground_np = img.copy()
         # baked shadows (multiply toward the reference's deep green-brown)
         s = np.clip(self.shadow * 1.6, 0, 1)[..., None]

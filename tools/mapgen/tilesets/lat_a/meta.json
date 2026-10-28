@@ -1,0 +1,162 @@
+[
+ {
+  "i": 0,
+  "name": "wang_13",
+  "corners": {
+   "NW": "upper",
+   "NE": "upper",
+   "SW": "lower",
+   "SE": "upper"
+  }
+ },
+ {
+  "i": 1,
+  "name": "wang_10",
+  "corners": {
+   "NW": "upper",
+   "NE": "lower",
+   "SW": "upper",
+   "SE": "lower"
+  }
+ },
+ {
+  "i": 2,
+  "name": "wang_4",
+  "corners": {
+   "NW": "lower",
+   "NE": "upper",
+   "SW": "lower",
+   "SE": "lower"
+  }
+ },
+ {
+  "i": 3,
+  "name": "wang_12",
+  "corners": {
+   "NW": "upper",
+   "NE": "upper",
+   "SW": "lower",
+   "SE": "lower"
+  }
+ },
+ {
+  "i": 4,
+  "name": "wang_6",
+  "corners": {
+   "NW": "lower",
+   "NE": "upper",
+   "SW": "upper",
+   "SE": "lower"
+  }
+ },
+ {
+  "i": 5,
+  "name": "wang_8",
+  "corners": {
+   "NW": "upper",
+   "NE": "lower",
+   "SW": "lower",
+   "SE": "lower"
+  }
+ },
+ {
+  "i": 6,
+  "name": "wang_0",
+  "corners": {
+   "NW": "lower",
+   "NE": "lower",
+   "SW": "lower",
+   "SE": "lower"
+  }
+ },
+ {
+  "i": 7,
+  "name": "wang_1",
+  "corners": {
+   "NW": "lower",
+   "NE": "lower",
+   "SW": "lower",
+   "SE": "upper"
+  }
+ },
+ {
+  "i": 8,
+  "name": "wang_11",
+  "corners": {
+   "NW": "upper",
+   "NE": "lower",
+   "SW": "upper",
+   "SE": "upper"
+  }
+ },
+ {
+  "i": 9,
+  "name": "wang_3",
+  "corners": {
+   "NW": "lower",
+   "NE": "lower",
+   "SW": "upper",
+   "SE": "upper"
+  }
+ },
+ {
+  "i": 10,
+  "name": "wang_2",
+  "corners": {
+   "NW": "lower",
+   "NE": "lower",
+   "SW": "upper",
+   "SE": "lower"
+  }
+ },
+ {
+  "i": 11,
+  "name": "wang_5",
+  "corners": {
+   "NW": "lower",
+   "NE": "upper",
+   "SW": "lower",
+   "SE": "upper"
+  }
+ },
+ {
+  "i": 12,
+  "name": "wang_15",
+  "corners": {
+   "NW": "upper",
+   "NE": "upper",
+   "SW": "upper",
+   "SE": "upper"
+  }
+ },
+ {
+  "i": 13,
+  "name": "wang_14",
+  "corners": {
+   "NW": "upper",
+   "NE": "upper",
+   "SW": "upper",
+   "SE": "lower"
+  }
+ },
+ {
+  "i": 14,
+  "name": "wang_9",
+  "corners": {
+   "NW": "upper",
+   "NE": "lower",
+   "SW": "lower",
+   "SE": "upper"
+  }
+ },
+ {
+  "i": 15,
+  "name": "wang_7",
+  "corners": {
+   "NW": "lower",
+   "NE": "upper",
+   "SW": "upper",
+   "SE": "upper"
+  }
+ }
+]

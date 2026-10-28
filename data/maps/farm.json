@@ -1,1 +1,1028 @@
-{"name": "farm", "W": 32, "H": 24, "play": [0, 0, 32, 24], "seed": 3, "kit": "farm", "terrain": ["................................", "................................", "................................", ".......................wwwwww...", "......................wwwwwwww..", ".......................wwwwwww..", "..yyyyyyyy.....p.......wwwwwww..", ".yyyyyyyyyy....p.......ww.wwww..", ".yyyyyyyyyyy...p................", ".yyyyyyyyyyylllp.........p......", "...yyyyyyppllllpll......p.......", "..........p..llllll.....p.......", "..........p......lll...pp.......", "..................lll..p........", "...................lll.p........", "....................ll..........", "....................lll.........", ".....................ll.........", ".....................lll........", ".....................ll.........", ".....................lll........", ".....................lll........", ".....................lll........", ".....................lll........"], "objects": [{"id": "house", "k": "f_house", "x": 3, "y": 4, "flip": 0, "label": "บ้านยาย"}, {"id": "jar", "k": "f_jar", "x": 8, "y": 6, "flip": 0}, {"id": "firewood", "k": "f_firewood", "x": 2, "y": 6, "flip": 0}, {"id": "jars", "k": "f_jars", "x": 2, "y": 5, "flip": 0}, {"id": "clothesline", "k": "f_clothesline", "x": 4, "y": 9, "flip": 0}, {"id": "bike", "k": "f_bike", "x": 7, "y": 7, "flip": 0}, {"id": "cart", "k": "f_cart", "x": 1, "y": 9, "flip": 0}, {"id": "stove", "k": "f_stove", "x": 3, "y": 7, "flip": 0}, {"id": "spirit", "k": "f_spirit", "x": 11, "y": 7, "flip": 0}, {"id": "doghouse", "k": "f_doghouse", "x": 1, "y": 11, "flip": 0}, {"id": "compost", "k": "f_compost", "x": 8, "y": 16, "flip": 0}, {"id": "pump", "k": "f_pump", "x": 10, "y": 12, "flip": 0}, {"id": "hose", "k": "f_hose", "x": 9, "y": 12, "flip": 0}, {"id": "fb0", "k": "f_fb", "x": 10, "y": 18, "flip": 0}, {"id": "fb1", "k": "f_fb", "x": 11, "y": 18, "flip": 0}, {"id": "fb2", "k": "f_fb", "x": 12, "y": 18, "flip": 0}, {"id": "fb3", "k": "f_fb", "x": 13, "y": 18, "flip": 0}, {"id": "fb4", "k": "f_fb", "x": 14, "y": 18, "flip": 0}, {"id": "fb5", "k": "f_fb", "x": 15, "y": 18, "flip": 0}, {"id": "fb6", "k": "f_fb", "x": 16, "y": 18, "flip": 0}, {"id": "fb7", "k": "f_fb", "x": 17, "y": 18, "flip": 0}, {"id": "fb8", "k": "f_fb", "x": 18, "y": 18, "flip": 0}, {"id": "fb9", "k": "f_fb", "x": 19, "y": 18, "flip": 0}, {"id": "fl13", "k": "f_fl", "x": 10, "y": 13, "flip": 0}, {"id": "fl14", "k": "f_fl", "x": 10, "y": 14, "flip": 0}, {"id": "fl15", "k": "f_fl", "x": 10, "y": 15, "flip": 0}, {"id": "fl16", "k": "f_fl", "x": 10, "y": 16, "flip": 0}, {"id": "fl17", "k": "f_fl", "x": 10, "y": 17, "flip": 0}, {"id": "scarecrow", "k": "f_scarecrow", "x": 19, "y": 13, "flip": 0}, {"id": "haystack", "k": "f_haystack", "x": 20, "y": 16, "flip": 0}, {"id": "sacks", "k": "f_sacks", "x": 19, "y": 17, "flip": 0}, {"id": "tree1", "k": "f_tree_mango_fruit_mid", "x": 12, "y": 3, "flip": 0}, {"id": "tree0", "k": "f_tree_mango", "x": 16, "y": 2, "flip": 0}, {"id": "tree3", "k": "f_tree_mango_fruit_few", "x": 19, "y": 4, "flip": 0}, {"id": "tree2", "k": "f_tree_mango", "x": 9, "y": 2, "flip": 0, "ax": 25, "ay": 38}, {"id": "tree4", "k": "f_tree_tamarind_pods", "x": 26, "y": 10, "flip": 0}, {"id": "tree6", "k": "f_tree_mango_fruit_full", "x": 29, "y": 14, "flip": 0}, {"id": "tree5", "k": "f_tree_tamarind", "x": 4, "y": 15, "flip": 0}, {"id": "tree7", "k": "f_tree_mango", "x": 27, "y": 20, "flip": 0, "ax": 19, "ay": 32}, {"id": "bench", "k": "f_bench", "x": 25, "y": 9, "flip": 0}, {"id": "mailbox", "k": "f_mailbox", "x": 24, "y": 20, "flip": 0}, {"id": "lotus1", "k": "f_lotus", "x": 26, "y": 5, "flip": 0}, {"id": "lotus2", "k": "f_lotus_2", "x": 28, "y": 7, "flip": 0}, {"id": "reeds1", "k": "f_reeds", "x": 23, "y": 6, "flip": 0}, {"id": "reeds2", "k": "f_reeds_2", "x": 29, "y": 4, "flip": 0}, {"id": "stake", "k": "f_stake", "x": 25, "y": 3, "flip": 0}, {"id": "bam0.7", "k": "f_bam", "x": 0, "y": 0, "flip": 0}, {"id": "bam2.6", "k": "f_bam", "x": 2, "y": 0, "flip": 0, "ax": 19, "ay": 44}, {"id": "bam4.9", "k": "f_bam", "x": 4, "y": 0, "flip": 0, "ax": 28, "ay": 47}, {"id": "bam7.2", "k": "f_bam", "x": 7, "y": 0, "flip": 0, "ax": 6, "ay": 51}, {"id": "bam13.8", "k": "f_bam_2", "x": 13, "y": 0, "flip": 0}, {"id": "bam21.6", "k": "f_bam", "x": 21, "y": 0, "flip": 0, "ax": 19, "ay": 42}, {"id": "bam23.9", "k": "f_bam_2", "x": 23, "y": 0, "flip": 0, "ax": 28, "ay": 47}, {"id": "bam30.9", "k": "f_bam_2", "x": 30, "y": 0, "flip": 0, "ax": 28, "ay": 52}, {"id": "ban3.2", "k": "f_ban", "x": 0, "y": 2, "flip": 0}, {"id": "ban6.8", "k": "f_ban", "x": 0, "y": 5, "flip": 0, "ax": 25, "ay": 57}, {"id": "ban14.3", "k": "f_ban_2", "x": 0, "y": 13, "flip": 0}, {"id": "ban19.4", "k": "f_ban_2", "x": 0, "y": 18, "flip": 0, "ax": 25, "ay": 44}, {"id": "ban22.6", "k": "f_ban_2", "x": 0, "y": 21, "flip": 0, "ax": 25, "ay": 51}, {"id": "banr9.0", "k": "f_ban", "x": 31, "y": 8, "flip": 0, "ax": 6, "ay": 32}, {"id": "banr12.4", "k": "f_ban", "x": 31, "y": 11, "flip": 0, "ax": 6, "ay": 44}, {"id": "banr18.2", "k": "f_ban", "x": 31, "y": 17, "flip": 0, "ax": 6, "ay": 38}, {"id": "hedge0", "k": "f_hedge", "x": 0, "y": 23, "flip": 0}, {"id": "hedge1", "k": "f_hedge", "x": 2, "y": 23, "flip": 0}, {"id": "hedge2", "k": "f_hedge", "x": 4, "y": 23, "flip": 0}, {"id": "hedge3", "k": "f_hedge", "x": 6, "y": 23, "flip": 0}, {"id": "hedge4", "k": "f_hedge", "x": 8, "y": 23, "flip": 0}, {"id": "hedge5", "k": "f_hedge", "x": 10, "y": 23, "flip": 0}, {"id": "hedge6", "k": "f_hedge", "x": 12, "y": 23, "flip": 0}, {"id": "hedge7", "k": "f_hedge", "x": 14, "y": 23, "flip": 0}, {"id": "hedge8", "k": "f_hedge", "x": 16, "y": 23, "flip": 0}, {"id": "hedge9", "k": "f_hedge", "x": 18, "y": 23, "flip": 0}, {"id": "hedge12", "k": "f_hedge", "x": 24, "y": 23, "flip": 0}, {"id": "hedge13", "k": "f_hedge", "x": 26, "y": 23, "flip": 0}, {"id": "hedge14", "k": "f_hedge", "x": 28, "y": 23, "flip": 0}, {"id": "hedge15", "k": "f_hedge", "x": 30, "y": 23, "flip": 0}, {"id": "stump1", "k": "f_stump", "x": 18, "y": 1, "flip": 0}, {"id": "peb1", "k": "f_peb", "x": 14, "y": 5, "flip": 0}, {"id": "br1", "k": "f_br", "x": 11, "y": 5, "flip": 0}, {"id": "br2", "k": "f_br_2", "x": 27, "y": 12, "flip": 0}, {"id": "peb2", "k": "f_peb", "x": 30, "y": 9, "flip": 0, "ax": 0, "ay": 25}, {"id": "rock1", "k": "f_rock", "x": 6, "y": 14, "flip": 0}, {"id": "rock2", "k": "f_rock_2", "x": 29, "y": 18, "flip": 0}, {"id": "stump2", "k": "f_stump", "x": 2, "y": 19, "flip": 0, "ax": 19, "ay": 32}, {"id": "tall_sugarcane_27_16", "k": "f_tall_sugarcane", "x": 27, "y": 16, "flip": 0, "label": "กออ้อย"}, {"id": "tall_sugarcane_25_21", "k": "f_tall_sugarcane", "x": 25, "y": 21, "flip": 0, "label": "กออ้อย"}, {"id": "tall_sugarcane_25_18", "k": "f_tall_sugarcane_2", "x": 25, "y": 18, "flip": 0, "label": "กออ้อย"}, {"id": "tall_banana_21_8", "k": "f_tall_banana", "x": 21, "y": 8, "flip": 0, "label": "กอกล้วย"}, {"id": "tall_coconut_21_7", "k": "f_tall_coconut", "x": 21, "y": 7, "flip": 0, "label": "ต้นมะพร้าว"}, {"id": "tall_coconut_24_8", "k": "f_tall_coconut", "x": 24, "y": 8, "flip": 0, "label": "ต้นมะพร้าว"}, {"id": "tall_papaya_3_12", "k": "f_tall_papaya", "x": 3, "y": 12, "flip": 0, "label": "ต้นมะละกอ"}, {"id": "tall_banana_3_16", "k": "f_tall_banana", "x": 3, "y": 16, "flip": 0, "label": "กอกล้วย"}, {"id": "tall_bamboo_4_1", "k": "f_tall_bamboo", "x": 4, "y": 1, "flip": 0, "label": "กอไผ่"}, {"id": "tall_bamboo_2_3", "k": "f_tall_bamboo_2", "x": 2, "y": 3, "flip": 0, "label": "กอไผ่"}], "places": {"home": {"name": "บ้านยาย", "door": [7, 8]}, "farm_visit": {"name": "หน้าบ้านยาย", "door": [13, 10]}}, "spawns": {"home": [7, 8], "from_town": [22, 22]}, "exits": [{"cells": [[21, 23], [22, 23], [23, 23]], "to": "town", "spawn": "from_farm", "label": "ไปใจกลางตำบล"}], "mg": 360}
+{
+"name": "farm",
+"rev": 2,
+"W": 32,
+"H": 24,
+"play": [
+0,
+0,
+32,
+24
+],
+"seed": 3,
+"tiles": true,
+"mg": 360,
+"terrain": [
+"...............yyyyy............",
+"............yyyyyyyyyyy.........",
+"...........yyyyyyyyyyyyy........",
+"...........yyyyyyyyyyyyy........",
+"..........yyyyyyyyyyyyyyy.......",
+"....www....yyyyyyyyyyyyy........",
+"...wwwww...yyyyyvvyyyyyy........",
+"...wwwwww...yyyyvvyyyyy.........",
+"...wwwwww......yvvyy............",
+"...wwwwww.......vv..............",
+"...wwwwww.......vv..............",
+"...wwwww........vv..............",
+"...wwwww........vvp.............",
+"..wwwwww........vv..............",
+"..wwwwww..ppppppvv..............",
+"..wwwwww........vv...ppp........",
+"..wwwwww........vv.ppppppp......",
+"..wwwwww........vv.ppppppp......",
+"...wwww.........vvppppppppp.....",
+"....ww..........vv.ppppppp......",
+"................vv.ppppppp......",
+"................vv.ppppppp......",
+"...............vvvv.............",
+"...............vvvv............."
+],
+"objects": [
+{
+"id": "house",
+"k": "f_house",
+"x": 14,
+"y": 1,
+"flip": 0,
+"tap": "house",
+"label": "บ้านยาย"
+},
+{
+"id": "jar",
+"k": "f_jar",
+"x": 20,
+"y": 4,
+"flip": 0,
+"tap": "jar"
+},
+{
+"id": "jars",
+"k": "f_jars",
+"x": 12,
+"y": 2,
+"flip": 0
+},
+{
+"id": "firewood",
+"k": "f_firewood",
+"x": 12,
+"y": 4,
+"flip": 0
+},
+{
+"id": "stove",
+"k": "f_stove",
+"x": 13,
+"y": 5,
+"flip": 0
+},
+{
+"id": "clothesline",
+"k": "f_clothesline",
+"x": 21,
+"y": 6,
+"flip": 0
+},
+{
+"id": "bike",
+"k": "f_bike",
+"x": 15,
+"y": 5,
+"flip": 0
+},
+{
+"id": "spirit",
+"k": "f_spirit",
+"x": 22,
+"y": 3,
+"flip": 0,
+"tap": "spirit"
+},
+{
+"id": "doghouse",
+"k": "f_doghouse",
+"x": 11,
+"y": 6,
+"flip": 0
+},
+{
+"id": "cart",
+"k": "f_cart",
+"x": 23,
+"y": 7,
+"flip": 0
+},
+{
+"id": "tank",
+"k": "water_tank",
+"x": 21,
+"y": 2,
+"flip": 0
+},
+{
+"id": "cage1",
+"k": "fish_cage",
+"x": 4,
+"y": 8,
+"flip": 0
+},
+{
+"id": "cage2",
+"k": "fish_cage",
+"x": 4,
+"y": 15,
+"flip": 0
+},
+{
+"id": "lotus1",
+"k": "f_lotus",
+"x": 7,
+"y": 10,
+"flip": 0
+},
+{
+"id": "lotus2",
+"k": "f_lotus_2",
+"x": 3,
+"y": 13,
+"flip": 0
+},
+{
+"id": "lotus3",
+"k": "f_lotus",
+"x": 6,
+"y": 18,
+"flip": 1
+},
+{
+"id": "reeds1",
+"k": "f_reeds",
+"x": 3,
+"y": 5,
+"flip": 0
+},
+{
+"id": "reeds2",
+"k": "f_reeds_2",
+"x": 8,
+"y": 17,
+"flip": 0
+},
+{
+"id": "stake",
+"k": "f_stake",
+"x": 7,
+"y": 7,
+"flip": 0
+},
+{
+"id": "bench",
+"k": "f_bench",
+"x": 10,
+"y": 13,
+"flip": 0,
+"tap": "bench"
+},
+{
+"id": "tree0",
+"k": "f_tree_mango",
+"x": 12,
+"y": 9,
+"flip": 0,
+"tap": "tree",
+"label": "tree_mango"
+},
+{
+"id": "tree1",
+"k": "f_tree_mango_fruit_mid",
+"x": 14,
+"y": 12,
+"flip": 0,
+"tap": "tree",
+"label": "tree_mango_fruit_mid"
+},
+{
+"id": "tree2",
+"k": "f_tree_mango_fruit_few",
+"x": 12,
+"y": 17,
+"flip": 0,
+"tap": "tree",
+"label": "tree_mango_fruit_few"
+},
+{
+"id": "tree3",
+"k": "f_tree_mango",
+"x": 14,
+"y": 20,
+"flip": 0,
+"tap": "tree",
+"label": "tree_mango"
+},
+{
+"id": "tree4",
+"k": "f_tree_tamarind_pods",
+"x": 27,
+"y": 4,
+"flip": 0,
+"tap": "tree",
+"label": "tree_tamarind_pods"
+},
+{
+"id": "tree5",
+"k": "f_tree_tamarind",
+"x": 3,
+"y": 21,
+"flip": 0,
+"tap": "tree",
+"label": "tree_tamarind"
+},
+{
+"id": "tree6",
+"k": "f_tree_mango_fruit_full",
+"x": 29,
+"y": 13,
+"flip": 0,
+"tap": "tree",
+"label": "tree_mango_fruit_full"
+},
+{
+"id": "tree7",
+"k": "f_tree_mango",
+"x": 9,
+"y": 2,
+"flip": 0,
+"tap": "tree",
+"label": "tree_mango"
+},
+{
+"id": "pump",
+"k": "f_pump",
+"x": 18,
+"y": 9,
+"flip": 0,
+"tap": "pump"
+},
+{
+"id": "hose",
+"k": "f_hose",
+"x": 18,
+"y": 10,
+"flip": 0
+},
+{
+"id": "scarecrow",
+"k": "f_scarecrow",
+"x": 27,
+"y": 10,
+"flip": 0
+},
+{
+"id": "haystack",
+"k": "f_haystack",
+"x": 28,
+"y": 8,
+"flip": 0
+},
+{
+"id": "sacks",
+"k": "f_sacks",
+"x": 28,
+"y": 9,
+"flip": 0
+},
+{
+"id": "compost",
+"k": "f_compost",
+"x": 27,
+"y": 14,
+"flip": 0
+},
+{
+"id": "coop",
+"k": "coop_broken",
+"x": 21,
+"y": 17,
+"flip": 0,
+"tap": "coop",
+"label": "เล้าไก่"
+},
+{
+"id": "gate",
+"k": "farm_gate",
+"x": 16,
+"y": 22,
+"flip": 0
+},
+{
+"id": "mailbox",
+"k": "f_mailbox",
+"x": 15,
+"y": 21,
+"flip": 0,
+"tap": "mailbox"
+},
+{
+"id": "hedge0",
+"k": "f_hedge",
+"x": 0,
+"y": 23,
+"flip": 0
+},
+{
+"id": "hedge2",
+"k": "f_hedge",
+"x": 2,
+"y": 23,
+"flip": 0
+},
+{
+"id": "hedge4",
+"k": "f_hedge",
+"x": 4,
+"y": 23,
+"flip": 0
+},
+{
+"id": "hedge6",
+"k": "f_hedge",
+"x": 6,
+"y": 23,
+"flip": 0
+},
+{
+"id": "hedge8",
+"k": "f_hedge",
+"x": 8,
+"y": 23,
+"flip": 0
+},
+{
+"id": "hedge10",
+"k": "f_hedge",
+"x": 10,
+"y": 23,
+"flip": 0
+},
+{
+"id": "hedge12",
+"k": "f_hedge",
+"x": 12,
+"y": 23,
+"flip": 0
+},
+{
+"id": "hedge14",
+"k": "f_hedge",
+"x": 14,
+"y": 23,
+"flip": 0
+},
+{
+"id": "hedge19",
+"k": "f_hedge",
+"x": 19,
+"y": 23,
+"flip": 0
+},
+{
+"id": "hedge21",
+"k": "f_hedge",
+"x": 21,
+"y": 23,
+"flip": 0
+},
+{
+"id": "hedge23",
+"k": "f_hedge",
+"x": 23,
+"y": 23,
+"flip": 0
+},
+{
+"id": "hedge25",
+"k": "f_hedge",
+"x": 25,
+"y": 23,
+"flip": 0
+},
+{
+"id": "hedge27",
+"k": "f_hedge",
+"x": 27,
+"y": 23,
+"flip": 0
+},
+{
+"id": "hedge29",
+"k": "f_hedge",
+"x": 29,
+"y": 23,
+"flip": 0
+},
+{
+"id": "tall_bamboo_2_0",
+"k": "f_tall_bamboo",
+"x": 2,
+"y": 0,
+"flip": 0
+},
+{
+"id": "tall_bamboo_6_0",
+"k": "f_tall_bamboo_2",
+"x": 6,
+"y": 0,
+"flip": 0
+},
+{
+"id": "tall_bamboo_24_0",
+"k": "f_tall_bamboo",
+"x": 24,
+"y": 0,
+"flip": 0
+},
+{
+"id": "tall_bamboo_28_0",
+"k": "f_tall_bamboo_2",
+"x": 28,
+"y": 0,
+"flip": 0
+},
+{
+"id": "tall_banana_0_4",
+"k": "f_tall_banana",
+"x": 0,
+"y": 4,
+"flip": 0
+},
+{
+"id": "tall_banana_0_9",
+"k": "f_tall_banana",
+"x": 0,
+"y": 9,
+"flip": 1
+},
+{
+"id": "tall_banana_0_14",
+"k": "f_tall_banana",
+"x": 0,
+"y": 14,
+"flip": 0
+},
+{
+"id": "tall_banana_0_19",
+"k": "f_tall_banana",
+"x": 0,
+"y": 19,
+"flip": 1
+},
+{
+"id": "tall_coconut_30_2",
+"k": "f_tall_coconut",
+"x": 30,
+"y": 2,
+"flip": 0
+},
+{
+"id": "tall_coconut_30_7",
+"k": "f_tall_coconut",
+"x": 30,
+"y": 7,
+"flip": 1
+},
+{
+"id": "tall_coconut_30_17",
+"k": "f_tall_coconut",
+"x": 30,
+"y": 17,
+"flip": 1
+},
+{
+"id": "tall_coconut_30_21",
+"k": "f_tall_coconut",
+"x": 30,
+"y": 21,
+"flip": 1
+},
+{
+"id": "tall_papaya_9_5",
+"k": "f_tall_papaya",
+"x": 9,
+"y": 5,
+"flip": 0
+},
+{
+"id": "tall_sugarcane_27_18",
+"k": "f_tall_sugarcane",
+"x": 27,
+"y": 18,
+"flip": 0
+},
+{
+"id": "tall_sugarcane_29_20",
+"k": "f_tall_sugarcane_2",
+"x": 29,
+"y": 20,
+"flip": 0
+},
+{
+"id": "weed0",
+"k": "weeds_6",
+"x": 23,
+"y": 16,
+"flip": 1,
+"tap": "weeds"
+},
+{
+"id": "weed1",
+"k": "weeds_4",
+"x": 26,
+"y": 22,
+"flip": 1,
+"tap": "weeds"
+},
+{
+"id": "weed2",
+"k": "weeds_1",
+"x": 26,
+"y": 15,
+"flip": 1,
+"tap": "weeds"
+},
+{
+"id": "weed3",
+"k": "weeds_7",
+"x": 29,
+"y": 15,
+"flip": 0,
+"tap": "weeds"
+},
+{
+"id": "weed4",
+"k": "weeds_7",
+"x": 19,
+"y": 22,
+"flip": 1,
+"tap": "weeds"
+},
+{
+"id": "weed5",
+"k": "weeds_2",
+"x": 30,
+"y": 22,
+"flip": 0,
+"tap": "weeds"
+},
+{
+"id": "weed6",
+"k": "weeds_0",
+"x": 24,
+"y": 15,
+"flip": 1,
+"tap": "weeds"
+},
+{
+"id": "weed7",
+"k": "weeds_5",
+"x": 19,
+"y": 18,
+"flip": 0,
+"tap": "weeds"
+},
+{
+"id": "weed8",
+"k": "weeds_6",
+"x": 27,
+"y": 16,
+"flip": 0,
+"tap": "weeds"
+},
+{
+"id": "weed9",
+"k": "weeds_3",
+"x": 28,
+"y": 22,
+"flip": 1,
+"tap": "weeds"
+},
+{
+"id": "weed10",
+"k": "weeds_1",
+"x": 22,
+"y": 15,
+"flip": 1,
+"tap": "weeds"
+},
+{
+"id": "weed11",
+"k": "weeds_5",
+"x": 25,
+"y": 22,
+"flip": 0,
+"tap": "weeds"
+},
+{
+"id": "weed12",
+"k": "weeds_3",
+"x": 29,
+"y": 16,
+"flip": 1,
+"tap": "weeds"
+},
+{
+"id": "weed13",
+"k": "weeds_3",
+"x": 24,
+"y": 19,
+"flip": 0,
+"tap": "weeds"
+},
+{
+"id": "weed14",
+"k": "weeds_1",
+"x": 30,
+"y": 18,
+"flip": 1,
+"tap": "weeds"
+},
+{
+"id": "weed15",
+"k": "weeds_6",
+"x": 20,
+"y": 18,
+"flip": 0,
+"tap": "weeds"
+},
+{
+"id": "weed16",
+"k": "weeds_1",
+"x": 28,
+"y": 20,
+"flip": 0,
+"tap": "weeds"
+},
+{
+"id": "weed17",
+"k": "weeds_3",
+"x": 24,
+"y": 22,
+"flip": 1,
+"tap": "weeds"
+},
+{
+"id": "weed18",
+"k": "weeds_5",
+"x": 19,
+"y": 19,
+"flip": 1,
+"tap": "weeds"
+},
+{
+"id": "weed19",
+"k": "weeds_3",
+"x": 28,
+"y": 19,
+"flip": 0,
+"tap": "weeds"
+},
+{
+"id": "weed20",
+"k": "weeds_4",
+"x": 23,
+"y": 20,
+"flip": 1,
+"tap": "weeds"
+},
+{
+"id": "weed21",
+"k": "weeds_2",
+"x": 27,
+"y": 17,
+"flip": 1,
+"tap": "weeds"
+},
+{
+"id": "weed22",
+"k": "weeds_2",
+"x": 26,
+"y": 20,
+"flip": 0,
+"tap": "weeds"
+},
+{
+"id": "weed23",
+"k": "weeds_6",
+"x": 27,
+"y": 21,
+"flip": 0,
+"tap": "weeds"
+},
+{
+"id": "weed24",
+"k": "weeds_7",
+"x": 20,
+"y": 17,
+"flip": 1,
+"tap": "weeds"
+},
+{
+"id": "weed25",
+"k": "weeds_4",
+"x": 25,
+"y": 17,
+"flip": 1,
+"tap": "weeds"
+},
+{
+"id": "weed26",
+"k": "weeds_2",
+"x": 3,
+"y": 22,
+"flip": 0,
+"tap": "weeds"
+},
+{
+"id": "weed27",
+"k": "weeds_6",
+"x": 2,
+"y": 20,
+"flip": 1,
+"tap": "weeds"
+},
+{
+"id": "weed28",
+"k": "weeds_1",
+"x": 6,
+"y": 22,
+"flip": 0,
+"tap": "weeds"
+},
+{
+"id": "weed29",
+"k": "weeds_4",
+"x": 10,
+"y": 19,
+"flip": 1,
+"tap": "weeds"
+},
+{
+"id": "weed30",
+"k": "weeds_7",
+"x": 6,
+"y": 20,
+"flip": 1,
+"tap": "weeds"
+},
+{
+"id": "weed31",
+"k": "weeds_1",
+"x": 12,
+"y": 19,
+"flip": 1,
+"tap": "weeds"
+},
+{
+"id": "weed32",
+"k": "weeds_5",
+"x": 9,
+"y": 20,
+"flip": 1,
+"tap": "weeds"
+},
+{
+"id": "weed33",
+"k": "weeds_7",
+"x": 9,
+"y": 22,
+"flip": 0,
+"tap": "weeds"
+},
+{
+"id": "weed34",
+"k": "weeds_5",
+"x": 13,
+"y": 19,
+"flip": 1,
+"tap": "weeds"
+},
+{
+"id": "weed35",
+"k": "weeds_1",
+"x": 6,
+"y": 21,
+"flip": 1,
+"tap": "weeds"
+},
+{
+"id": "weed36",
+"k": "weeds_2",
+"x": 12,
+"y": 22,
+"flip": 0,
+"tap": "weeds"
+},
+{
+"id": "weed37",
+"k": "weeds_3",
+"x": 1,
+"y": 20,
+"flip": 0,
+"tap": "weeds"
+},
+{
+"id": "weed38",
+"k": "weeds_5",
+"x": 28,
+"y": 10,
+"flip": 1,
+"tap": "weeds"
+},
+{
+"id": "weed39",
+"k": "weeds_2",
+"x": 30,
+"y": 15,
+"flip": 0,
+"tap": "weeds"
+},
+{
+"id": "weed40",
+"k": "weeds_3",
+"x": 28,
+"y": 14,
+"flip": 1,
+"tap": "weeds"
+},
+{
+"id": "weed41",
+"k": "weeds_0",
+"x": 29,
+"y": 9,
+"flip": 0,
+"tap": "weeds"
+},
+{
+"id": "weed42",
+"k": "weeds_5",
+"x": 29,
+"y": 10,
+"flip": 0,
+"tap": "weeds"
+},
+{
+"id": "weed43",
+"k": "weeds_2",
+"x": 28,
+"y": 11,
+"flip": 0,
+"tap": "weeds"
+},
+{
+"id": "weed44",
+"k": "weeds_0",
+"x": 10,
+"y": 6,
+"flip": 1,
+"tap": "weeds"
+},
+{
+"id": "weed45",
+"k": "weeds_4",
+"x": 12,
+"y": 7,
+"flip": 1,
+"tap": "weeds"
+},
+{
+"id": "weed46",
+"k": "weeds_4",
+"x": 14,
+"y": 8,
+"flip": 1,
+"tap": "weeds"
+},
+{
+"id": "weed47",
+"k": "weeds_0",
+"x": 12,
+"y": 6,
+"flip": 0,
+"tap": "weeds"
+},
+{
+"id": "stump1",
+"k": "f_stump",
+"x": 25,
+"y": 13,
+"flip": 0,
+"tap": "stump"
+},
+{
+"id": "stump2",
+"k": "f_stump",
+"x": 2,
+"y": 18,
+"flip": 0,
+"tap": "stump"
+},
+{
+"id": "rock1",
+"k": "f_rock",
+"x": 9,
+"y": 21,
+"flip": 0,
+"tap": "boulder"
+},
+{
+"id": "rock2",
+"k": "f_rock_2",
+"x": 29,
+"y": 22,
+"flip": 0,
+"tap": "boulder"
+},
+{
+"id": "br1",
+"k": "f_br",
+"x": 15,
+"y": 15,
+"flip": 0,
+"tap": "branch"
+},
+{
+"id": "br2",
+"k": "f_br_2",
+"x": 24,
+"y": 22,
+"flip": 0,
+"tap": "branch"
+},
+{
+"id": "peb1",
+"k": "f_peb",
+"x": 11,
+"y": 19,
+"flip": 0,
+"tap": "pebble"
+},
+{
+"id": "peb2",
+"k": "f_peb",
+"x": 26,
+"y": 16,
+"flip": 0,
+"tap": "pebble"
+}
+],
+"plot": [
+19,
+9,
+8,
+6
+],
+"places": {
+"home": {
+"name": "บ้านยาย",
+"door": [
+16,
+6
+],
+"kind": "home"
+},
+"farm_visit": {
+"name": "หน้าบ้านยาย",
+"door": [
+17,
+8
+]
+}
+},
+"spawns": {
+"home": [
+16,
+6
+],
+"from_town": [
+17,
+21
+]
+},
+"exits": [
+{
+"cells": [
+[
+16,
+23
+],
+[
+17,
+23
+]
+],
+"to": "town",
+"spawn": "from_farm",
+"label": "ไปใจกลางตำบล"
+}
+]
+}

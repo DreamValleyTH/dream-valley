@@ -44,7 +44,7 @@ DV.icon = name => { const idx = (window.DV_ICONS || {})[name]; return idx == nul
 DV.S = null;
 DV.newState = (name, code, gender, dayLen) => ({
   v: 3, name, code, gender, dayLen: dayLen || 10, day: 1, min: 0, energy: DV.MAX_E, money: 500, water: DV.CAN_MAX,
-  map: 'farm', px: 7, py: 8, dir: 0,
+  map: 'farm', px: 16, py: 6, dir: 0, farmV: 2,
   seeds: { chili: 5, basil: 5, corn: 3, morning_glory: 0 }, items: {}, cells: null, trees: {}, gone: {}, spots: {},
   skill: { forage: 0 }, stats: {}, flags: {}, hearts: {}, talked: {}, gifted: {}, convo: {}, convoHeart: {}, reactDay: {},
   q: {}, scenes: {}, line: { read: 0, liked: {}, posted: {}, dmRead: {}, dmAns: {}, bcSeen: {} }, diary: {},

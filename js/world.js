@@ -209,7 +209,7 @@ DV.travel = (to, spawn) => {
     if (to === 'house' && DV.geckoGreet) setTimeout(DV.geckoGreet, 700);
     DV.checkFaint(); });
 };
-DV.goHome = () => { if (S.map !== 'farm') DV.enterMap('farm', 'home', true); else place(player, 7, 8); };
+DV.goHome = () => { if (S.map !== 'farm') DV.enterMap('farm', 'home', true); else place(player, ...DV.M.spawns.home); };
 
 // ---------- NPC placement by schedule ----------
 DV.updateNpcs = (snap) => {
@@ -402,7 +402,8 @@ function hitSprite(wx, wy) {
 }
 // ---------- Hay Day style moving: hold an object to lift it, drag it around, then ✓ place · ↔ flip · 📦 store · ✗ cancel ----------
 DV.lift = null;
-const canLift = o => !!(o && o.block && o.block.length && (o.id === 'house' || !o.place));
+const WILD = { weeds: 1, pebble: 1, branch: 1, stump: 1, boulder: 1 };   // overgrowth is cleared with energy, never lifted
+const canLift = o => !!(o && o.block && o.block.length && !WILD[o.tap] && (o.id === 'house' || !o.place));
 DV.canLift = canLift;
 function liftStart(o, dx = 0, dy = 0, fromStore = false) {
   if (DV.lift && DV.lift.o !== o) liftCancel();
