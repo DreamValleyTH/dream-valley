@@ -50,8 +50,10 @@ DV.newState = (name, code, gender, dayLen) => ({
   q: {}, scenes: {}, line: { read: 0, liked: {}, posted: {}, dmRead: {}, dmAns: {}, bcSeen: {} }, diary: {},
   rain: false, cardsToday: 0, napCount: 0, drinkCount: 0, prayedDay: 0, mailDay: 0, amuletDay: 0, seenCards: {}, savedAt: 0,
 });
-DV.heart = n => (DV.S.hearts[n] || 0);
-DV.addHeart = (n, v) => { DV.S.hearts[n] = DV.clamp((DV.S.hearts[n] || 0) + v, 0, 10); };
+// friendship v2: stored as a fraction, shown as whole hearts. Gains shrink as you get closer (0 hearts x.5 … 9 hearts x.2), losses hit in full.
+DV.heart = n => Math.floor((DV.S.hearts[n] || 0) + 1e-6);
+DV.heartRaw = n => DV.S.hearts[n] || 0;
+DV.addHeart = (n, v) => { const h = DV.S.hearts[n] || 0; const g = v > 0 ? v * Math.max(.2, .5 - .033 * Math.floor(h)) : v; DV.S.hearts[n] = Math.round(DV.clamp(h + g, 0, 10) * 1000) / 1000; };
 DV.addItem = (k, n = 1) => { DV.S.items[k] = (DV.S.items[k] || 0) + n; if (DV.S.items[k] <= 0) delete DV.S.items[k]; };
 DV.has = (k, n = 1) => (DV.S.items[k] || 0) >= n;
 DV.stat = (k, n = 1) => { DV.S.stats[k] = (DV.S.stats[k] || 0) + n; };
@@ -171,6 +173,7 @@ DV.applyEffect = (e, ctx = {}) => {
   if (e.damageCrop && DV.damageCrop) DV.damageCrop();
   if (e.sell && DV.sellCrop) msgs.push(DV.sellCrop(e.sell));
   if (e.goHome && DV.goHome) DV.goHome();
+  if (e.ghostRun && DV.runFromGhost) setTimeout(() => DV.runFromGhost(e.ghostRun), 350);
   if (e.text) msgs.unshift(DV.say(e.text));
   if (e.mins && DV.addMins) DV.addMins(e.mins);
   return msgs;

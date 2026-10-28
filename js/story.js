@@ -29,11 +29,13 @@ DV.checkScenes = trig => {
 function playScene(sc) {
   const s = S(); s.scenes[sc.id] = s.day; scenePlaying = sc;
   DV.closeSheet(); DV.closeTalk && $('talk').classList.add('hidden'); DV.standUp();
-  const beats = (sc.beats || []).filter(b => b && b.text);
+  const g = s.gender === 'f' ? 'f' : 'm';
+  const beats = (sc.beats || []).filter(b => b && b.text && (!b.g || b.g === g));
   let i = 0;
   const el = $('scene'), art = $('sceneArt');
   art.className = 'scene-art art-' + (sc.art || 'village'); const SA = window.DV_STORYART || [];
-  const img = SA.includes(sc.id) ? `assets/story/${sc.id}.png` : SA.includes('art_' + sc.art) ? `assets/story/art_${sc.art}.png` : ART[sc.art];
+  const fid = sc.id + '_f', useF = g === 'f' && SA.includes(fid);
+  const img = useF ? `assets/story/${fid}.png` : SA.includes(sc.id) ? `assets/story/${sc.id}.png` : SA.includes('art_' + sc.art) ? `assets/story/art_${sc.art}.png` : ART[sc.art];
   art.style.backgroundImage = img ? `url(${img})` : ''; art.classList.toggle('pic', SA.includes(sc.id) || SA.includes('art_' + sc.art));
   $('sceneTitle').textContent = DV.say(sc.title || '');
   const show = () => {
@@ -146,7 +148,7 @@ DV.ghostCard = () => {
   const g = GHOSTS[(S().day * 5 + Math.floor(S().min / 37)) % GHOSTS.length];
   return { id: 'night_ghost', type: 'night', art: 'night', title: g.t, text: g.x, npc: 'bua',
     choices: [
-      { label: 'วิ่งกลับบ้านสุดแรง', hint: 'แรง −15 · ปลอดภัย', effect: { energy: -15, goHome: true, text: 'วิ่งจนถึงบันไดบ้าน หัวใจเต้นแรง' } },
+      { label: 'วิ่งหนีกลับบ้าน!', hint: 'มินิเกม · รอด = แรง −6 · ล้ม = แรง −35', effect: { ghostRun: g.t } },
       { label: 'ยกมือไหว้ขอทาง', hint: 'ไหว้ศาลพระภูมิ/เช่าผ้ายันต์ไว้จะดีกว่า', effect: { chance: { p: S().amuletDay === S().day ? .95 : .5, pIfPrayed: .9, win: { text: 'ลมเย็นพัดผ่าน แล้วทุกอย่างก็เงียบ' }, lose: { faint: true, text: 'ขาอ่อนจนทรุดลงกับพื้น…' } } } },
       { label: 'ยืนนิ่ง หลับตา นับหนึ่งถึงสิบ', hint: 'สุ่ม', effect: { chance: { p: .5, win: { energy: -5, text: 'พอลืมตา ก็ไม่มีอะไรแล้ว' }, lose: { faint: true, text: 'มีมือเย็น ๆ แตะไหล่…' } } } },
     ] };
@@ -203,11 +205,12 @@ DV.postLine = (p, silent) => {
     like: p.like_heart || null, day: s.day, time: DV.fmt(s.min) });
   if (feed().length > 160) feed().splice(0, feed().length - 160);
   DV.hud();
-  if (!silent) { DV.sfx('line'); DV.notify(`💬 ${DV.npcName(p.from) || p.from}: ${DV.say(p.text).slice(0, 46)}…`); }
+  if (!silent && DV.villageJoined()) { DV.sfx('line'); DV.notify(`💬 ${DV.npcName(p.from) || p.from}: ${DV.say(p.text).slice(0, 46)}…`); }
 };
+DV.villageJoined = () => !!(S() && S().flags && S().flags.story_broadcast_welcome);   // the village group invite comes with the day-2 broadcast
 function linePass() {
-  const s = S(), L = LINE;
-  for (const p of L.posts || []) {
+  const s = S(), L = LINE, joined = DV.villageJoined();
+  for (const p of joined ? (L.posts || []) : []) {
     if (s.line.posted[p.id]) continue;
     const t = p.time ? DV.hm(p.time) : 0;
     if (s.min < t) continue;
@@ -232,7 +235,7 @@ function linePass() {
 }
 DV.onFlag = f => {   // gossip about the player spreads to LINE
   const g = (LINE.gossip || []).find(x => x.flag === f);
-  if (g && !S().line.posted[g.id]) { S().line.posted[g.id] = 1; setTimeout(() => DV.postLine(g), 2500); }
+  if (g && DV.villageJoined() && !S().line.posted[g.id]) { S().line.posted[g.id] = 1; setTimeout(() => DV.postLine(g), 2500); }
 };
 DV.notifyLine = () => { DV.hud(); };
 DV.lineUnread = () => Math.max(0, feed().length - (S().line.read || 0)) + (S().dmIn || []).filter(id => !S().line.dmRead[id]).length;

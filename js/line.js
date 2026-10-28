@@ -47,7 +47,7 @@ const village = () => S().lineFeed || [];
 const dmsFrom = () => { const s = S(), by = {}; (s.dmIn || []).forEach(id => { const d = (DV.LINE.dms || []).find(x => x.id === id); if (d) (by[d.from] = by[d.from] || []).push(d); }); return by; };
 const unreadOf = key => {
   const s = st();
-  if (key === 'village') return Math.max(0, village().length - (s.line.read || 0));
+  if (key === 'village') return !DV.villageJoined() ? 0 : Math.max(0, village().length - (s.line.read || 0));
   if (key.startsWith('g:')) { const id = key.slice(2); return Math.max(0, (s.gfeed[id] || []).length - (s.gread[id] || 0)); }
   if (key.startsWith('p:')) return (dmsFrom()[key.slice(2)] || []).filter(d => !s.line.dmRead[d.id]).length;
   return 0;
@@ -61,13 +61,14 @@ DV.renderLine = (scr, top, tab, go) => {
   if (tab === 'line') {   // chat list
     const rows = [];
     const vf = village(), vl = vf[vf.length - 1];
-    rows.push({ key: 'village', pic: '<div class="av grp">ม.3</div>', name: (DV.LINE.group_name) || 'บ้านดงเย็น ม.3 💚', last: vl ? `${DV.npcName(vl.from)}: ${short(vl.text)}` : 'ยังเงียบอยู่', time: vl ? vl.time : '', d: vl ? vl.day : 0 });
+    if (DV.villageJoined()) rows.push({ key: 'village', pic: '<div class="av grp">ม.3</div>', name: (DV.LINE.group_name) || 'บ้านดงเย็น ม.3 💚', last: vl ? `${DV.npcName(vl.from)}: ${short(vl.text)}` : 'ยังเงียบอยู่', time: vl ? vl.time : '', d: vl ? vl.day : 0 });
     GROUPS().filter(g => s.groups[g.id]).forEach(g => { const f = s.gfeed[g.id] || [], l = f[f.length - 1];
       rows.push({ key: 'g:' + g.id, pic: g.avatar ? av(g.avatar) : '<div class="av grp">กลุ่ม</div>', name: g.name, last: l ? `${DV.npcName(l.from)}: ${short(l.text)}` : 'เพิ่งสร้างกลุ่ม', time: l ? l.time : '', d: l ? l.day : s.groups[g.id] }); });
     const by = dmsFrom();
     Object.keys(by).forEach(p => { const l = by[p][by[p].length - 1]; rows.push({ key: 'p:' + p, pic: av(p), name: DV.npcName(p), last: short(DV.say(l.text)), time: '', d: 0 }); });
     rows.sort((a, b) => (unreadOf(b.key) > 0) - (unreadOf(a.key) > 0) || b.d - a.d);
     scr.innerHTML = top + `<div class="ln-app"><div class="ln-tabs"><b>แชท</b><span>เพื่อน</span></div><div class="ln-search">ค้นหา</div><div class="ln-list">` +
+      (rows.length ? '' : '<p class="muted" style="padding:24px 14px;text-align:center">ยังไม่มีแชตเลย<br><small>คนที่นี่ยังไม่รู้จักเรา… เดี๋ยวคงมีคนชวนเข้ากลุ่มหมู่บ้าน</small></p>') +
       rows.map(r => { const u = unreadOf(r.key); return `<button class="ln-row" data-k="${r.key}">${r.pic}<div class="ln-mid"><b>${r.name}</b><small>${r.last}</small></div><div class="ln-r"><small>${r.time}</small>${u ? `<i>${u > 99 ? '99+' : u}</i>` : ''}</div></button>`; }).join('') +
       `</div><button class="back ln-home">‹ หน้าหลัก</button></div>`;
     scr.querySelectorAll('.ln-row').forEach(b => b.onclick = () => { DV.sfx('tick'); go('chat:' + b.dataset.k); });
@@ -88,7 +89,7 @@ DV.renderLine = (scr, top, tab, go) => {
       `<div class="ln-feed">${list.length ? dayBreaks(list) : '<p class="muted">ยังเงียบอยู่…</p>'}</div>`;
     const f = scr.querySelector('.ln-feed'); f.scrollTop = f.scrollHeight;
     scr.querySelectorAll('.like').forEach(b => b.onclick = () => { const p = list[+b.dataset.i]; if (!p || s.line.liked[p.id]) return; s.line.liked[p.id] = 1;
-      if (p.like && NPC(p.like)) { const k = 'lk' + s.day + p.like; if (!s.flags[k]) { s.flags[k] = 1; DV.addHeart(p.like, 1); DV.toast(`${DV.npcName(p.like)} เห็นว่าคุณกดหัวใจ ♥ +1`); } }
+      if (p.like && NPC(p.like)) { const k = 'lk' + s.day + p.like; if (!s.flags[k]) { s.flags[k] = 1; DV.addHeart(p.like, 1); DV.toast(`${DV.npcName(p.like)} เห็นว่าคุณกดหัวใจ ♥ ความสนิทเพิ่มขึ้นนิดหน่อย`); } }
       DV.sfx('heart'); DV.save(); go(tab); });
   } else if (key.startsWith('p:')) {
     const who = key.slice(2), list = dmsFrom()[who] || [];

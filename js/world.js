@@ -76,6 +76,7 @@ function applyMoves() {
 DV.applyMoves = applyMoves;
 function rebuildBlocked() {
   const M = DV.M;
+  if (DV.ensureDeco) DV.ensureDeco();
   applyMoves();
   blocked = M.blocked.map(r => r.slice());
   M.objects.forEach(o => { if (o._b0) o._b0.forEach(([a, b]) => { if (blocked[b]) blocked[b][a] = 0; }); });
@@ -305,8 +306,9 @@ DV.newPlot = () => {
   }
   return cells;
 };
-DV.cell = (x, y) => S.cells[x + ',' + y];
-DV.plotCells = pred => Object.keys(S.cells || {}).map(k => k.split(',').map(Number)).sort((a, b) => a[1] - b[1] || a[0] - b[0]).filter(([x, y]) => pred(DV.cell(x, y), x, y));
+const liveCells = () => (S.map === 'farm' && DV.visitCells && DV.visitCells()) || S.cells;   // while visiting a friend, their plot
+DV.cell = (x, y) => liveCells()[x + ',' + y];
+DV.plotCells = pred => Object.keys(liveCells() || {}).map(k => k.split(',').map(Number)).sort((a, b) => a[1] - b[1] || a[0] - b[0]).filter(([x, y]) => pred(DV.cell(x, y), x, y));
 DV.waterAll = () => { if (!S.cells) return; for (const k in S.cells) if (S.cells[k].soil) S.cells[k].wet = true; dirtySoil = true; };
 DV.damageCrop = () => { const l = DV.plotCells(q => q.crop && q.crop.st > 0); if (l.length) { const [x, y] = DV.pick(l); DV.cell(x, y).crop.st--; } };
 
@@ -494,7 +496,7 @@ const OBJ_NAMES = [['house', 'บ้านยาย'], ['jars', 'โอ่งด
   ['scarecrow', 'หุ่นไล่กา'], ['haystack', 'กองฟาง'], ['sacks', 'กระสอบ'], ['tree', 'ต้นไม้'], ['bench', 'ม้านั่ง'], ['mailbox', 'ตู้จดหมาย'], ['lotus', 'กอบัว'], ['reeds', 'กอกก'],
   ['stake', 'หลักไม้'], ['bam', 'กอไผ่'], ['banr', 'กอกล้วย'], ['ban', 'กอกล้วย'], ['hedge', 'พุ่มรั้ว'], ['stump', 'ตอไม้'], ['peb', 'ก้อนหิน'], ['br', 'กิ่งไม้'], ['rock', 'ก้อนหิน']];
 DV.objName = o => o.label || (OBJ_NAMES.find(([k]) => o.id.startsWith(k)) || [0, 'ของ'])[1];
-DV.storedList = () => DV.M.objects.filter(o => S.stored && S.stored[S.map] && S.stored[S.map][o.id]);
+DV.storedList = () => DV.M.objects.filter(o => S.stored && S.stored[S.map] && S.stored[S.map][o.id] && !/^deco_[a-z_]+$/.test(o.id));   // shop templates are not yours
 DV.placeFromStore = o => {   // drop it in front of the player, lifted, ready to drag
   const m = (S.moved && S.moved[S.map] && S.moved[S.map][o.id]) || { dx: 0, dy: 0 };
   const b0 = o._b0[0], tx = player.cx + 1, ty = player.cy + 1;
@@ -555,7 +557,8 @@ function tap(wx, wy, hit) {
   if (hs && !(h && h.npc)) return DV.goTo(DV.adjTo(hs.block), () => { DV.face(hs.block[0][0], hs.block[0][1]); DV.openObject(hs); });
   const dp = droppedAt(cx, cy);
   if (dp) return DV.goTo((x, y) => (x === cx && y === cy) || DV.adjTo([[cx, cy]])(x, y), () => { DV.face(cx, cy); pickUp(dp); });
-  if (S.map === 'farm' && inPlot(cx, cy)) { if (DV.isVisiting && DV.isVisiting()) return DV.toast('นี่แปลงผักของเพื่อน ช่วยดูได้แต่ยังลงมือแทนไม่ได้'); return DV.goTo(DV.adjTo([[cx, cy]]), () => { DV.face(cx, cy); DV.openPlot(cx, cy); }); }
+  if (DV.M.water && DV.M.water[cy] && DV.M.water[cy][cx] && DV.fishAt) return DV.goTo(DV.adjTo([[cx, cy]]), () => { DV.face(cx, cy); DV.fishAt(cx, cy); });
+  if (S.map === 'farm' && inPlot(cx, cy)) { return DV.goTo(DV.adjTo([[cx, cy]]), () => { DV.face(cx, cy); DV.openPlot(cx, cy); }); }
   if (h && h.obj) {
     const o = h.obj;
     if (o.place && DV.M.places[o.place]) {

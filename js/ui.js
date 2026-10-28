@@ -43,7 +43,7 @@ DV.openSheet = (title, sub, icon, opts, vis) => {
 };
 DV.closeSheet = () => $('sheet').classList.add('hidden');
 $('sheetClose').onclick = DV.closeSheet;
-DV.uiOpen = () => ['cardWrap', 'talk', 'map', 'phone', 'scene', 'title', 'panel'].some(id => !$(id).classList.contains('hidden'));
+DV.uiOpen = () => ['cardWrap', 'talk', 'map', 'phone', 'scene', 'title', 'panel', 'mg'].some(id => !$(id).classList.contains('hidden'));
 DV.closeAll = () => { DV.closeSheet(); ['talk', 'map', 'phone', 'panel'].forEach(id => $(id).classList.add('hidden')); };
 
 // ---------- HUD ----------
@@ -97,7 +97,7 @@ DV.openBag = () => {
   const sel = list.find(e => e.k === bagSel);
   const lv = DV.forageLevel(), next = DV.FORAGE_LV[lv + 1];
   let html = `<div class="panel-h"><b><span class="uic uic-bag"></span> กระเป๋า</b><button class="x">✕</button></div><div class="panel-b bag">`;
-  html += `<div class="bag-top"><span><span class="uic uic-money"></span>฿${s.money.toLocaleString()}</span><span><span class="uic uic-water"></span>${s.water}/${DV.CAN_MAX}</span><span>หาของป่า Lv ${lv}${next ? ` <small>${s.skill.forage}/${next}</small>` : ''}</span></div>`;
+  html += `<div class="bag-top"><span><span class="uic uic-money"></span>฿${s.money.toLocaleString()}</span><span><span class="uic uic-water"></span>${s.water}/${DV.CAN_MAX}</span><button class="bag-sk">⭐ ทักษะ</button></div>`;
   html += '<div class="slots">' + Array.from({ length: N }, (_, i) => { const e = list[i];
     return e ? `<button class="slot${e.k === bagSel ? ' sel' : ''}" data-k="${e.k}"><span class="si" style="${DV.iconCss(['icons', DV.icon(e.it.icon)], 32)}"></span>${e.n > 1 ? `<b>${e.n}</b>` : ''}</button>` : '<span class="slot empty"></span>'; }).join('') + '</div>';
   if (sel) {
@@ -110,6 +110,7 @@ DV.openBag = () => {
   html += '</div>';
   p.innerHTML = html; p.classList.remove('hidden');
   p.querySelector('.x').onclick = () => { bagSel = null; p.classList.add('hidden'); };
+  p.querySelector('.bag-sk').onclick = () => { p.classList.add('hidden'); DV.openSkills(); };
   p.querySelectorAll('.slot[data-k]').forEach(b => b.onclick = () => { bagSel = b.dataset.k === bagSel ? null : b.dataset.k; bagConfirm = false; DV.sfx('tick'); DV.openBag(); });
   p.querySelectorAll('[data-a]').forEach(b => b.onclick = () => {
     const a = b.dataset.a, e = sel; if (!e) return;

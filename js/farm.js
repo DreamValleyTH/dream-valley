@@ -98,6 +98,7 @@ DV.openObject = o => {
         DV.toast(DV.pick(['รูปยายยิ้มเหมือนเดิม… คิดถึงนะยาย', 'กลิ่นธูปลอยไปทั่วบ้าน รู้สึกเหมือนยายนั่งอยู่ตรงนี้', 'ขอให้ยายสบายนะ วันนี้หลานจะทำให้ดีที่สุด', 'ควันธูปลอยตรงไปที่รูป ยายคงได้ยินแล้ว'])); DV.save(); } }]);
   if (t === 'stove') { const egg = DV.has('egg_chicken') || DV.has('egg_duck'), rice = DV.has('rice_white') || DV.has('rice');
     return DV.openSheet('เตาถ่านของยาย', 'ถ่านเหลือนิดหน่อย หม้อดำเพราะใช้มาสามสิบปี', null, [
+      { label: 'ทำอาหาร (มินิเกม)', icon: ['ui', 'cook'], hl: true, extra: 'ผัก ไข่ ปลา → อาหารให้แรง/ขายได้', run: () => DV.openCook() },
       { label: egg ? 'ทอดไข่เจียวกินกับข้าว' : 'ทอดไข่เจียว (ต้องมีไข่)', icon: ['ui', 'cook'], extra: 'แรง +35', disabled: !egg && 'ไม่มีไข่ในกระเป๋า',
         run: () => DV.doAction({ energy: 0, fx: 'spark', apply: () => { DV.addItem(DV.has('egg_chicken') ? 'egg_chicken' : 'egg_duck', -1); }, after: () => { DV.addEnergy(35); DV.toast('ไข่เจียวฟูกรอบขอบ ใส่น้ำปลาแบบยาย อร่อยจนน้ำตาซึม'); DV.hud(); } }) },
       { label: 'ต้มน้ำชงชาร้อน', icon: ['ui', 'cook'], extra: 'แรง +8 · วันละครั้ง', disabled: s.flags['tea' + s.day] && 'วันนี้ชงแล้ว',
@@ -105,14 +106,17 @@ DV.openObject = o => {
   if (t === 'jar_in') return DV.openSheet('โอ่งน้ำในครัว', 'น้ำฝนที่ยายรองไว้ ยังใสอยู่', null, [
     { label: 'ตักน้ำดื่ม', icon: ['ui', 'water'], extra: 'แรง +6', disabled: s.drinkCount >= 3 && 'อิ่มน้ำแล้ว',
       run: () => { s.drinkCount++; DV.addEnergy(6); DV.sfx('water'); DV.toast('น้ำเย็นชื่นใจ'); DV.hud(); DV.save(); } }]);
+  if (t === 'table' && DV.isVisiting && DV.isVisiting()) return DV.stealMenu(o);
   if (t === 'table') return DV.openSheet('โต๊ะเตี้ยของยาย', 'ปิ่นโตใบเดิมกับตะเกียงเจ้าพายุ', null, [
     { label: 'เปิดสมุดของยาย', icon: ['ui', 'diary'], extra: 'อ่านหน้าที่เจอแล้ว', run: () => { DV.closeSheet(); DV.openPhone('diary'); } },
-    { label: 'นั่งพักที่โต๊ะ', icon: ['ui', 'home'], extra: 'แรงฟื้นช้า ๆ', run: () => { DV.closeSheet(); DV.sitDown('ที่โต๊ะยาย'); } }]);
+    { label: 'นั่งพักที่โต๊ะ', icon: ['ui', 'home'], extra: 'แรงฟื้นช้า ๆ', run: () => { DV.closeSheet(); DV.sitDown('ที่โต๊ะยาย'); } },
+    { label: 'ดูทักษะของฉัน', icon: ['ui', 'star'], run: () => DV.openSkills() },
+    { label: 'ราคาพืชผลวันนี้', icon: ic('crop_chili'), extra: 'ขึ้นลงทุกวัน', run: () => DV.openPrices() }]);
   if (t === 'bundle') return DV.openSheet('ห่อผ้าเก่า', 'ผ้าขาวม้าคลุมของบางอย่างไว้', null, [
     { label: 'เปิดดู', icon: ['ui', 'use'], disabled: s.flags.bundleOpened && 'เปิดแล้ว',
       run: () => { s.flags.bundleOpened = 1; DV.closeSheet(); DV.addItem('marble'); DV.addItem('lottery_ticket'); DV.toast('ข้างในมีลูกแก้วของเล่นตอนเด็ก กับสลากเก่าหนึ่งใบ… ยายเก็บไว้ทำไมนะ'); DV.save(); } }]);
   if (t === 'coop') {
-    if (s.coopFixed) return DV.openSheet('เล้าไก่', 'ซ่อมเสร็จแล้ว หลังคาไม่รั่ว ตาข่ายแน่นหนา · รอไก่มาอยู่', null, [{ info: true, label: 'เร็ว ๆ นี้: ซื้อลูกไก่จากตลาดนัดมาเลี้ยง' }], { spr: DV.objSprite(o) });
+    if (s.coopFixed) return DV.openCoop(o);
     const wood = (s.items && s.items.wood) || 0, cost = 300, need = 5;
     return DV.openSheet('เล้าไก่พัง', 'หลังคาสังกะสีรั่ว ไม้ผุ ตาข่ายขาด · ต้องซ่อมก่อนถึงจะเลี้ยงไก่ได้', null, [
       { label: 'ซ่อมเล้าไก่', icon: ['tools', TOOL.saw], cost: 30, extra: `ไม้ฟืน ${need} มัด + ฿${cost} ค่าสังกะสี/ตาข่าย`,
@@ -167,7 +171,7 @@ DV.openPlot = (x, y) => {
     const empty = DV.plotCells(q => q.soil && !q.crop);
     CROP_KEYS.forEach(k => {
       const has = s.seeds[k] || 0;
-      const plant = (a, b) => { if ((s.seeds[k] || 0) <= 0) return; DV.cell(a, b).crop = { k, st: 0 }; s.seeds[k]--; DV.stat('planted'); };
+      const plant = (a, b) => { if ((s.seeds[k] || 0) <= 0) return; DV.cell(a, b).crop = { k, st: 0 }; s.seeds[k]--; DV.stat('planted'); DV.xp && DV.xp('farm', .2); };
       opts.push({ label: `ปลูก${DV.CROPS[k].name}`, icon: ic(DV.SEEDS[k].icon), cost: COST.plant, extra: `เหลือ ${has}`, disabled: !has && 'ไม่มีเมล็ด (ซื้อที่ร้านป้าแต๋ว)',
         run: () => DV.doAction({ energy: COST.plant, tool: TOOL.hand, fx: 'seed', targets: [[x, y]], apply: plant }) });
       const n = Math.min(has, empty.length);
@@ -195,8 +199,8 @@ function water(list) {
 function harvest(list) {
   const got = {};
   DV.doAction({ energy: COST.harvest * list.length, tool: TOOL.sickle, fx: 'spark', targets: list,
-    apply: (a, b) => { const c = DV.cell(a, b); if (!c.crop) return; const k = c.crop.k; DV.addItem(k); got[k] = (got[k] || 0) + 1; DV.stat('harvest');
-      DV.floatText(a * T + 16, b * T - 10, `+1 ${DV.CROPS[k].name}`, '#fff4b0');
+    apply: (a, b) => { const c = DV.cell(a, b); if (!c.crop) return; const k = c.crop.k; const extra = Math.random() < (DV.skLv ? (DV.skLv('farm') - 1) * .04 : 0) ? 1 : 0; DV.addItem(k, 1 + extra); got[k] = (got[k] || 0) + 1 + extra; DV.stat('harvest'); DV.xp && DV.xp('farm', 1);
+      DV.floatText(a * T + 16, b * T - 10, `+${1 + extra} ${DV.CROPS[k].name}`, '#fff4b0');
       if (DV.CROPS[k].regrow >= 0) c.crop.st = DV.CROPS[k].regrow; else c.crop = null; },
     after: () => { DV.toast('ได้ ' + Object.entries(got).map(([k, n]) => `${DV.CROPS[k].name} ${n}`).join(', ') + ' — ขายได้ที่ร้านป้าแต๋ว ตลาด หรือลานเสี่ยเฮง'); DV.maybeRandomCard(0.1); } });
 }

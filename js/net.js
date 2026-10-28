@@ -30,6 +30,8 @@ async function connect() {
   return NET.room;
 }
 DV.netConnect = connect;
+DV.netPush = () => pushPresence();
+DV.visitHost = () => { if (NET.mode !== 'guest' || !NET.line) return null; const h = NET.line.peers().find(p => p.peer === NET.hostPeer); return h && h.presence; };
 DV.callBadge = () => NET.incoming ? 1 : 0;
 
 // ---- my presence: who I am, where I stand, my farm (so a visitor sees the same plot) ----
@@ -38,7 +40,7 @@ function pushPresence() {
   const s = S(), line = NET.mode === 'guest' ? NET.line : NET.own; if (!s || !line) return;
   const p = DV.player;
   const me = { num: DV.myNumber(), name: s.name, g: s.gender, map: s.map, x: Math.round(p.x), y: Math.round(p.y), dir: p.dir, d8: p.d8, mv: p.moving ? 1 : 0, sit: p.sit ? 1 : 0, say: NET.say || null,
-    host: NET.mode === 'guest' ? 0 : 1, acc: Object.keys(NET.accepted).slice(0, 5) };
+    host: NET.mode === 'guest' ? 0 : 1, acc: Object.keys(NET.accepted).slice(0, 5), ev: NET.ev || null, mny: NET.mode === 'guest' ? undefined : s.money };
   if (me.host && s.cells) { me.farm = Object.entries(s.cells).filter(([, c]) => c.soil || c.crop).map(([k, c]) => `${k}:${c.wet ? 1 : 0}${c.crop ? c.crop.k[0] + c.crop.st : ''}`).join(' ').slice(0, 1800); me.mvd = JSON.stringify((s.moved || {}).farm || {}).slice(0, 600); }
   const str = JSON.stringify(me); if (str === lastP) return; lastP = str;
   line.presence(me).catch(() => {});
@@ -48,7 +50,7 @@ function pushPresence() {
 async function call(num) {
   if (num === DV.myNumber()) { NET.status = 'นี่เบอร์ของเราเอง'; return; }
   const room = await connect(); if (!room) { NET.status = 'ยังโทรไม่ได้ — ต้องต่ออินเทอร์เน็ต (และเปิดระบบออนไลน์ของเกม)'; DV.rerenderPhone(); return; }
-  NET.target = num; NET.status = 'กำลังโทร…'; DV.rerenderPhone();
+  NET.target = num; NET.status = 'กำลังโทร…'; DV.rerenderPhone(); const myCall = NET.callId = (NET.callId || 0) + 1;
   try { NET.line = await room.join(roomName(num)); } catch (e) { NET.status = 'สายไม่ว่าง ลองใหม่อีกครั้ง'; DV.rerenderPhone(); return; }
   NET.mode = 'guest'; pushPresence();
   const t0 = Date.now();
@@ -62,7 +64,7 @@ async function call(num) {
     if (NET.status === 'connected' && !ok) { NET.status = ''; DV.toast(`${host.presence.name} วางสายแล้ว · โทรใหม่ได้ทุกเมื่อ`); hang(); }
   }, () => {});
   NET.unwatch = watch;
-  setTimeout(() => { if (NET.status === 'กำลังโทร…') { NET.status = 'ไม่มีผู้รับสาย (เพื่อนต้องเปิดเกมค้างไว้)'; hang(); } }, 20000);
+  setTimeout(() => { if (NET.callId === myCall && NET.status === 'กำลังโทร…') { NET.status = 'ไม่มีผู้รับสาย (เพื่อนต้องเปิดเกมค้างไว้)'; hang(); } }, 20000);
 }
 function hang() {
   if (NET.unwatch) { NET.unwatch(); NET.unwatch = null; }

@@ -90,6 +90,14 @@ for _k, _n, _fp, _iso, _blk in [('coop_broken', 'เล้าไก่ (พั�
                                 ('bamboo_fence_b', 'รั้วไม้ไผ่ (ลำเล็ก)', (1, 1), True, True), ('bamboo_fence_vine', 'รั้วไม้ไผ่มีเถาวัลย์', (1, 1), True, True)] + [(f'weeds_{i}', 'กอหญ้ารก', (1, 1), False, True) for i in range(8)]:
     CATALOG[_k] = dict(k=_k, name=_n, cat='farm', src=os.path.join(_A2, _k + '.png'), iso=_iso, fp=list(_fp), block=_blk, shadow='prop', dy=2)
 
+# ---- v1.5 farm decor sold by ช่างเปี๊ยก (templates hidden on the farm; the game clones one per purchase) ----
+DECO = [('arch', 'ซุ้มไม้ไผ่ดอกไม้', (2, 1), 72, 380), ('banana_pot', 'กระถางกล้วยประดับ', (1, 1), 40, 150), ('bird', 'กรงนกเขา', (1, 1), 60, 260),
+        ('dragonjar', 'โอ่งมังกร', (1, 1), 34, 280), ('flowerbed', 'แปลงดอกทานตะวัน', (2, 1), 36, 220), ('hammock', 'เปลญวน', (2, 1), 40, 350),
+        ('lamp', 'เสาตะเกียงเจ้าพายุ', (1, 1), 58, 180), ('pots', 'กระถางเฟื่องฟ้า-ดาวเรือง', (1, 1), 28, 120), ('sala', 'ศาลาไม้หลังเล็ก', (2, 2), 92, 1500),
+        ('swing', 'ชิงช้าไม้', (2, 1), 58, 450)]
+for _k, _n, _fp, _h, _p in DECO:
+    CATALOG['deco_' + _k] = dict(k='deco_' + _k, name=_n, cat='farm', src=os.path.join(_A2, 'deco', f'deco_{_k}.png'), iso=False, fp=list(_fp), block=True, shadow='prop', dy=2, h=_h, price=_p)
+
 # ---- v1.0 trees & plants (PixelLab, drawn in the tile sets' style, roots and soil patch so they sit on the ground) ----
 _TR = os.path.join(_A2, 'trees')
 NEW_TREES = {'mango': 'mango', 'tamarind': 'tamarind', 'coconut': 'coconut', 'sugarpalm': 'sugarpalm', 'raintree': 'raintree', 'sugarcane': 'sugarcane',
@@ -111,6 +119,7 @@ HEIGHT = {'stove': 24, 'f_stove': 24, 'firewood': 26, 'f_firewood': 26, 'jars': 
           'trough': 24, 'tires': 28, 'well': 40, 'cart': 38, 'f_cart': 38, 'bush': 36, 'bush2': 28, 'banana_pot': 40, 'incense': 28,
           'donation': 34, 'bell': 44, 'f_peb': 10, 'f_rock': 20, 'f_rock_2': 20, 'f_stump': 22, 'f_br': 18, 'f_br_2': 18,
           **{f'weeds_{i}': 40 for i in range(8)}, 'bamboo_fence': 50, 'bamboo_fence_b': 50, 'bamboo_fence_vine': 50}
+for _k, _n, _fp, _h, _p in DECO: HEIGHT['deco_' + _k] = _h
 for _k, _h in HEIGHT.items():
     if _k in CATALOG: CATALOG[_k]['h'] = _h
 

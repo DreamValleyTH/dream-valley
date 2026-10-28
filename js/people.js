@@ -39,7 +39,8 @@ DV.whereIs = id => {
 };
 DV.npcsWanted = map => Object.keys(NPCS).map(id => ({ id, w: DV.whereIs(id) })).filter(x => x.w && x.w.map === map).map(x => ({ id: x.id, place: x.w.place }));
 DV.npcName = id => (NPCS[id] && NPCS[id].name) || ({ mom: 'แม่', dad: 'พ่อ', narrator: '', player: DV.S ? DV.S.name : 'ฉัน', boss: 'หัวหน้า', grandma: 'ยายเพียร', villager: 'ชาวบ้าน' }[id] ?? id);
-DV.portrait = id => NPCS[id] ? `assets/portraits/${id}.png` : id === 'player' ? `assets/portraits/player_${DV.S.gender}.png` : null;
+const EXTRA_POR = ['grandma', 'mom', 'dad', 'boss'];   // story-only speakers (not villagers you can meet)
+DV.portrait = id => NPCS[id] || EXTRA_POR.includes(id) ? `assets/portraits/${id}.png` : id === 'player' ? `assets/portraits/player_${DV.S.gender}.png` : null;
 const hearts = id => { const h = DV.heart(id); return '♥'.repeat(Math.floor(h / 2)) + (h % 2 ? '♡' : '') + `  (${h}/10)`; };
 
 // ---------- lines ----------
@@ -177,7 +178,7 @@ const SHOPS = {
   noi_noodle: { owner: 'noi', name: 'ร้านก๋วยเตี๋ยวพี่หน่อย', sells: ['kuay_tiew_ruea', 'kaprao', 'khai_jiao', 'pad_thai', 'tom_jued', 'khao_man_kai', 'tomyum'], eatHere: true },
   store24: { owner: null, name: 'ร้าน 24 ชม.', open: [0, 24], sells: ['instant_noodle', 'meatball_fried', 'soy_milk_set', 'energy_drink', 'iced_coffee', 'snack', 'khanom_chan', 'hand_towel'] },
   pharmacy: { owner: 'mod', name: 'ร้านขายยาภก.มด', sells: ['herbal_tea', 'plai', 'turmeric', 'hand_towel', 'energy_drink', 'herbal_med_set'] },
-  heng_shop: { owner: 'heng', name: 'ร้านปุ๋ยยาเสี่ยเฮง', seeds: true, sells: ['bio_ferment', 'hay_dry', 'tree_seedling', 'engine_oil'], buys: 'crops', mul: .9 },
+  heng_shop: { owner: 'heng', name: 'ร้านปุ๋ยยาเสี่ยเฮง', seeds: true, sells: ['chick', 'chicken_feed', 'bio_ferment', 'hay_dry', 'tree_seedling', 'engine_oil'], buys: 'crops', mul: .9 },
   rice_yard: { owner: 'heng', name: 'ลานรับซื้อเสี่ยเฮง', buys: 'all', mul: .85 },
   market: { owner: 'hong', name: 'ตลาดนัด (แผงเจ๊หงษ์)', sells: ['moo_ping', 'khanom_krok', 'somtum', 'kai_yang', 'kluay_buat_chee', 'tangerine', 'boiled_peanut', 'egg_duck', 'lotus_flower', 'rose_mon', 'lottery_ticket'], buys: 'all', mul: 1.1 },
   coffee: { owner: null, name: 'ร้านกาแฟ', open: [7, 20], sells: ['iced_coffee', 'chinese_tea', 'lodchong', 'khanom_chan', 'coconut_smoothie'] },
@@ -196,6 +197,7 @@ function buyMenu(pid) {
       run: () => { s.money -= price; DV.sfx('coin');
         if (sh.eatHere && it.eat) { DV.addEnergy(it.eat); DV.floatText(DV.player.x, DV.player.y - 60, `แรง +${it.eat}`, '#c8f59a'); DV.stat('meals'); DV.toast(`อร่อย! แรง +${it.eat}`); }
         else if (k === 'lottery_ticket') { DV.addItem(k); DV.buyLotto(1, price); DV.toast(`ได้สลาก 1 ใบ (หน้าตั๋ว ฿80 · ค่าความหวัง ฿${price - 80}) · ออกวันที่ ${DV.nextDraw()} 16:00`); }
+        else if (DV.buyHook && DV.buyHook(k)) {}
         else { DV.addItem(k); DV.toast(`ซื้อ${it.name}แล้ว — อยู่ในกระเป๋า`); }
         DV.hud(); DV.save(); buyMenu(pid); } }); });
   DV.openSheet(sh.name, `เงิน ฿${s.money}`, null, opts, sh.owner ? { portrait: sh.owner } : null);
@@ -205,13 +207,13 @@ function sellMenu(pid) {
   const bonus = sh.owner && DV.heart(sh.owner) >= 6 ? 1.1 : 1;
   const ok = k => sh.buys === 'all' || (sh.buys === 'crops' && DV.CROPS[k]);
   const opts = Object.keys(s.items).filter(k => s.items[k] > 0 && ok(k) && !DV.item(k).food && k !== 'lottery_ticket').map(k => {
-    const price = Math.max(1, Math.round(DV.item(k).sell * (sh.mul || 1) * bonus));
-    return { label: `ขาย${DV.item(k).name}ทั้งหมด`, icon: ic(DV.item(k).icon), extra: `${s.items[k]} × ฿${price}`,
+    const price = Math.max(1, Math.round(DV.item(k).sell * (sh.mul || 1) * bonus * (DV.priceMult ? DV.priceMult(k) : 1)));
+    return { label: `ขาย${DV.item(k).name}ทั้งหมด`, icon: ic(DV.item(k).icon), extra: `${s.items[k]} × ฿${price}${DV.priceTrend && DV.priceMult(k) !== 1 ? ' ' + DV.priceTrend(k) : ''}`,
       run: () => { const g = s.items[k] * price; s.money += g; delete s.items[k]; DV.stat('sold'); DV.stat('earned', g); DV.sfx('coin'); DV.hud(); DV.save();
         DV.floatText(DV.player.x, DV.player.y - 60, `+฿${g}`, '#fff1a0'); DV.toast(`ขายได้ ฿${g}`); sellMenu(pid); } };
   });
   if (!opts.length) { DV.closeSheet(); return DV.toast('ไม่มีของที่ร้านนี้รับซื้อ'); }
-  DV.openSheet(`ขายของ — ${sh.name}`, bonus > 1 ? 'สนิทกัน ได้ราคาพิเศษ +10%' : 'ราคารับซื้อวันนี้', null, opts, sh.owner ? { portrait: sh.owner } : null);
+  DV.openSheet(`ขายของ — ${sh.name}`, (bonus > 1 ? 'สนิทกัน ได้ราคาพิเศษ +10% · ' : '') + 'ราคาผัก/ปลา/ไข่ ขึ้นลงทุกวัน ▲▼', null, opts, sh.owner ? { portrait: sh.owner } : null);
 }
 DV.buyMenu = buyMenu; DV.sellMenu = sellMenu;
 
@@ -245,6 +247,7 @@ DV.openPlace = pid => {
   if (pid === 'clinic' && here.length) opts.push({ label: 'ตรวจสุขภาพ (บัตรทอง)', icon: ic('item_herbal_med_set'), extra: 'ฟรี · แรง +10', disabled: s.flags['checkup' + s.day] && 'วันนี้ตรวจแล้ว',
     run: () => { s.flags['checkup' + s.day] = 1; DV.addEnergy(10); DV.hud(); DV.toast('หมอแอน: “พักผ่อนให้พอ กินข้าวให้ครบนะคะ”'); DV.closeSheet(); } });
   if (pid === 'bus_stop') opts.push({ label: 'ขึ้นรถเมล์ไปอำเภอ', icon: ic('item_folder'), extra: '฿30', run: () => { DV.closeSheet(); DV.toast('ลุงเชิด: “รอบอำเภอยังไม่เปิดนะหลาน ถนนกำลังซ่อม… ซ่อมมาสามปีแล้ว”'); } });
+  DV.placeExtras && DV.placeExtras(pid, opts);
   if (!opts.length) opts.push({ info: true, label: s.min > 12 * 60 ? 'ไม่มีใครอยู่ตอนนี้ (ดึกแล้ว)' : 'ตอนนี้ไม่มีใครอยู่' });
   DV.openSheet(pl.name, here.length ? `อยู่ที่นี่: ${here.map(n => DV.npcName(n.id)).join(', ')}` : '', null, opts, null);
   DV.checkVisit && DV.checkVisit();
