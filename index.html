@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#2b2117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Dream Valley</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="assets/icon-192.png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="ui_icons.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud" class="hidden">
+  <div class="hud-card clock-card"><span id="clockIcon" class="uic uic-sun"></span><div><div id="dayLabel">วันที่ 1</div><div id="clock">06:00</div></div></div>
+  <div class="hud-card energy-card"><span class="uic uic-energy"></span><div class="ebar"><div id="energyBar"></div></div><b id="energyNum">100</b></div>
+  <div class="hud-card small"><span class="uic uic-money"></span><span id="money">฿500</span></div>
+  <div class="hud-card small" id="waterCard"><span class="uic uic-water"></span><span id="water">12/12</span></div>
+</div>
+<div id="ticker"></div>
+<div id="notif"></div>
+<div id="toast"></div>
+
+<nav id="bar" class="hidden">
+  <button id="mapBtn"><span class="uic uic-map em"></span><span id="mapLabel">แผนที่</span></button>
+  <button id="bagBtn"><span class="uic uic-bag em"></span>กระเป๋า</button>
+  <button id="questBtn"><span class="uic uic-quest em"></span>งาน</button>
+  <button id="phoneBtn"><span class="uic uic-phone em"></span>มือถือ</button>
+  <button id="menuBtn"><span class="uic uic-menu em"></span>เมนู</button>
+</nav>
+
+<div id="sheet" class="hidden">
+  <div class="sheet-head"><div id="sheetIcon"></div><div><div id="sheetTitle"></div><div id="sheetSub"></div></div></div>
+  <div id="sheetBody"></div>
+  <button class="btn ghost" id="sheetClose">ปิด</button>
+</div>
+
+<div id="cardWrap" class="hidden">
+  <div id="card">
+    <div class="card-tag" id="cardTag">เหตุการณ์</div>
+    <div class="card-art" id="cardArt"></div>
+    <div class="card-title" id="cardTitle"></div>
+    <div class="card-text" id="cardText"></div>
+    <div id="cardChoices"></div>
+  </div>
+</div>
+
+<div id="scene" class="hidden">
+  <div class="scene-box">
+    <div class="scene-art" id="sceneArt"><div class="scene-title" id="sceneTitle"></div></div>
+    <div class="scene-line"><div class="scene-portrait" id="scenePortrait"></div><div class="scene-body"><div class="scene-name" id="sceneName"></div><div class="scene-text" id="sceneText"></div></div></div>
+    <div id="sceneChoices"></div>
+  </div>
+</div>
+
+<div id="talk" class="hidden">
+  <div class="talk-portrait" id="talkPortrait"></div>
+  <div class="talk-box"><div class="talk-name" id="talkName"></div><div class="talk-text" id="talkText"></div><div id="talkChoices"></div></div>
+</div>
+
+<div id="map" class="hidden">
+  <div class="map-panel">
+    <div class="map-head"><div><div class="map-title">ตำบลบ้านดงเย็น</div><div class="sub">แตะสถานที่เพื่อเดินทาง</div></div><button class="btn ghost" id="mapClose">ปิด</button></div>
+    <div id="mapBox"></div><div id="mapInfo"></div>
+  </div>
+</div>
+
+<div id="phone" class="hidden">
+  <div class="phone-body"><div id="phoneScreen"></div><button id="phoneClose" aria-label="ปิดมือถือ"></button></div>
+</div>
+
+<div id="panel" class="hidden"></div>
+
+<div id="title">
+  <div class="title-box">
+    <div class="logo">Dream Valley</div>
+    <div class="logo-th">บ้านดงเย็น · กลับบ้านยาย</div>
+    <button id="clBtn" class="cl-btn" type="button"><span class="uic uic-star"></span> อัปเดต <span id="clVer"></span></button>
+    <div id="loading"><div class="bar"><div id="loadBar"></div></div><small>กำลังโหลดภาพ…</small></div>
+    <div id="loginBox" class="hidden">
+      <div class="tabs"><button id="tabNew" class="sel">เริ่มใหม่</button><button id="tabCont">เล่นต่อ</button></div>
+      <label class="name-lbl">ชื่อเล่น <input id="pname" maxlength="12" placeholder="เช่น ต้น"></label>
+      <label class="name-lbl">รหัส 6 ตัว <input id="pcode" maxlength="6" placeholder="ABC123" autocomplete="off" autocapitalize="characters"><button id="genCode" type="button" title="สุ่มรหัส">สุ่ม</button></label>
+      <div class="hint">ใช้ <b>ชื่อ + รหัส</b> คู่กันเพื่อเข้าเล่นต่อครั้งหน้า</div>
+      <div id="newOnly">
+        <div class="pick">
+          <button class="who sel" data-g="m"><div class="who-img" style="background-image:url(assets/portraits/player_m.png)"></div>ชาย</button>
+          <button class="who" data-g="f"><div class="who-img" style="background-image:url(assets/portraits/player_f.png)"></div>หญิง</button>
+        </div>
+        <div class="dl-lbl">ความยาว 1 วันในเกม (เวลาจริง)</div>
+        <div class="dls"><button class="dl" data-m="5">5 นาที</button><button class="dl sel" data-m="10">10 นาที</button><button class="dl" data-m="15">15 นาที</button></div>
+      </div>
+      <div id="loginErr"></div>
+      <button class="btn primary" id="startBtn">เริ่มเกมใหม่</button>
+      <div class="help" id="cloudNote"></div>
+      <div class="help">แตะพื้นเพื่อเดิน · แตะคน ร้าน ต้นไม้ แปลงผัก เพื่อเลือกทำ · มือถือ: กลุ่ม LINE หมู่บ้าน · ถ่างนิ้วซูม ลากนิ้วเดียวดูรอบ ๆ</div>
+    </div>
+  </div>
+</div>
+
+<script src="data/world.js"></script>
+<script src="data/meta.js"></script>
+<script src="data/catalog.js"></script>
+<script src="data/npcs.js"></script>
+<script src="data/story.js"></script>
+<script src="changelog.js"></script>
+<script src="cards.js"></script>
+<script src="js/core.js"></script>
+<script src="js/world.js"></script>
+<script src="js/farm.js"></script>
+<script src="js/people.js"></script>
+<script src="js/story.js"></script>
+<script src="js/line.js"></script>
+<script src="js/net.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/main.js"></script>
+<script>if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude\.ai|claudeusercontent/.test(location.host)) navigator.serviceWorker.register('sw.js').catch(() => {});</script>
+</body>
+</html>

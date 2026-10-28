@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+# PixelLab API token must never be committed
+.pixellab/
+*token*
