@@ -656,7 +656,20 @@ function drawSoil() {
 // ---------- render ----------
 const cam = { x: 0, y: 0 }; let camLift = 0;
 DV.cam = cam;
-function shadow(x, y, w) { ctx.fillStyle = 'rgba(20,32,8,.34)'; ctx.beginPath(); ctx.ellipse(x, y, w / 2, 4.5, 0, 0, Math.PI * 2); ctx.fill(); }
+// ---------- shadows: every thing casts its own silhouette, slanted like the late-morning (11 o'clock) sun ----------
+const SUN = { c: -0.55, d: -0.28 };   // late-morning sun from the back-left: each pixel of height falls 0.28px toward the viewer and 0.55px right — short and leaning
+const shCv = document.createElement('canvas'), shx = shCv.getContext('2d'); let shOn = false;
+function shadowBegin() { if (shCv.width !== cv.width || shCv.height !== cv.height) { shCv.width = cv.width; shCv.height = cv.height; } shx.setTransform(1, 0, 0, 1, 0, 0); shx.clearRect(0, 0, shCv.width, shCv.height); shx.imageSmoothingEnabled = false; shOn = true; }
+function cast(im, sx, sy, sw, sh, x, y, dw, dh, ox, oy, flip) {   // (x, y) = where it touches the ground; (ox, oy) = that point inside the drawn rect
+  if (!shOn || !im) return;
+  shx.setTransform(ctx.getTransform()); shx.transform(1, 0, SUN.c, SUN.d, x, y); if (flip) shx.scale(-1, 1);
+  shx.drawImage(im, sx, sy, sw, sh, -ox, -oy, dw, dh);
+}
+function shadowEnd(alpha) {   // all silhouettes merge into one soft-edged dark shape, so overlaps don't double up
+  shOn = false; shx.setTransform(1, 0, 0, 1, 0, 0); shx.globalCompositeOperation = 'source-in'; shx.fillStyle = 'rgb(24,34,12)'; shx.fillRect(0, 0, shCv.width, shCv.height); shx.globalCompositeOperation = 'source-over';
+  const m = ctx.getTransform(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = alpha; ctx.drawImage(shCv, 0, 0); ctx.globalAlpha = 1; ctx.setTransform(m);
+}
+DV.sun = SUN;
 function drawChar(e, sheet, feet) {
   const im = IMG['ch_' + sheet]; if (!im) return;
   const M = CMETA[sheet] || {};
@@ -673,7 +686,7 @@ function drawChar(e, sheet, feet) {
     if (e.sit) dy = 3;
   }
   const [ex, ey] = P(e.x, e.y);
-  if (!e.lift) shadow(ex, ey, 22);
+  if (e._castOnly) { if (!e.lift) cast(im, col * 64, row * 64, 64, 64, ex, ey + dy, 64, 64, 32, feet, false); return; }
   ctx.drawImage(im, col * 64, row * 64, 64, 64, Math.round(ex - 32), Math.round(ey - feet + dy - (e.lift || 0)), 64, 64);
 }
 function drawSpr(key, x, y, alpha, flip, k) {
@@ -685,6 +698,7 @@ function drawSpr(key, x, y, alpha, flip, k) {
   if (alpha != null) ctx.globalAlpha = 1;
 }
 DV.drawSpr = drawSpr;
+function castSpr(key, x, y, flip, k) { const r = WORLD.atlas.rects[key]; if (!r) return; const [sh, sx, sy, w, h] = r, dw = k ? Math.round(w * k) : w, dh = k ? Math.round(h * k) : h; cast(IMG['sheet' + sh], sx, sy, w, h, x, y, dw, dh, dw / 2, dh, flip); }
 let now = 0; const remote = {};
 function render(dt) {
   const M = DV.M, I = ISO(), PW = I ? I.SW : M.W * T, PH = I ? I.SH : M.H * T;
@@ -712,12 +726,6 @@ function render(dt) {
   ctx.fillStyle = '#2b2117'; ctx.fillRect(cam.x - 2, cam.y - 2, VW + 4, VH + 4);
   if (I) { ctx.drawImage(IMG['iso_' + S.map], 0, 0); if (S.map === 'farm') { ctx.save(); ctx.transform(I.K, I.K / 2, -I.K, I.K / 2, I.OX, 0); ctx.drawImage(soilCv, 0, 0); ctx.restore(); } }
   else { ctx.drawImage(IMG['bg_' + S.map], 0, 0); if (S.map === 'farm') ctx.drawImage(soilCv, 0, 0); }
-  if (I && I.rtShadow) { ctx.fillStyle = 'rgba(28,40,10,.34)';
-    M.objects.forEach(o => { if (!o.si || isGone(o)) return;
-      if (o.shadow === 'building' && o.fp) { const [x0, y0, x1, y1] = o.fp, c = [[x0, y0], [x1 + 8, y0], [x1 + 8, y1 + 6], [x0, y1 + 6]].map(([a, b]) => P(a + 6, b + 4));
-        ctx.beginPath(); ctx.moveTo(...c[0]); c.slice(1).forEach(q => ctx.lineTo(...q)); ctx.closePath(); ctx.fill(); }
-      else if (o.shadow === 'tree') { ctx.beginPath(); ctx.ellipse(o.ix + 4, o.iy - 2, o.iw * .34, o.iw * .15, 0, 0, 7); ctx.fill(); }
-      else if (o.shadow) { ctx.beginPath(); ctx.ellipse(o.ix + 1, o.iy - 1, Math.max(6, o.iw * .4), Math.max(3, Math.min(7, o.iw * .18)), 0, 0, 7); ctx.fill(); } }); }
   if (DV.build) { ctx.strokeStyle = 'rgba(255,240,170,.35)'; ctx.lineWidth = 1;
     for (let y = 1; y < M.H - 1; y++) for (let x = 1; x < M.W - 1; x++) if (!blocked[y][x] && !inPlot(x, y)) { const c = [[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1]].map(([a, b]) => P(a * T, b * T)); ctx.beginPath(); ctx.moveTo(...c[0]); c.slice(1).forEach(q => ctx.lineTo(...q)); ctx.closePath(); ctx.stroke(); }
     const sel = null; if (sel) { ctx.fillStyle = `rgba(255,220,90,${.25 + .15 * Math.sin(now / 150)})`; sel.block.forEach(([x, y]) => { const c = [[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1]].map(([a, b]) => P(a * T, b * T)); ctx.beginPath(); ctx.moveTo(...c[0]); c.slice(1).forEach(q => ctx.lineTo(...q)); ctx.closePath(); ctx.fill(); }); } }
@@ -745,15 +753,15 @@ function render(dt) {
     if (I) { if (!o.si) return; const key = o.si === o.s ? DV.objSprite(o) : o.si; const r = WORLD.atlas.rects[key]; if (!r) return; const w = r[3], h = r[4];
       const pd = player.x + player.y, behind = (o.iw > 60 && o.ih > 70) && pd < o.dep && psy < o.iy - 4 && psy > o.iy - h + 16 && Math.abs(psx - o.ix) < w * .46;
       const lifted = DV.lift && DV.lift.o === o, up = lifted ? 7 + Math.sin(now / 160) * 2 : 0;
-      list.push({ y: lifted ? 1e9 - 1 : o.front ? 1e9 : o.dep, d: () => drawSpr(key, o.ix, o.iy - up, lifted ? .9 : behind ? .5 : null, o.flip) }); return; }
+      list.push({ y: lifted ? 1e9 - 1 : o.front ? 1e9 : o.dep, d: () => drawSpr(key, o.ix, o.iy - up, lifted ? .9 : behind ? .5 : null, o.flip), c: o.top ? null : () => castSpr(key, o.ix, o.iy, o.flip) }); return; }
     const key = DV.objSprite(o); const r = WORLD.atlas.rects[key]; if (!r) return;
     const w = r[3], h = r[4];
     const behind = (o.w > 60 && o.h > 70) && player.y < o.y - 4 && player.y > o.y - h + 16 && Math.abs(player.x - o.x) < w * .46;
-    list.push({ y: o.front ? 1e9 : o.y, d: () => drawSpr(key, o.x, o.y, behind ? .5 : null) }); });
+    list.push({ y: o.front ? 1e9 : o.y, d: () => drawSpr(key, o.x, o.y, behind ? .5 : null), c: () => castSpr(key, o.x, o.y) }); });
   const CELLS = S.map === 'farm' && ((DV.visitCells && DV.visitCells()) || S.cells);
   if (S.map === 'farm') for (const k in CELLS) {
     const c = CELLS[k]; const [x, y] = k.split(',').map(Number);
-    if (c.debris) { const key = WORLD.atlas.debris[c.debris]; const r = WORLD.atlas.rects[key]; const [dx, dy] = P(x * T + 16, y * T + 22); if (r) list.push({ y: depth(x * T + 16, y * T + 22), d: () => drawSpr(key, dx, dy + 4, null, false, DEBRIS_K) }); }
+    if (c.debris) { const key = WORLD.atlas.debris[c.debris]; const r = WORLD.atlas.rects[key]; const [dx, dy] = P(x * T + 16, y * T + 22); if (r) list.push({ y: depth(x * T + 16, y * T + 22), d: () => drawSpr(key, dx, dy + 4, null, false, DEBRIS_K), c: () => castSpr(key, dx, dy + 4, false, DEBRIS_K) }); }
     if (c.crop) {
       const cr = DV.CROPS[c.crop.k], bb = CROPMETA.crops[cr.row][c.crop.st], w = bb[2] - bb[0], h = bb[3] - bb[1];
       const sway = c.crop.st >= 2 ? Math.sin(now / 700 + x * 1.3 + y) * .6 : 0;
@@ -761,13 +769,14 @@ function render(dt) {
       list.push({ y: depth(x * T + 16, y * T + 22), d: () => {
         const sw = Math.round(w * CROP_K), sh = Math.round(h * CROP_K);   // crops sized against the player (a chili bush is knee high)
         ctx.drawImage(IMG.crops, c.crop.st * 64 + bb[0], cr.row * 64 + bb[1], w, h, Math.round(qx - sw / 2 + sway), Math.round(qy + 4 - sh), sw, sh);
-        if (c.crop.st >= 4) { const b = Math.sin(now / 250 + x) * 1.5; ctx.fillStyle = '#fff3a0'; ctx.fillRect(qx - 1, qy + 4 - sh - 7 + b, 2, 2); } } });
+        if (c.crop.st >= 4) { const b = Math.sin(now / 250 + x) * 1.5; ctx.fillStyle = '#fff3a0'; ctx.fillRect(qx - 1, qy + 4 - sh - 7 + b, 2, 2); } },
+        c: () => { const sw = Math.round(w * CROP_K), sh = Math.round(h * CROP_K); cast(IMG.crops, c.crop.st * 64 + bb[0], cr.row * 64 + bb[1], w, h, qx, qy + 4, sw, sh, sw / 2, sh, false); } });
     }
   }
   (S.dropped && S.dropped[S.map] || []).filter(groundLive).forEach(d => { const [qx, qy] = P(d.x * T + 16, d.y * T + 18); const ic = DV.icon(DV.item(d.k).icon);
-    list.push({ y: depth(d.x * T + 16, d.y * T + 18), d: () => { shadow(qx, qy + 2, 11); ctx.drawImage(IMG.icons, (ic % 32) * 32, Math.floor(ic / 32) * 32, 32, 32, Math.round(qx - DROP_PX / 2), Math.round(qy - DROP_PX - 2 + Math.sin(now / 500 + d.x) * 1), DROP_PX, DROP_PX); } }); });
-  for (const n of DV.npcsHere) list.push({ y: depth(n.x, n.y), d: () => { drawChar(n, n.id, (CMETA[n.id] || { feet: 60 }).feet); drawMark(n); } });
-  list.push({ y: depth(player.x, player.y), d: () => drawChar(player, 'player_' + S.gender, (CMETA['player_' + S.gender] || { feet: 60 }).feet) });
+    list.push({ y: depth(d.x * T + 16, d.y * T + 18), d: () => { ctx.drawImage(IMG.icons, (ic % 32) * 32, Math.floor(ic / 32) * 32, 32, 32, Math.round(qx - DROP_PX / 2), Math.round(qy - DROP_PX - 2 + Math.sin(now / 500 + d.x) * 1), DROP_PX, DROP_PX); } }); });
+  for (const n of DV.npcsHere) list.push({ y: depth(n.x, n.y), d: () => { drawChar(n, n.id, (CMETA[n.id] || { feet: 60 }).feet); drawMark(n); }, c: () => { n._castOnly = 1; drawChar(n, n.id, (CMETA[n.id] || { feet: 60 }).feet); n._castOnly = 0; } });
+  list.push({ y: depth(player.x, player.y), d: () => drawChar(player, 'player_' + S.gender, (CMETA['player_' + S.gender] || { feet: 60 }).feet), c: () => { player._castOnly = 1; drawChar(player, 'player_' + S.gender, (CMETA['player_' + S.gender] || { feet: 60 }).feet); player._castOnly = 0; } });
   // friends on the call: drawn from their presence, eased towards the latest position
   (DV.netPlayers ? DV.netPlayers() : []).forEach(pr => {
     const e = remote[pr.num] || (remote[pr.num] = { x: pr.x, y: pr.y, t: 0, dir: 0, px: pr.x, py: pr.y, at: now, vx: 0, vy: 0 });
@@ -779,11 +788,12 @@ function render(dt) {
     if (gapD > T * 8) { e.x = tx; e.y = ty; }   // map change / long hiccup: jump instead of sliding across the map
     else { const k = Math.min(1, dt * (gapD > T * 2 ? 10 : 6)); e.x += (tx - e.x) * k; e.y += (ty - e.y) * k; }
     e.dir = pr.dir || 0; if (pr.d8 != null) { e.d8 = pr.d8; e._d8from = e.dir; } e.moving = !!pr.mv; e.sit = !!pr.sit; e.t += dt; const sheet = 'player_' + (pr.g === 'f' ? 'f' : 'm');
-    list.push({ y: depth(e.x, e.y), d: () => { drawChar(e, sheet, (CMETA[sheet] || { feet: 60 }).feet); const [x, y] = P(e.x, e.y);
+    list.push({ y: depth(e.x, e.y), c: () => { e._castOnly = 1; drawChar(e, sheet, (CMETA[sheet] || { feet: 60 }).feet); e._castOnly = 0; }, d: () => { drawChar(e, sheet, (CMETA[sheet] || { feet: 60 }).feet); const [x, y] = P(e.x, e.y);
       ctx.font = '8px Mitr, sans-serif'; ctx.textAlign = 'center'; const w = ctx.measureText(pr.name || '').width + 8;
       ctx.fillStyle = 'rgba(40,28,18,.75)'; roundRect(x - w / 2, y - 76, w, 11, 3); ctx.fill(); ctx.fillStyle = '#fff3d9'; ctx.fillText(pr.name || '', x, y - 67.5);
       if (pr.say && pr.say.text) { const tw = ctx.measureText(pr.say.text).width + 10; ctx.fillStyle = 'rgba(255,250,236,.95)'; roundRect(x - tw / 2, y - 94, tw, 14, 4); ctx.fill(); ctx.fillStyle = '#33251a'; ctx.fillText(pr.say.text, x, y - 84); } } });
   });
+  shadowBegin(); list.forEach(s => s.c && s.c()); shadowEnd(S.map === 'house' ? .2 : .34);   // shadows first, under everything
   list.sort((a, b) => a.y - b.y).forEach(s => s.d());
   // tool icon
   if (player.tool >= 0 || busy) {

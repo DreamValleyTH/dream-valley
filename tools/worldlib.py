@@ -143,8 +143,7 @@ class World:
         if decal_clear:
             x0, x1 = max(0, int(x - w * .5)), min(self.PW, int(x + w * .5)); y0, y1 = max(0, int(y - min(h, 40))), min(self.PH, int(y + 6))
             self.no_decal[y0:y1, x0:x1] = True
-        if shadow:
-            self.bake_shadow(o, shadow)
+        # v1.4: no baked shadows — the game casts each object's own silhouette live (late-morning sun)
         return o
 
     def bake_shadow(self, o, kind):
@@ -384,7 +383,7 @@ class World:
 
         # shadows in screen space
         sh = np.zeros((SH, SW), float)
-        for o in ([] if getattr(self, 'rt_shadow', False) else iso_objs):
+        for o in []:   # v1.4: shadows are cast live by the game
             ax, ay, w, h, kind = o['ix'], o['iy'], o['iw'], o['ih'], o['shadow']
             if kind == 'tree':
                 rx, ry = w * .34, w * .16
@@ -449,10 +448,10 @@ class World:
             d = dist[v, u]; k = 1 - min(.45 if not getattr(self, 'mirror_ground', False) else .15, d / 520)
             t2 = t.copy(); a = t2.getchannel('A'); t2 = Image.eval(t2.convert('RGB'), lambda c: int(c * k)).convert('RGBA'); t2.putalpha(a)
             # soft ground shadow
-            sh = Image.new('RGBA', (int(t.width * .7), 10), (0, 0, 0, 0))
-            from PIL import ImageDraw
-            ImageDraw.Draw(sh).ellipse((0, 0, sh.width - 1, 9), fill=(20, 30, 10, 70))
-            im.alpha_composite(sh, (int(u - sh.width / 2), int(v - 6)))
+            sil = Image.new('RGBA', t.size, (24, 34, 12, 0)); sil.putalpha(t.getchannel('A').point(lambda a: 86 if a > 40 else 0))   # same late-morning sun as the game
+            hgt = t.height; kx, dd = 0.55, 0.28   # same sun as the game: falls toward the viewer and to the right
+            sh = sil.transform((t.width + int(hgt * kx) + 2, int(hgt * dd) + 2), Image.AFFINE, (1, -kx / dd, 0, 0, -1 / dd, hgt), Image.NEAREST)
+            im.alpha_composite(sh, (int(u - t.width / 2), int(v) - 1))
             im.alpha_composite(t2, (int(u - t.width / 2), int(v - t.height)))
 
     def export(self, out_dir, atlas, iso_art=None):
@@ -493,7 +492,7 @@ class World:
         return dict(name=self.name, W=self.W, H=self.H, T=T, bg=None, blocked=self.blocked.tolist(),
                     path=self.walk_bonus.tolist(), water=self.water.astype(int).tolist(), objects=objs, places=self.places,
                     exits=self.exits, spawns=self.spawns, plot=self.plot,
-                    iso=dict(K=K, OX=OX, OY=self.MG, SW=SW, SH=SH, bg=f'{self.name}_iso.png', rtShadow=bool(getattr(self, 'rt_shadow', False))))
+                    iso=dict(K=K, OX=OX, OY=self.MG, SW=SW, SH=SH, bg=f'{self.name}_iso.png', rtShadow=True))
 
 class Atlas:
     def __init__(self, name, width=1024):
