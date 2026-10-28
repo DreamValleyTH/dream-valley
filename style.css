@@ -446,3 +446,14 @@ input:-webkit-autofill{-webkit-box-shadow:0 0 0 40px #fffdf6 inset;-webkit-text-
   border-style:solid;border-width:12px;border-image:url(assets/ui/panel.png) 22 fill/12px stretch;image-rendering:pixelated;padding:0 12px;white-space:nowrap;transition:.5s}
 #tiArrive.on{opacity:1;transform:translate(-50%,0)}
 @media (prefers-reduced-motion:reduce){#title *{animation-duration:.01s!important;transition-duration:.01s!important}}
+
+/* Hay Day style lift bar */
+#liftBar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(86px + env(safe-area-inset-bottom,0px));z-index:9;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;transition:opacity .15s}
+#liftBar.drag{opacity:.35}
+#liftBar .lb-name{pointer-events:auto;background:rgba(43,33,23,.85);color:#fff5dc;border-radius:10px;padding:2px 12px;font-size:14px}
+#liftBar .lb-name small{opacity:.8;margin-left:6px}
+#liftBar .lb-btns{display:flex;gap:10px;pointer-events:auto}
+#liftBar button{width:52px;height:52px;border-radius:50%;border:3px solid #5a3317;font-size:24px;line-height:1;background:#fff3d9;color:#3b2a1c;box-shadow:0 3px 0 rgba(0,0,0,.35);cursor:pointer}
+#liftBar .ok{background:#8fd05a;color:#1d3a0e}#liftBar .ok:disabled{background:#b9b0a0;opacity:.6}
+#liftBar .no{background:#f0a090}
+#buildBar .store{white-space:nowrap}

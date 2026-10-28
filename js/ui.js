@@ -240,11 +240,32 @@ DV.endBuild = () => { DV.build = null; const b = $('buildBar'); if (b) b.remove(
 DV.buildBar = () => {
   let b = $('buildBar'); if (!b) { b = document.createElement('div'); b.id = 'buildBar'; document.body.appendChild(b); }
   const B = DV.build, sel = B && B.sel, t = B.tool;
+  const nStore = DV.storedList ? DV.storedList().length : 0;
   const hint = t === 'dig' ? 'แตะพื้นที่จะขุดเป็นแปลงผัก (แรง −3)' : t === 'fill' ? 'แตะดินในแปลงที่จะกลบเป็นพื้น (แรง −2)'
-    : sel ? `ย้าย <b>${sel.label || 'ของชิ้นนี้'}</b> — แตะช่องปลายทาง (แรง −${Math.min(30, 2 + sel.block.length)})` : 'แตะของที่จะย้าย';
-  b.innerHTML = `<div class="bb-tools">${[['move', 'ย้ายของ'], ['dig', 'ขุดแปลง'], ['fill', 'กลบดิน']].map(([k, n]) => `<button class="${t === k ? 'on' : ''}" data-t="${k}">${n}</button>`).join('')}<button class="btn done">เสร็จ</button></div><div class="bb-hint">${hint}</div>`;
-  b.querySelectorAll('[data-t]').forEach(x => x.onclick = () => { B.tool = x.dataset.t; B.sel = null; B.confirm = null; DV.sfx('tick'); DV.buildBar(); });
-  b.querySelector('.done').onclick = DV.endBuild;
+    : 'แตะของที่จะย้าย แล้วลากไปวาง · ✓ วาง · ↔ กลับด้าน · 📦 เก็บเข้าคลัง (นอกโหมดนี้: กดค้างที่ของได้เลย)';
+  b.innerHTML = `<div class="bb-tools">${[['move', 'ย้ายของ'], ['dig', 'ขุดแปลง'], ['fill', 'กลบดิน']].map(([k, n]) => `<button class="${t === k ? 'on' : ''}" data-t="${k}">${n}</button>`).join('')}<button class="store">คลัง ${nStore}</button><button class="clear">ถางโล่ง</button><button class="btn done">เสร็จ</button></div><div class="bb-hint">${hint}</div>`;
+  b.querySelectorAll('[data-t]').forEach(x => x.onclick = () => { DV.liftCancel && DV.lift && DV.liftCancel(); B.tool = x.dataset.t; B.sel = null; B.confirm = null; DV.sfx('tick'); DV.buildBar(); });
+  b.querySelector('.store').onclick = () => DV.openStore();
+  b.querySelector('.clear').onclick = e => { if (DV.lift) DV.liftCancel(); if (B.confirm !== 'clear') { B.confirm = 'clear'; e.target.textContent = 'ยืนยันถาง?'; e.target.classList.add('on'); return DV.toast('ของทุกชิ้นยกเว้นบ้านยายจะเก็บเข้าคลัง (แปลงผักไม่หาย) · แตะอีกครั้งเพื่อยืนยัน'); } B.confirm = null; DV.clearFarm(); DV.buildBar(); };
+  b.querySelector('.done').onclick = () => { if (DV.lift) DV.liftCancel(); DV.endBuild(); };
+};
+// ---------- Hay Day style lift bar: shown while an object is lifted ----------
+DV.liftBar = () => {
+  const L = DV.lift; let b = $('liftBar'); if (!L) { if (b) b.remove(); return; }
+  if (!b) { b = document.createElement('div'); b.id = 'liftBar'; document.body.appendChild(b); }
+  b.classList.remove('drag');
+  const ok = DV.liftValid(), cost = (L.dx || L.dy || L.flip || L.fromStore) ? DV.liftCost(L.o) : 0;
+  b.innerHTML = `<div class="lb-name">${DV.objName(L.o)} <small>${ok ? (cost ? 'แรง −' + cost : 'ลากเพื่อย้าย') : 'วางตรงนี้ไม่ได้'}</small></div>
+    <div class="lb-btns"><button class="no" title="ยกเลิก">✕</button><button class="flip" title="กลับด้าน">⇋</button>${L.o.id === 'house' ? '' : '<button class="store" title="เก็บเข้าคลัง">📦</button>'}<button class="ok"${ok ? '' : ' disabled'} title="วาง">✓</button></div>`;
+  b.querySelector('.no').onclick = () => { DV.liftCancel(); DV.build && DV.buildBar(); };
+  b.querySelector('.flip').onclick = () => DV.liftFlip();
+  const st = b.querySelector('.store'); if (st) st.onclick = () => { DV.liftStore(); DV.build && DV.buildBar(); };
+  b.querySelector('.ok').onclick = () => { DV.liftConfirm(); DV.build && DV.buildBar(); };
+};
+DV.openStore = () => {
+  const L = DV.storedList();
+  if (!L.length) return DV.toast('คลังว่างอยู่ — ยกของขึ้นแล้วกด 📦 เพื่อเก็บ');
+  DV.openSheet('คลังของ', 'แตะเพื่อนำออกมาวาง (ลากไปตรงที่ต้องการแล้วกด ✓)', null, L.map(o => ({ label: DV.objName(o), icon: null, run: () => { DV.closeSheet(); DV.placeFromStore(o); } })));
 };
 DV.openMenu = () => DV.openSheet('เมนู', `${S().name} · รหัส ${S().code}<br><small>${DV.cloudLabel()} · 1 วันในเกม = ${S().dayLen} นาทีจริง</small>`, null, [
   { label: 'อัปเดตเกม' + (DV.clUnseen() ? ' (ใหม่)' : ''), icon: null, run: () => { DV.closeSheet(); DV.openChangelog(); } },

@@ -161,6 +161,7 @@ def farm_iso(w):
     return a
 for o in farm.objects:
     if o['id'] in ('lotus1', 'lotus2'): o['flat'] = True
+farm.mirror_ground = True   # the paddy land around the farm continues seamlessly
 farm.rt_shadow = True   # farm objects can be moved in build mode, so their shadows are drawn live
 maps['farm'] = farm.export(OUT, atlas, farm_iso(farm))
 print('farm ok', len(farm.objects))
@@ -327,23 +328,26 @@ def build_town():
     w.exits = [dict(cells=[[0, RY], [0, RY + 1]], to='farm', spawn='from_town', label='กลับฟาร์มยาย')]
     return w
 
-town = build_town()
+USE_DATA_TOWN = os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'maps', 'town.json'))
+town = None if USE_DATA_TOWN else build_town()
 def town_iso(w):
     a = {}
     for o in w.objects:
         f = f'{ISO}/{o["id"]}_0.png'
         if o['block'] and os.path.exists(f): a[o['id']] = dict(im=isoim(f'{o["id"]}_0.png'), center=True, dy=4)
     return a
-for o in town.objects:
+for o in (town.objects if town else []):
     if o['id'] == 'bridge' or (o['id'].startswith('cw') and o['im'].size[1] < 30): o['flat'] = True
-maps['town'] = town.export(OUT, atlas, town_iso(town))
-# ---- v0.8: the town is one painted map (PixelLab over a blueprint after ต.บางกะพี้), with occluders cut from the painting ----
-PAINTED = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapgen', 'town_painted.png')
-if os.path.exists(PAINTED):
-    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapgen'))
-    import town_painted
-    maps['town'] = town_painted.build(PAINTED, atlas)
-    Image.open(PAINTED).convert('RGB').save(f'{OUT}/town_iso.png')
+if town: maps['town'] = town.export(OUT, atlas, town_iso(town))
+# ---- v0.9: maps are DATA (data/maps/<name>.json: terrain grid + placed objects) built here into ground + sprites ----
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapgen'))
+import mapdata
+MAPDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'maps')
+if os.path.exists(f'{MAPDIR}/town.json'):
+    tw, tart = mapdata.build_world(json.load(open(f'{MAPDIR}/town.json')), World)
+    tw.MG = 120; tw.mirror_ground = True
+    maps['town'] = tw.export(OUT, atlas, tart)
+    print('town (data) ok', len(tw.objects))
 # ---- grandma's house interior: one PixelLab isometric room, logical 6x6 floor fitted onto it ----
 W6 = H6 = 6
 blk = [[0] * W6 for _ in range(H6)]
@@ -355,7 +359,7 @@ maps['house'] = dict(name='house', W=W6, H=H6, T=32, bg='house_room.png', blocke
                      objects=objs, places={'home_in': dict(name='ในบ้านยาย', door=[3, 5], spots=[[3, 5]], kind='home')},
                      exits=[dict(cells=[[3, 5], [4, 5]], to='farm', spawn='home', label='ออกนอกบ้าน', mins=1)],
                      spawns={'in': [3, 4]}, plot=None, iso=dict(K=.75, KY=.44, OX=190, OY=108, SW=384, SH=320, bg='house_room.png'))
-print('town ok', len(town.objects))
+print('town ok')
 
 json.dump(maps, open(OUT + '/maps_tmp.json', 'w'))
 extra = {}

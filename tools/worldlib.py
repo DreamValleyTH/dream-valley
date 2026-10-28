@@ -27,6 +27,29 @@ def grade(img, mul, add=(0, 0, 0)):
     a = img * np.array(mul) + np.array(add)
     return np.clip(a, 0, 255)
 
+def paddy_rgb(xx, yy, seed, din=None):
+    """rice paddies in logical px: parcels with raised bunds, each at its own stage (works for any coords, so the countryside outside the map continues seamlessly)"""
+    T_ = 32
+    jx = np.sin(yy / 97.0 + seed) * 9 + np.sin(xx / 61.0) * 4; jy = np.sin(xx / 83.0 + seed * 2) * 7
+    PXp, PYp = 6 * T_, 4 * T_
+    fxr = np.floor((xx + jx) / PXp); yy2 = yy + jy + fxr * 37
+    fx, fy = fxr, np.floor(yy2 / PYp)
+    h = (np.sin(fx * 12.9898 + fy * 78.233 + seed) * 43758.5453) % 1
+    lx = np.mod(xx + jx, PXp); ly = np.mod(yy2, PYp)
+    young = np.array([118, 170, 64.]); ripe = np.array([206, 178, 84.]); flood = np.array([104, 150, 136.]); stub = np.array([164, 146, 92.]); mid = np.array([150, 176, 70.])
+    col = np.where((h < .38)[..., None], young, np.where((h < .58)[..., None], mid, np.where((h < .78)[..., None], ripe, np.where((h < .86)[..., None], flood, stub))))
+    rows = (np.floor(xx / 5) % 2 == 0) & (h < .9)
+    gr = np.sin(xx * 1.7 + yy * 2.3) * np.sin(xx * .37 - yy * .91)
+    col = col * np.where(rows, 1.04, .80)[..., None] * (1 + gr[..., None] * .05)
+    sprout = (h >= .78) & (h < .86) & (np.mod(xx, 10) < 3) & (np.mod(yy, 10) < 3)
+    col = np.where(sprout[..., None], young * .95, col)
+    bund = (lx < 5) | (ly < 5)
+    if din is not None: bund = bund | (din <= 5)
+    col = np.where(bund[..., None], np.array([132, 160, 70.]) * (1 + gr[..., None] * .06), col)
+    edge = ((lx >= 5) & (lx < 6)) | ((ly >= 5) & (ly < 6))
+    if din is not None: edge = edge | ((din > 5) & (din <= 6))
+    return np.where((edge & ~bund)[..., None], col * .62, col)
+
 class World:
     def __init__(self, name, W, H, seed=1):
         self.name, self.W, self.H = name, W, H
@@ -205,6 +228,13 @@ class World:
                 img[m] = base[m]
                 din = ndimage.distance_transform_edt(m)
                 img[m & (din <= 2)] = np.array([168, 160, 146.])
+                for pts in getattr(self, 'dash_lines', []):   # centre line along any road polyline (tile coords)
+                    acc = 0.0
+                    for (x0, y0), (x1, y1) in zip(pts[:-1], pts[1:]):
+                        L_ = max(1e-6, np.hypot(x1 - x0, y1 - y0) * T); n_ = int(L_ / 2)
+                        for i in range(n_):
+                            t = i / n_; px_, py_ = int((x0 + (x1 - x0) * t) * T), int((y0 + (y1 - y0) * t) * T); acc += 2
+                            if acc % 26 < 13 and 1 <= px_ < PW - 2 and 1 <= py_ < PH - 2 and m[py_, px_]: img[py_ - 1:py_ + 2, px_ - 1:px_ + 2] = np.array([226, 190, 80.])
                 if getattr(self, 'dash_rows', None):
                     for (y0, x0, x1) in self.dash_rows:
                         for x in range(x0, x1, 24):
@@ -224,6 +254,11 @@ class World:
                 base = np.array([228, 206, 160.]) + n[..., None] * 6
                 img[m] = base[m]
                 d = ndimage.distance_transform_edt(~m); img[(d > 0) & (d <= 2)] *= .9
+            elif kind == 'paddy':
+                yy, xx = np.mgrid[0:PH, 0:PW].astype(float)
+                din = ndimage.distance_transform_edt(m)
+                col = paddy_rgb(xx, yy, self.seed, din)
+                img[m] = col[m]
             elif kind == 'water':
                 wf = tex(f'{ART_B}/tiles/pond/water_fill.png', PW, PH)
                 wf = grade(wf, (.92, 1.0, 1.0))
@@ -290,9 +325,12 @@ class World:
         xi = mirror(np.floor(x).astype(int), self.PW); yi = mirror(np.floor(y).astype(int), self.PH)
         out = np.zeros((SH, SW, 4), np.uint8)
         dist = np.maximum(np.maximum(-x, x - self.PW), np.maximum(-y, y - self.PH)).clip(0)
-        dim = (1 - np.clip(dist / 700, 0, .32))[..., None]
+        dim = (1 - np.clip(dist / 700, 0, .32 if not getattr(self, 'mirror_ground', False) else .12))[..., None]
         xc = np.clip(np.floor(x).astype(int), 0, self.PW - 1); yc = np.clip(np.floor(y).astype(int), 0, self.PH - 1)
-        src = np.where(inside[..., None], g[yc, xc], self.grass_np[yi, xi])
+        if getattr(self, 'mirror_ground', False):   # data maps: the countryside beyond is the same paddy land, continuing
+            src = np.where(inside[..., None], g[yc, xc], paddy_rgb(x, y, self.seed))
+        else:
+            src = np.where(inside[..., None], g[yc, xc], self.grass_np[yi, xi])
         # ---- countryside outside the playable land: rice paddies with dikes, roads that keep going, tree lines ----
         outside = ~inside
         road = getattr(self, 'road_mask', np.zeros((self.PH, self.PW), bool))
@@ -311,7 +349,7 @@ class World:
         col = np.where(dike[..., None], np.array([118, 140, 66.]), col)
         near = dist < 56                                                # keep a grass verge right next to the land
         # (paddies switched off: the edge now continues the same grass and earth as the map, just not walkable)
-        dirt = outside & ~ext & (noise(SH, SW, 14, self.seed + 41) > 1.9)
+        dirt = outside & ~ext & (noise(SH, SW, 14, self.seed + 41) > 1.9) & (not getattr(self, 'mirror_ground', False))
         src = np.where(dirt[..., None], src * .55 + np.array([150, 112, 70.]) * .45, src)   # a few worn earth patches, softly blended
         out[..., :3] = np.clip(src * dim, 0, 255).astype(np.uint8); out[..., 3] = 255
         self._iso_outside = (outside, x, y, dist, ext, near)
@@ -380,7 +418,7 @@ class World:
         for (u, v) in sorted(pts, key=lambda p: p[1]):
             t = pool[r.randint(len(pool))]
             if r.rand() < .5: t = t.transpose(Image.FLIP_LEFT_RIGHT)
-            d = dist[v, u]; k = 1 - min(.45, d / 520)
+            d = dist[v, u]; k = 1 - min(.45 if not getattr(self, 'mirror_ground', False) else .15, d / 520)
             t2 = t.copy(); a = t2.getchannel('A'); t2 = Image.eval(t2.convert('RGB'), lambda c: int(c * k)).convert('RGBA'); t2.putalpha(a)
             # soft ground shadow
             sh = Image.new('RGBA', (int(t.width * .7), 10), (0, 0, 0, 0))

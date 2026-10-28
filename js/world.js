@@ -62,8 +62,10 @@ function applyMoves() {
   const M = DV.M, mv = (S.moved && S.moved[S.map]) || {}, I = M.iso;
   M.objects.forEach(o => {
     if (!o._b0) { o._b0 = o.block.map(b => b.slice()); o._p0 = { x: o.x, y: o.y, ix: o.ix, iy: o.iy, dep: o.dep, fp: o.fp && o.fp.slice() }; }
-    const m = mv[o.id] || { dx: 0, dy: 0 }, dx = m.dx * T, dy = m.dy * T, p = o._p0;
+    const m0 = mv[o.id] || { dx: 0, dy: 0 }, L = DV.lift && DV.lift.o === o ? DV.lift : null;
+    const m = L ? { dx: m0.dx + L.dx, dy: m0.dy + L.dy } : m0, dx = m.dx * T, dy = m.dy * T, p = o._p0;
     o.block = o._b0.map(([a, b]) => [a + m.dx, b + m.dy]);
+    o.flip = !!((S.flip && S.flip[S.map] && S.flip[S.map][o.id]) ^ (L && L.flip ? 1 : 0));
     o.x = p.x + dx; o.y = p.y + dy; o.dep = p.dep + dx + dy;
     if (I) { o.ix = p.ix + (dx - dy) * I.K; o.iy = p.iy + (dx + dy) * (I.KY || I.K / 2); }
     if (p.fp) o.fp = [p.fp[0] + dx, p.fp[1] + dy, p.fp[2] + dx, p.fp[3] + dy];
@@ -80,7 +82,7 @@ function rebuildBlocked() {
   M.objects.forEach(o => { if (isGone(o)) o.block.forEach(([a, b]) => { if (blocked[b]) blocked[b][a] = 0; }); });
 }
 DV.rebuildBlocked = rebuildBlocked;
-const isGone = o => S && S.gone[o.id] != null && S.day < S.gone[o.id];
+const isGone = o => S && ((S.gone[o.id] != null && S.day < S.gone[o.id]) || (S.stored && S.stored[S.map] && S.stored[S.map][o.id] && !(DV.lift && DV.lift.o === o)));
 DV.isGone = isGone;
 // any farm cell that is (or was laid out as) a vegetable bed — beds can be dug anywhere and filled back in
 const inPlot = (x, y) => S && S.map === 'farm' && !!(S.cells && S.cells[x + ',' + y]);
@@ -327,12 +329,20 @@ let down = null, pinch = null; const ptrs = new Map();
 const pdist = () => { const [a, b] = [...ptrs.values()]; return Math.hypot(a.x - b.x, a.y - b.y) || 1; };
 cv.addEventListener('pointerdown', e => {
   ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); try { cv.setPointerCapture(e.pointerId); } catch (_) {}
-  if (ptrs.size === 1) down = { x: e.clientX, y: e.clientY, ox: camOff.x, oy: camOff.y, moved: false };
+  if (ptrs.size === 1) {
+    down = { x: e.clientX, y: e.clientY, ox: camOff.x, oy: camOff.y, moved: false };
+    if (S && S.map === 'farm' && !DV.uiOpen() && ISO()) {
+      const sx = e.clientX / zoom + cam.x, sy = e.clientY / zoom + cam.y, h = hitIsoAll(sx, sy), d0 = down;
+      if (DV.lift && (h && h.obj === DV.lift.o || liftCellUnder(sx, sy))) { liftGrab(d0, sx, sy); }
+      else if (h && canLift(h.obj)) d0.timer = setTimeout(() => { if (down === d0 && !d0.moved && !DV.uiOpen()) { liftStart(h.obj); liftGrab(d0, sx, sy); DV.sfx('wood'); if (navigator.vibrate) try { navigator.vibrate(25); } catch (_) {} } }, 420);
+    }
+  }
   else if (ptrs.size === 2) { pinch = { d0: pdist(), uz0: uz }; if (down) down.moved = true; }
 });
 cv.addEventListener('pointermove', e => {
   if (!ptrs.has(e.pointerId)) return; ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (pinch && ptrs.size >= 2) { const [a, b] = [...ptrs.values()]; setZoom(pinch.uz0 * pdist() / pinch.d0, (a.x + b.x) / 2, (a.y + b.y) / 2, true); return; }
+  if (down && down.lift && ptrs.size === 1) { liftDrag(e.clientX / zoom + cam.x, e.clientY / zoom + cam.y); return; }
   if (down && ptrs.size === 1) {
     const dx = e.clientX - down.x, dy = e.clientY - down.y;
     if (!down.moved && Math.hypot(dx, dy) > 12) down.moved = true;
@@ -342,7 +352,8 @@ cv.addEventListener('pointermove', e => {
 const pend = e => {
   const had = ptrs.delete(e.pointerId); if (!had) return;
   if (ptrs.size < 2) pinch = null;
-  if (ptrs.size === 0 && down) { const d = down; down = null; if (!d.moved && S && e.type === 'pointerup') tapScreen(e.clientX / zoom + cam.x, e.clientY / zoom + cam.y); }
+  if (down && down.timer) clearTimeout(down.timer);
+  if (ptrs.size === 0 && down) { const d = down; down = null; if (d.lift) { DV.liftBar(); return; } if (!d.moved && S && e.type === 'pointerup') tapScreen(e.clientX / zoom + cam.x, e.clientY / zoom + cam.y); }
 };
 cv.addEventListener('pointerup', pend); cv.addEventListener('pointercancel', pend);
 cv.addEventListener('wheel', e => { e.preventDefault(); setZoom(uzT * (e.deltaY < 0 ? 1.15 : 1 / 1.15), e.clientX, e.clientY); }, { passive: false });
@@ -354,6 +365,7 @@ function setZoom(z, fx, fy, now) {
 }
 function zoomStep(dt) { if (Math.abs(uz - uzT) < .0005) return; uz += (uzT - uz) * Math.min(1, dt * 14); if (Math.abs(uz - uzT) < .0005) uz = uzT; applyZoom(...(zFocus || [innerWidth / 2, innerHeight / 2])); }
 try { const z = parseFloat(localStorage.getItem('dv3_zoom')); if (z > 0) uz = uzT = z; } catch (_) {}
+DV.toClient = (sx, sy) => [(sx - cam.x) * zoom, (sy - cam.y) * zoom];
 DV.setZoom = setZoom; DV.recenter = () => { camOff.x = camOff.y = 0; camFree = false; };
 DV.uiBlocked = () => busy || DV.uiOpen() || dayOver || fadeA > 0;
 const sprRect = o => WORLD.atlas.rects[o.s];
@@ -388,6 +400,72 @@ function hitSprite(wx, wy) {
   }
   return null;
 }
+// ---------- Hay Day style moving: hold an object to lift it, drag it around, then ✓ place · ↔ flip · 📦 store · ✗ cancel ----------
+DV.lift = null;
+const canLift = o => !!(o && o.block && o.block.length && (o.id === 'house' || !o.place));
+DV.canLift = canLift;
+function liftStart(o, dx = 0, dy = 0, fromStore = false) {
+  if (DV.lift && DV.lift.o !== o) liftCancel();
+  DV.lift = { o, dx, dy, flip: false, fromStore, grab: null }; applyMoves(); DV.sfx('tick');
+}
+function liftCellUnder(sx, sy) { const L = DV.lift; if (!L) return false; const [wx, wy] = unP(sx, sy), cx = Math.floor(wx / T), cy = Math.floor(wy / T); return L.o.block.some(([a, b]) => a === cx && b === cy); }
+function liftGrab(d, sx, sy) { const [wx, wy] = unP(sx, sy); d.lift = true; d.moved = true; DV.lift.grab = [Math.floor(wx / T) - DV.lift.dx, Math.floor(wy / T) - DV.lift.dy]; const b = $('liftBar'); if (b) b.classList.add('drag'); }
+function liftDrag(sx, sy) {
+  const L = DV.lift; if (!L || !L.grab) return; const [wx, wy] = unP(sx, sy);
+  const ndx = Math.floor(wx / T) - L.grab[0], ndy = Math.floor(wy / T) - L.grab[1];
+  if (ndx !== L.dx || ndy !== L.dy) { L.dx = ndx; L.dy = ndy; applyMoves(); DV.sfx('tick'); }
+}
+function liftValid() {
+  const L = DV.lift, M = DV.M; if (!L) return false;
+  const own = new Set(L.o._b0.map(([a, b]) => { const m = (S.moved && S.moved[S.map] && S.moved[S.map][L.o.id]) || { dx: 0, dy: 0 }; return (a + m.dx) + ',' + (b + m.dy); }));
+  return L.o.block.every(([a, b]) => a >= 1 && b >= 1 && a < M.W - 1 && b < M.H - 1 && (!blocked[b][a] || (own.has(a + ',' + b) && !L.fromStore)) && !inPlot(a, b)
+    && !(a === player.cx && b === player.cy) && !(M.exits || []).some(e => e.cells.some(c => c[0] === a && c[1] === b)) && !DV.npcsHere.some(n => n.cx === a && n.cy === b) && !droppedAt(a, b));
+}
+DV.liftValid = liftValid;
+const liftCost = o => Math.min(30, 2 + o.block.length);
+DV.liftCost = liftCost;
+function liftCancel() { if (!DV.lift) return; DV.lift = null; applyMoves(); const b = $('liftBar'); if (b) b.remove(); }
+DV.liftCancel = () => { liftCancel(); DV.sfx('tick'); };
+DV.liftFlip = () => { const L = DV.lift; if (!L) return; const xs = L.o._b0.map(b => b[0]), ys = L.o._b0.map(b => b[1]);
+  if (Math.max(...xs) - Math.min(...xs) !== Math.max(...ys) - Math.min(...ys)) return DV.toast('ของชิ้นนี้กลับด้านไม่ได้ (ฐานไม่เป็นสี่เหลี่ยมจัตุรัส)');
+  L.flip = !L.flip; applyMoves(); DV.sfx('wood'); DV.liftBar(); };
+DV.liftConfirm = () => {
+  const L = DV.lift; if (!L) return; if (!liftValid()) { DV.sfx('dirt'); return DV.toast('วางตรงนั้นไม่ได้ ชนของอื่น แปลงผัก หรือทางเดิน'); }
+  const changed = L.dx || L.dy || L.flip || L.fromStore, cost = changed ? liftCost(L.o) : 0;
+  if (S.energy < cost) return DV.toast(`แรงไม่พอ ต้องใช้ ${cost}`);
+  const map = S.map; S.moved = S.moved || {}; const mv = (S.moved[map] = S.moved[map] || {}); const m = mv[L.o.id] || { dx: 0, dy: 0 };
+  mv[L.o.id] = { dx: m.dx + L.dx, dy: m.dy + L.dy };
+  if (L.flip) { S.flip = S.flip || {}; S.flip[map] = S.flip[map] || {}; S.flip[map][L.o.id] = S.flip[map][L.o.id] ? 0 : 1; }
+  if (L.fromStore && S.stored && S.stored[map]) delete S.stored[map][L.o.id];
+  const [cx, cy] = L.o.block[0]; DV.lift = null; rebuildBlocked(); const b = $('liftBar'); if (b) b.remove();
+  if (cost) { DV.addEnergy(-cost); burst(cx, cy, 'dirt'); DV.sfx('wood'); DV.toast(`${L.fromStore ? 'วาง' : 'ย้าย'}แล้ว · แรง −${cost}`); }
+  DV.hud(); DV.save(); DV.checkFaint();
+};
+DV.liftStore = () => {
+  const L = DV.lift; if (!L) return; if (L.o.id === 'house') return DV.toast('บ้านยายย้ายได้ แต่เก็บเข้าคลังไม่ได้');
+  const cost = Math.max(1, Math.round(liftCost(L.o) / 2)); if (S.energy < cost) return DV.toast(`แรงไม่พอ ต้องใช้ ${cost}`);
+  const o = L.o; DV.lift = null; S.stored = S.stored || {}; S.stored[S.map] = S.stored[S.map] || {}; S.stored[S.map][o.id] = 1;
+  rebuildBlocked(); const b = $('liftBar'); if (b) b.remove(); DV.addEnergy(-cost); DV.sfx('leaf');
+  DV.toast(`เก็บ${DV.objName(o)}เข้าคลังแล้ว · แรง −${cost} · วางใหม่ได้จากปุ่ม "คลังของ"`); DV.hud(); DV.save(); DV.checkFaint();
+};
+DV.clearFarm = () => {   // ถางโล่ง: every movable thing except grandma's house goes to storage, ready to rebuild
+  const list = DV.M.objects.filter(o => canLift(o) && o.id !== 'house' && !isGone(o));
+  if (!list.length) return DV.toast('ฟาร์มโล่งแล้ว');
+  const cost = Math.min(40, Math.ceil(list.length / 2)); if (S.energy < cost) return DV.toast(`แรงไม่พอ ต้องใช้ ${cost}`);
+  S.stored = S.stored || {}; const st = (S.stored[S.map] = S.stored[S.map] || {}); list.forEach(o => { st[o.id] = 1; });
+  rebuildBlocked(); DV.addEnergy(-cost); DV.sfx('leaf'); DV.toast(`ถางโล่งแล้ว เก็บ ${list.length} ชิ้นเข้าคลัง · แรง −${cost}`); DV.hud(); DV.save(); DV.checkFaint();
+};
+const OBJ_NAMES = [['house', 'บ้านยาย'], ['jars', 'โอ่งดิน'], ['jar', 'โอ่งน้ำ'], ['firewood', 'กองฟืน'], ['clothesline', 'ราวตากผ้า'], ['bike', 'จักรยาน'], ['cart', 'เกวียน'],
+  ['stove', 'เตาถ่าน'], ['spirit', 'ศาลพระภูมิ'], ['doghouse', 'บ้านหมา'], ['compost', 'กองปุ๋ยหมัก'], ['pump', 'ปั๊มน้ำมือโยก'], ['hose', 'สายยาง'], ['fb', 'รั้วไม้'], ['fl', 'รั้วไม้'],
+  ['scarecrow', 'หุ่นไล่กา'], ['haystack', 'กองฟาง'], ['sacks', 'กระสอบ'], ['tree', 'ต้นไม้'], ['bench', 'ม้านั่ง'], ['mailbox', 'ตู้จดหมาย'], ['lotus', 'กอบัว'], ['reeds', 'กอกก'],
+  ['stake', 'หลักไม้'], ['bam', 'กอไผ่'], ['banr', 'กอกล้วย'], ['ban', 'กอกล้วย'], ['hedge', 'พุ่มรั้ว'], ['stump', 'ตอไม้'], ['peb', 'ก้อนหิน'], ['br', 'กิ่งไม้'], ['rock', 'ก้อนหิน']];
+DV.objName = o => o.label || (OBJ_NAMES.find(([k]) => o.id.startsWith(k)) || [0, 'ของ'])[1];
+DV.storedList = () => DV.M.objects.filter(o => S.stored && S.stored[S.map] && S.stored[S.map][o.id]);
+DV.placeFromStore = o => {   // drop it in front of the player, lifted, ready to drag
+  const m = (S.moved && S.moved[S.map] && S.moved[S.map][o.id]) || { dx: 0, dy: 0 };
+  const b0 = o._b0[0], tx = player.cx + 1, ty = player.cy + 1;
+  liftStart(o, tx - (b0[0] + m.dx), ty - (b0[1] + m.dy), true); DV.liftBar();
+};
 DV.build = null;   // { sel: object } while the farm build mode is on
 const MOVABLE = o => o && !o.place && o.tap !== 'house' ? true : o && (o.id === 'house');
 function buildTap(cx, cy, h) {
@@ -409,9 +487,10 @@ function buildTap(cx, cy, h) {
     dirtySoil = true; DV.hud(); DV.save(); DV.checkFaint(); return;
   }
   const o = h && h.obj;
+  if (DV.lift) return;   // a lifted object is waiting for ✓ / ✗
   if (!B.sel) {
-    if (!o || !o.block.length) return DV.toast('แตะสิ่งของบนฟาร์มที่อยากย้าย (ต้นไม้ รั้ว บ้าน ม้านั่ง ฯลฯ)');
-    B.sel = o; DV.sfx('tick'); DV.buildBar(); return;
+    if (!o || !canLift(o)) return DV.toast('แตะสิ่งของบนฟาร์มที่อยากย้าย (ต้นไม้ รั้ว บ้าน ม้านั่ง ฯลฯ)');
+    liftStart(o); DV.liftBar(); return;
   }
   if (o === B.sel) { B.sel = null; DV.buildBar(); return; }
   const sel = B.sel, a0 = sel.block[0], dx = cx - a0[0], dy = cy - a0[1];
@@ -561,11 +640,12 @@ function drawChar(e, sheet, feet) {
   if (!e.lift) shadow(ex, ey, 22);
   ctx.drawImage(im, col * 64, row * 64, 64, 64, Math.round(ex - 32), Math.round(ey - feet + dy - (e.lift || 0)), 64, 64);
 }
-function drawSpr(key, x, y, alpha) {
+function drawSpr(key, x, y, alpha, flip) {
   const r = WORLD.atlas.rects[key]; if (!r) return;
   const [sh, sx, sy, w, h] = r;
   if (alpha != null) ctx.globalAlpha = alpha;
-  ctx.drawImage(IMG['sheet' + sh], sx, sy, w, h, Math.round(x - w / 2), Math.round(y - h), w, h);
+  if (flip) { ctx.save(); ctx.translate(Math.round(x), 0); ctx.scale(-1, 1); ctx.drawImage(IMG['sheet' + sh], sx, sy, w, h, Math.round(-w / 2), Math.round(y - h), w, h); ctx.restore(); }
+  else ctx.drawImage(IMG['sheet' + sh], sx, sy, w, h, Math.round(x - w / 2), Math.round(y - h), w, h);
   if (alpha != null) ctx.globalAlpha = 1;
 }
 DV.drawSpr = drawSpr;
@@ -597,13 +677,15 @@ function render(dt) {
       else if (o.shadow) { ctx.beginPath(); ctx.ellipse(o.ix + 1, o.iy - 1, Math.max(6, o.iw * .4), Math.max(3, Math.min(7, o.iw * .18)), 0, 0, 7); ctx.fill(); } }); }
   if (DV.build) { ctx.strokeStyle = 'rgba(255,240,170,.35)'; ctx.lineWidth = 1;
     for (let y = 1; y < M.H - 1; y++) for (let x = 1; x < M.W - 1; x++) if (!blocked[y][x] && !inPlot(x, y)) { const c = [[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1]].map(([a, b]) => P(a * T, b * T)); ctx.beginPath(); ctx.moveTo(...c[0]); c.slice(1).forEach(q => ctx.lineTo(...q)); ctx.closePath(); ctx.stroke(); }
-    const sel = DV.build.sel; if (sel) { ctx.fillStyle = `rgba(255,220,90,${.25 + .15 * Math.sin(now / 150)})`; sel.block.forEach(([x, y]) => { const c = [[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1]].map(([a, b]) => P(a * T, b * T)); ctx.beginPath(); ctx.moveTo(...c[0]); c.slice(1).forEach(q => ctx.lineTo(...q)); ctx.closePath(); ctx.fill(); }); } }
+    const sel = null; if (sel) { ctx.fillStyle = `rgba(255,220,90,${.25 + .15 * Math.sin(now / 150)})`; sel.block.forEach(([x, y]) => { const c = [[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1]].map(([a, b]) => P(a * T, b * T)); ctx.beginPath(); ctx.moveTo(...c[0]); c.slice(1).forEach(q => ctx.lineTo(...q)); ctx.closePath(); ctx.fill(); }); } }
   if (S.map === 'house' && IMG.gecko) {   // ไอ้จุก, the house gecko: sits still, somewhere new each day
     const spots = [[92, 96], [70, 122], [118, 84], [252, 74], [300, 98], [210, 70], [150, 60], [330, 128], [56, 150]];
     const [gx, gy] = spots[(S.day * 7 + 3) % spots.length];
     DV.gecko = { x: gx, y: gy };
     ctx.drawImage(IMG.gecko, gx - 13, gy - 13, 26, 26);
   }
+  if (DV.lift && S.map === 'farm') { const ok = liftValid(); ctx.fillStyle = ok ? 'rgba(120,230,110,.45)' : 'rgba(240,80,70,.5)'; ctx.strokeStyle = ok ? 'rgba(220,255,200,.9)' : 'rgba(255,200,190,.9)'; ctx.lineWidth = 1;
+    DV.lift.o.block.forEach(([x, y]) => { const c = [[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1]].map(([a, b]) => P(a * T, b * T)); ctx.beginPath(); ctx.moveTo(...c[0]); c.slice(1).forEach(q => ctx.lineTo(...q)); ctx.closePath(); ctx.fill(); ctx.stroke(); }); }
   // hidden spots sparkle (forage Lv1+)
   const lv = DV.forageLevel(), st = S.spots[S.map];
   if (lv >= 1 && st) st.list.forEach((s, i) => { if (s.used) return;
@@ -619,7 +701,8 @@ function render(dt) {
   M.objects.forEach(o => { if (isGone(o)) return;
     if (I) { if (!o.si) return; const key = o.si === o.s ? DV.objSprite(o) : o.si; const r = WORLD.atlas.rects[key]; if (!r) return; const w = r[3], h = r[4];
       const pd = player.x + player.y, behind = (o.iw > 60 && o.ih > 70) && pd < o.dep && psy < o.iy - 4 && psy > o.iy - h + 16 && Math.abs(psx - o.ix) < w * .46;
-      list.push({ y: o.front ? 1e9 : o.dep, d: () => drawSpr(key, o.ix, o.iy, behind ? .5 : null) }); return; }
+      const lifted = DV.lift && DV.lift.o === o, up = lifted ? 7 + Math.sin(now / 160) * 2 : 0;
+      list.push({ y: lifted ? 1e9 - 1 : o.front ? 1e9 : o.dep, d: () => drawSpr(key, o.ix, o.iy - up, lifted ? .9 : behind ? .5 : null, o.flip) }); return; }
     const key = DV.objSprite(o); const r = WORLD.atlas.rects[key]; if (!r) return;
     const w = r[3], h = r[4];
     const behind = (o.w > 60 && o.h > 70) && player.y < o.y - 4 && player.y > o.y - h + 16 && Math.abs(player.x - o.x) < w * .46;
