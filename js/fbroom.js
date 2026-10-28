@@ -12,6 +12,7 @@ window.DV_fbRoom = () => {
     const cfg = window.DV_FIREBASE; if (!cfg || !cfg.databaseURL) return null;
     if (!window.firebase) { await script(SDK('app')); await Promise.all([script(SDK('auth')), script(SDK('database'))]); }
     const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(cfg);
+    await app.auth().setPersistence(firebase.auth.Auth.Persistence.NONE);   // each tab is its own player
     const cred = await app.auth().signInAnonymously(); const uid = cred.user.uid, db = app.database();
     const join = async name => {
       const ref = db.ref('rooms/' + name.replace(/[.#$\[\]\/]/g, '_')), mine = ref.child(uid);
