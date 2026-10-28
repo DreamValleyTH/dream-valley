@@ -494,3 +494,4 @@ input:-webkit-autofill{-webkit-box-shadow:0 0 0 40px #fffdf6 inset;-webkit-text-
 .mg-feet{display:flex;gap:12px}.mg-feet button{flex:1;padding:22px 0;font:600 20px var(--font);border-radius:14px;border:3px solid var(--wood);background:var(--paper2);color:var(--ink)}
 .mg-feet button:active{background:var(--sun)}
 .mg-box.run{background:#2a2433;color:#f3e6ff;border-color:#120d18}.mg-box.run .mg-sub{color:#c9b7dc}
+#camBtn{display:flex;align-items:center;justify-content:center;padding:0}#camBtn img{width:32px;height:32px;image-rendering:pixelated;pointer-events:none}

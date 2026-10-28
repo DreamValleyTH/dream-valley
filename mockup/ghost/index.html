@@ -29,12 +29,10 @@ h1{margin:0;font-size:20px}.sub{font-size:13px;color:#c9b7dc;margin-top:-4px}
 </head>
 <body>
 <main>
-  <h1>👻 ทดลองผีหลอก v2</h1>
-  <div class="sub">ฉากค่อย ๆ มืด → เห็นหนองน้ำ/ป่า/ทุ่งนา → ผีโผล่แบบมีท่าของตัวเอง แล้วพุ่งออกมาจากจอ · ทุกตัวเลือกเป็นมินิเกม</div>
+  <h1>👻 ทดลองผีหลอก v3</h1>
+  <div class="sub">ผีแต่ละตัวมีสถานที่ตามตำนาน ท่าโผล่ อนิเมชั่นตอนหลอก และมินิเกมเอาตัวรอดเป็นของตัวเอง</div>
   <div class="lbl">ระดับความตกใจ</div>
   <div class="row" id="lv"><button class="pill" data-v="soft">เบา</button><button class="pill on" data-v="mid">ปกติ</button><button class="pill" data-v="max">สะดุ้งสุด</button></div>
-  <div class="lbl">ฉาก</div>
-  <div class="row" id="bg"><button class="pill on" data-v="">สุ่ม</button><button class="pill" data-v="swamp">หนองน้ำ</button><button class="pill" data-v="forest">ป่า</button><button class="pill" data-v="field">ทุ่งนา</button></div>
   <div class="lbl">ผี (แตะเลือก · ไม่เลือก = สุ่ม)</div>
   <div class="grid" id="grid"></div>
   <div class="energy">⚡<div class="eb"><i id="eb" style="width:100%"></i></div><span id="en">100</span></div>
@@ -48,25 +46,14 @@ h1{margin:0;font-size:20px}.sub{font-size:13px;color:#c9b7dc;margin-top:-4px}
 'use strict';
 const $ = id => document.getElementById(id);
 let lv = 'mid', bg = '', sel = null, en = 100;
-$('grid').innerHTML = GS.LIST.map(g => `<button class="g" data-id="${g.id}" style="background-image:url(../../assets/ghosts/gh_${g.id}.png)"><span>${g.name}</span></button>`).join('');
+$('grid').innerHTML = GS.LIST.map(g => `<button class="g" data-id="${g.id}" style="background-image:url(../../assets/ghosts/gh_${g.id}.png)"><span>${g.name}<br><small>${g.place}</small></span></button>`).join('');
 $('grid').onclick = e => { const b = e.target.closest('.g'); if (!b) return; sel = sel === b.dataset.id ? null : b.dataset.id; document.querySelectorAll('.g').forEach(x => x.classList.toggle('on', x.dataset.id === sel)); };
 const pills = (id, set) => $(id).onclick = e => { const b = e.target.closest('.pill'); if (!b) return; $(id).querySelectorAll('.pill').forEach(x => x.classList.toggle('on', x === b)); set(b.dataset.v); };
-pills('lv', v => lv = v); pills('bg', v => bg = v);
+pills('lv', v => lv = v);
 const setEn = v => { en = Math.max(0, Math.min(100, v)); $('eb').style.width = en + '%'; $('en').textContent = en; };
 function result(ok, win, lose, ew, el) { GS.end(); setTimeout(() => { setEn(en - (ok ? ew : el)); $('rt').textContent = ok ? '😮‍💨 รอดไปได้' : '😵 แย่แล้ว'; $('rx').textContent = `${ok ? win : lose} (แรง −${ok ? ew : el})`; $('res').classList.add('on'); }, 500); }
 $('rb').onclick = () => { $('res').classList.remove('on'); if (en <= 0) setEn(100); };
-$('walkBtn').onclick = () => {
-  GS.play({ id: sel, bg: bg || null, level: lv, base: '../../', onReady: api => { const G = api.ghost;
-    const c = api.say(`<h2>${G.name}!</h2><p>${G.line}</p><button data-c="run">🏃 วิ่งหนีกลับบ้าน!<small>มินิเกม (สุ่ม 3 แบบ) · รอด = แรง −6 · ล้ม = แรง −35</small></button>
-      <button data-c="pray">🙏 ยกมือไหว้ ท่องคาถา<small>มินิเกมจำลำดับ · ไหว้ศาล/มีผ้ายันต์ จะท่องสั้นลง</small></button><button data-c="still">😶 ยืนนิ่ง กลั้นหายใจ<small>มินิเกมกดค้าง</small></button>`);
-    c.onclick = e => { const b = e.target.closest('button'); if (!b) return; api.hideSay();
-      if (b.dataset.c === 'run') MG.pick(['mash', 'dodge', 'arrows'], { key: 'run', dark: true, title: `${G.name}ไล่ตาม!`, per: { mash: { need: 24, time: 5.5 }, dodge: { time: 8, obstacles: ['🌳', '🪨', '🐍', '🕸️', '🎋'] }, arrows: { n: 8, limit: 1050 } },
-        onEnd: sc => result(sc >= .7, 'วิ่งถึงบันไดบ้านทัน! หอบนิดหน่อย', 'ขาพันกันล้มกลางทาง… กว่าจะคลานถึงบ้านแรงหมด', 6, 35) });
-      else if (b.dataset.c === 'pray') MG.play('sequence', { dark: true, title: '🙏 ท่องคาถาให้ถูก', symbols: ['🙏', '📿', '🕯️', '🪷'], len: 5, prompt: 'ท่องตามลำดับ… อย่าให้ผิด!',
-        onEnd: sc => result(sc >= .99, `ลมเย็นพัดผ่าน ${G.name}ค่อย ๆ จางหายไป`, 'ท่องผิดคำเดียว… เสียงหัวเราะดังอยู่ข้างหู', 3, 40) });
-      else MG.play('hold', { dark: true, title: '😶 กลั้นหายใจ… อย่าขยับ', rounds: 2, zone: .16, btn: 'กดค้าง = กลั้นหายใจ', sub: 'ปล่อยตอนแถบอยู่ในช่องเขียว',
-        onEnd: sc => result(sc >= .99, 'พอลืมตา ก็ไม่มีอะไรแล้ว…', 'มีมือเย็น ๆ แตะไหล่ ขาอ่อนจนทรุด', 5, 40) }); }; } });
-};
+$('walkBtn').onclick = () => GS.encounter({ id: sel, level: lv, base: '../../', onDone: (ok, text, cost) => { setEn(en - cost); $('rt').textContent = ok ? '😮‍💨 รอดไปได้' : '😵 แย่แล้ว'; $('rx').textContent = `${text} (แรง −${cost})`; $('res').classList.add('on'); } });
 </script>
 </body>
 </html>

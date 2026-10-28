@@ -84,7 +84,7 @@ function rebuildBlocked() {
   M.objects.forEach(o => { if (isGone(o)) o.block.forEach(([a, b]) => { if (blocked[b]) blocked[b][a] = 0; }); });
 }
 DV.rebuildBlocked = rebuildBlocked;
-const isGone = o => S && ((S.gone[o.id] != null && S.day < S.gone[o.id]) || (S.stored && S.stored[S.map] && S.stored[S.map][o.id] && !(DV.lift && DV.lift.o === o)));
+const isGone = o => S && ((o.id.includes('#') && !(S.deco || []).some(d => d.id === o.id)) || (S.gone[o.id] != null && S.day < S.gone[o.id]) || (S.stored && S.stored[S.map] && S.stored[S.map][o.id] && !(DV.lift && DV.lift.o === o)));
 DV.isGone = isGone;
 // any farm cell that is (or was laid out as) a vegetable bed — beds can be dug anywhere and filled back in
 const inPlot = (x, y) => S && S.map === 'farm' && !!(S.cells && S.cells[x + ',' + y]);
@@ -392,7 +392,8 @@ cv.addEventListener('pointerup', pend); cv.addEventListener('pointercancel', pen
 cv.addEventListener('wheel', e => { e.preventDefault(); setZoom(uzT * (e.deltaY < 0 ? 1.15 : 1 / 1.15), e.clientX, e.clientY); }, { passive: false });
 let camFree = false, lastPs = null;
 DV.camMode = (() => { try { return localStorage.getItem('dv_cam') || 'follow'; } catch (_) { return 'follow'; } })();
-DV.toggleCam = () => { DV.camMode = DV.camMode === 'free' ? 'follow' : 'free'; try { localStorage.setItem('dv_cam', DV.camMode); } catch (_) {} if (DV.camMode === 'follow') DV.recenter(); const b = document.getElementById('camBtn'); if (b) b.textContent = DV.camMode === 'free' ? '🔓' : '🎯'; DV.toast(DV.camMode === 'free' ? 'กล้องอิสระ: ลากเพื่อดูรอบ ๆ กล้องไม่ตามตัวละคร' : 'กล้องตามตัวละคร'); };
+DV.camIcon = () => { const b = document.getElementById('camBtn'); if (b) b.innerHTML = `<img src="assets/ui/cam_${DV.camMode === 'free' ? 'free' : 'follow'}.png" alt="">`; };
+DV.toggleCam = () => { DV.camMode = DV.camMode === 'free' ? 'follow' : 'free'; try { localStorage.setItem('dv_cam', DV.camMode); } catch (_) {} if (DV.camMode === 'follow') DV.recenter(); const b = document.getElementById('camBtn'); DV.camIcon(); DV.toast(DV.camMode === 'free' ? 'กล้องอิสระ: ลากเพื่อดูรอบ ๆ กล้องไม่ตามตัวละคร' : 'กล้องตามตัวละคร'); };
 function setZoom(z, fx, fy, now) {
   uzT = Math.max(Math.max(.6, zoomMin / zoomBase), Math.min(2.6, z)); zFocus = fx != null ? [fx, fy] : [innerWidth / 2, innerHeight / 2];
   if (now) { uz = uzT; applyZoom(...zFocus); }

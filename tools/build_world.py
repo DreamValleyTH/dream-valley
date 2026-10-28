@@ -47,7 +47,7 @@ FJ = f'{MAPDIR}/farm.json'
 fdata = json.load(open(FJ))
 farm, fart = mapdata.build_world(fdata, World)   # v1.0: grandma's farm is pure map data (tools/mapgen/farm_layout.py / Map Maker)
 for _i, (_k, _n, _fp, _h, _p) in enumerate(mapdata.DECO):   # v1.5 decor-shop templates, hidden in the game until bought
-    _o = mapdata.place_obj(farm, dict(id='deco_' + _k, k='deco_' + _k, x=1 + (_i % 5) * 2, y=1 + (_i // 5) * 2, flip=0), fart)
+    _o = mapdata.place_obj(farm, dict(id='deco_' + _k, k='deco_' + _k, x=1 + (_i % 5) * 2, y=1 + (_i // 5) * 2, flip=0, tap='box' if _k.startswith('box') else None), fart)
     if _o: _o['label'] = _n
 for o in farm.objects:
     if o['id'].startswith(('lotus', 'reeds')): o['flat'] = True

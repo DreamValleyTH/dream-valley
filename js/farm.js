@@ -77,6 +77,7 @@ function openDeco(o, kind) {
 DV.openObject = o => {
   const t = o.tap, s = S();
   if (t === 'tree') return openTree(o);
+  if (t === 'box') return DV.openBox(o);
   if (DECO[t]) return openDeco(o, t);
   if (t === 'house') return DV.openSheet('บ้านยาย', 'บ้านไม้ใต้ถุนสูง กลับมาเงียบกว่าที่จำได้', null, [
     { label: 'เข้าบ้าน', icon: ['ui', 'door'], extra: 'ปลอดภัยจากผี · นอน ไหว้ยาย ทำกับข้าว', run: () => { DV.closeSheet(); DV.travel('house', 'in'); } },
@@ -122,7 +123,7 @@ DV.openObject = o => {
       { label: 'ซ่อมเล้าไก่', icon: ['tools', TOOL.saw], cost: 30, extra: `ไม้ฟืน ${need} มัด + ฿${cost} ค่าสังกะสี/ตาข่าย`,
         disabled: (wood < need && `ไม้ไม่พอ (มี ${wood}/${need} · เก็บกิ่งไม้ ผ่าตอไม้)`) || (s.money < cost && `เงินไม่พอ (ต้องมี ฿${cost})`),
         run: () => DV.doAction({ energy: 30, tool: TOOL.saw, fx: 'wood', targets: [cellOf(o)], apply: () => { s.items.wood -= need; s.money -= cost; s.coopFixed = s.day; },
-          after: () => { DV.toast('ซ่อมเล้าไก่เสร็จแล้ว! หลังคาใหม่ ตาข่ายใหม่'); DV.sfx('spark'); DV.hud(); } }) }], { spr: o.s });
+          after: () => { DV.toast('ซ่อมเล้าไก่เสร็จแล้ว! หลังคาใหม่ ตาข่ายใหม่'); DV.sfx('spark'); DV.hud(); setTimeout(() => DV.coopGift && DV.coopGift(), 1600); } }) }], { spr: o.s });
   }
   if (t === 'bench') return DV.openSheet('ม้านั่งไม้', 'ที่ยายชอบนั่งดูแปลงผักตอนเย็น', null, [
     { label: 'นั่งพัก', icon: ic('food_water'), extra: 'แรงฟื้นเร็วกว่ายืน', run: () => { DV.closeSheet(); DV.sitDown('บนม้านั่ง', [o.x, o.y + 1], 11); } }], { spr: o.s });

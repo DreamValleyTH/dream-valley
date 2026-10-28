@@ -27,6 +27,7 @@ Object.assign(cat, {
 // ================= minigames: js/minigames.js (12 kinds); each activity draws a random one from its own pool =================
 window.MG.sfx = k => DV.sfx(k);
 DV.mgOpen = () => window.MG.open();
+const TPL = id => /^deco_[a-z_]+$/.test(id);   // shop templates hidden on the farm
 const tier = sc => sc >= .9 ? 3 : sc >= .6 ? 2 : sc >= .3 ? 1 : 0;   // score 0..1 → 0..3 (how well it went)
 
 // ================= skills =================
@@ -83,6 +84,13 @@ const chickensMorning = s => {
   else if (!fedY && H.some(h => h.age > GROW)) setTimeout(() => DV.notify('🐔 เมื่อวานไม่ได้ให้อาหาร ไก่เลยไม่ออกไข่'), 3200);
 };
 
+// once the coop is fixed, someone from the village brings a hen to start with; the rest you buy little by little
+DV.coopGift = () => { const s = S(); if (s.flags.henGift) return; s.flags.henGift = s.day; s.hens = s.hens || []; s.hens.push({ age: GROW + 1, d: s.day, gift: 1 });
+  const who = DV.pick(['taew', 'hong', 'sommai', 'bua', 'cherd', 'heng'].filter(id => (window.DV_NPCS || {})[id])) || 'taew';
+  const line = DV.pick(['ได้ยินว่าซ่อมเล้าแล้ว เอาแม่ไก่ไปเลี้ยงตัวนึง ไข่ดกนะ ยายเพียรเคยให้ข้าวเปลือกบ้านป้าตอนแล้งตั้งหลายกระสอบ',
+    'แม่ไก่ตัวนี้ชื่อ “ลายจุด” เลี้ยงดี ๆ นะ ทีนี้ก็ค่อย ๆ เก็บเงินซื้อลูกไก่ที่ร้านเสี่ยเฮงเพิ่มเอา', 'เห็นเล้าใหม่แล้วชื่นใจ เอาไก่ไปตัวนึง ถือว่าขึ้นบ้านใหม่ให้เล้า']);
+  if (DV.showTalk) DV.showTalk(who, line, [{ text: 'ขอบคุณมาก{k}', reply: 'ให้อาหารทุกวันนะ เช้ามาจะมีไข่', heart: 1 }], o => DV.showTalk(who, o.reply, []));
+  DV.notify(`🐔 ${DV.npcName(who)} ให้แม่ไก่มา 1 ตัว`); DV.save(); };
 DV.buyHook = k => k === 'chick' ? buyChick() : false;
 
 // ================= fishing =================
@@ -184,9 +192,31 @@ DV.ensureDeco = () => {
   // the shop templates themselves never show on the farm
   s.stored = s.stored || {}; const st = s.stored.farm = s.stored.farm || {}; DECO.forEach(d => { st[d.tpl] = 1; });
 };
-const initDeco = () => { const M = DV.MAPS.farm; M.objects.filter(o => /^deco_/.test(o.id) && !o.id.includes('#')).forEach(o => { const p = { deco_arch: 380, deco_banana_pot: 150, deco_bird: 260, deco_dragonjar: 280, deco_flowerbed: 220, deco_hammock: 350, deco_lamp: 180, deco_pots: 120, deco_sala: 1500, deco_swing: 450 }[o.id];
+const initDeco = () => { const M = DV.MAPS.farm; window.DV_DECOT = M.objects.filter(o => TPL(o.id)).map(o => o.id); M.objects.filter(o => /^deco_/.test(o.id) && !o.id.includes('#')).forEach(o => { const p = { deco_arch: 380, deco_banana_pot: 150, deco_bird: 260, deco_dragonjar: 280, deco_flowerbed: 220, deco_hammock: 350, deco_lamp: 180, deco_pots: 120, deco_sala: 1500, deco_swing: 450, deco_box_s: 150, deco_box_m: 450, deco_box_l: 900 }[o.id];
   DECO.push({ tpl: o.id, name: o.label || o.id, price: p || 250 }); }); };
 initDeco();
+
+// ================= storage boxes (3 sizes, bought from ช่างเปี๊ยก; grandma's chest stands by the house) =================
+const BOXCAP = { deco_box_s: 9, deco_box_m: 18, deco_box_l: 30 };
+DV.openBox = o => {
+  const s = S(), tpl = o.id.split('#')[0], cap = BOXCAP[tpl] || 12; s.boxes = s.boxes || {}; const bx = s.boxes[o.id] = s.boxes[o.id] || { items: {} };
+  const used = Object.keys(bx.items).length, friend = !!own;
+  const opts = Object.entries(bx.items).map(([k, n]) => ({ label: `เอาออก: ${DV.item(k).name}`, icon: ic(DV.item(k).icon), extra: `×${n}`, disabled: friend && 'กล่องของเพื่อน (ใส่ได้อย่างเดียว)',
+    run: () => { DV.addItem(k, n); delete bx.items[k]; DV.sfx('tick'); DV.save(); DV.openBox(o); } }));
+  Object.keys(s.items).filter(k => s.items[k] > 0 && k !== 'lottery_ticket').forEach(k => opts.push({ label: `ใส่: ${DV.item(k).name}`, icon: ic(DV.item(k).icon), extra: `×${s.items[k]}`,
+    disabled: !bx.items[k] && used >= cap && 'กล่องเต็ม',
+    run: () => DV.worldEdit(() => { const n = s.items[k]; const b2 = S().boxes[o.id] = S().boxes[o.id] || { items: {} }; b2.items[k] = (b2.items[k] || 0) + n; delete s.items[k]; DV.sfx('seed'); DV.save(); DV.openBox(o); }) }));
+  if (!opts.length) opts.push({ info: true, label: 'กล่องว่าง และกระเป๋าก็ว่าง' });
+  DV.openSheet(DV.objName(o), `${friend ? 'กล่องในฟาร์มเพื่อน · ' : ''}ใช้ไป ${Object.keys(bx.items).length}/${cap} ช่อง`, null, opts, { spr: o.s });
+};
+const placeYaiBox = DV.placeYaiBox = () => { const s = S(); if (!s || s.flags.yaiBox || s.map !== 'farm' || own) return; const M = DV.M;
+  s.deco = s.deco || []; const id = 'deco_box_m#yai'; if (!s.deco.some(d => d.id === id)) s.deco.push({ id, tpl: 'deco_box_m' }); DV.ensureDeco(); DV.rebuildBlocked();
+  const o = M.objects.find(q => q.id === id); if (!o) return; const b0 = (o._b0 || o.block)[0];
+  for (const [x, y] of [[14, 7], [13, 7], [14, 8], [12, 7], [13, 8], [15, 8], [12, 8], [19, 7]]) {
+    if (!DV.walkable(x, y, true) || (s.cells && s.cells[x + ',' + y]) || (x === DV.player.cx && y === DV.player.cy)) continue;
+    s.moved = s.moved || {}; (s.moved.farm = s.moved.farm || {})[id] = { dx: x - b0[0], dy: y - b0[1] }; s.flags.yaiBox = s.day; DV.rebuildBlocked(); DV.save(); return; } };
+const em = DV.onEnterMap; DV.onEnterMap = m => { em && em(m); setTimeout(placeYaiBox, 300); };
+const sb = DV.startBuild; DV.startBuild = (...a) => own ? DV.toast('นี่ฟาร์มของเพื่อน ย้ายของไม่ได้นะ') : sb && sb(...a);
 
 // ================= fines, court summons, gossip =================
 DV.giveFine = (amt, why) => { const s = S(); if (s.fine) s.fine.amt += amt; else s.fine = { amt, day: s.day, why }; DV.setFlag('fined_once'); DV.save(); };
@@ -206,7 +236,7 @@ const finesMorning = s => {
 DV.gossipNote = () => S() && S().fine && S().fine.summons ? DV.pick(['…ได้ยินเรื่องหมายศาลแล้วนะ', '(มองแปลก ๆ แล้วเงียบไป)', 'ไปจ่ายค่าปรับหรือยังล่ะ']) : null;
 
 // ================= visiting a friend: help on their plot, or sneak into the house =================
-DV.netEvSend = e => { const N = DV.net; if (!N) return; N.ev = (N.ev || []).concat([Object.assign({ i: Date.now().toString(36) + Math.random().toString(36).slice(2, 5) }, e)]).slice(-6); DV.netPush && DV.netPush(); };
+DV.netEvSend = e => { const N = DV.net; if (!N) return; N.ev = (N.ev || []).concat([Object.assign({ i: Date.now().toString(36) + Math.random().toString(36).slice(2, 5) }, e)]).slice(-4); while (N.ev.length > 1 && JSON.stringify(N.ev).length > 1300) N.ev.shift(); DV.netPush && DV.netPush(); };
 const seen = new Set();
 setInterval(() => {   // host: apply what visitors did
   const N = DV.net, s = S(); if (!s || !N || !N.own || N.mode === 'guest') return;
@@ -214,13 +244,46 @@ setInterval(() => {   // host: apply what visitors did
     const key = p.peer + e.i; if (seen.has(key)) return; seen.add(key); s.evSeen = s.evSeen || []; if (s.evSeen.includes(key)) return; s.evSeen = s.evSeen.concat([key]).slice(-80);
     const who = p.presence.name || 'เพื่อน';
     if (e.k === 'cells' && e.c) { for (const k in e.c) { const c = s.cells[k]; if (!c) continue; const v = e.c[k]; c.soil = !!v.soil; c.wet = !!v.wet; c.crop = v.crop || null; if (v.soil) c.debris = null; } DV.dirtySoil && DV.dirtySoil(); DV.save(); }
+    if (e.k === 'world' && e.d) { DV.applyWorldDiff(e.d); DV.notify && Math.random() < .3 && DV.notify(`🤝 ${who} ช่วยงานในฟาร์ม`); }
     if (e.k === 'steal') { const a = Math.min(s.money, e.amt | 0); s.money -= a; DV.hud(); DV.save(); DV.sfx('dirt'); DV.notify(`😱 เงินในลิ้นชักหายไป ฿${a}! (${who} เพิ่งเข้าไปในบ้าน…)`); }
     if (e.k === 'caught') { DV.sfx('line'); DV.notify(`🚨 จับได้! ${who} แอบค้นลิ้นชักในบ้าน — โดนปรับ ฿${e.fine}`); }
   }));
 }, 600);
 // visitor: farm plot actions are sent to the host
+// ---- visiting = working in the friend's world: their farm state is swapped in while you're there, and what you change is sent back ----
+const WK = ['gone', 'trees', 'coopFixed', 'hens', 'henFed', 'coopEggs', 'coopTwin', 'moved', 'stored', 'flip', 'deco', 'boxes'];
+const WDEF = { gone: {}, trees: {}, hens: [], moved: {}, stored: {}, flip: {}, deco: [], boxes: {} };
+const OBJK = ['gone', 'trees', 'moved', 'stored', 'flip', 'boxes'];
+// presence carries a compact copy (Firebase rules keep it under 4 KB): only the farm's parts, only what is still active
+DV.worldOf = () => { const s = S(), farm = o => (o || {}).farm || {}, g = {};
+  for (const k in s.gone || {}) if (s.gone[k] > s.day) g[k] = s.gone[k] >= 99999 ? 1 : s.gone[k];
+  const st = {}; for (const k in farm(s.stored)) if (!TPL(k)) st[k] = 1;
+  return { g, t: s.trees || {}, c: s.coopFixed || 0, h: s.hens || [], hf: s.henFed || 0, ce: s.coopEggs || 0, ct: s.coopTwin || 0, m: farm(s.moved), s: st, f: farm(s.flip), dc: s.deco || [], b: s.boxes || {} }; };
+const unpack = w => { const g = {}; for (const k in w.g || {}) g[k] = w.g[k] === 1 ? 99999 : w.g[k]; const st = Object.assign({}, w.s || {}); (window.DV_DECOT || []).forEach(k => { st[k] = 1; });
+  return { gone: g, trees: w.t || {}, coopFixed: w.c || 0, hens: w.h || [], henFed: w.hf || 0, coopEggs: w.ce || 0, coopTwin: w.ct || 0, moved: { farm: w.m || {} }, stored: { farm: st }, flip: { farm: w.f || {} }, deco: w.dc || [], boxes: w.b || {} }; };
+let own = null, hostW = '';
+DV.ownState = () => { if (!own) return S(); const c = Object.assign({}, S()); WK.forEach(k => { c[k] = own[k]; }); return c; };   // saving never writes the friend's farm into your save
+DV.inSandbox = () => !!own;
+const swapIn = w => { const s = S(); if (!own) { own = {}; WK.forEach(k => { own[k] = s[k]; }); } const u = unpack(w); WK.forEach(k => { s[k] = u[k]; }); refresh(); };
+const swapOut = () => { const s = S(); WK.forEach(k => { s[k] = own[k]; }); own = null; hostW = ''; refresh(); };
+const refresh = () => { if (S().map === 'farm') { DV.rebuildBlocked && DV.rebuildBlocked(); DV.dirtySoil && DV.dirtySoil(); } };
+setInterval(() => { const s = S(); if (!s) return;
+  if (DV.isVisiting && DV.isVisiting()) { const h = DV.visitHost && DV.visitHost(); if (h && h.w && h.w !== hostW && !(DV.isBusy && DV.isBusy()) && !DV.lift) { try { const w = JSON.parse(h.w); hostW = h.w; swapIn(w); } catch (_) {} } }
+  else if (own) swapOut();
+  if (!own && !s.flags.yaiBox && s.map === 'farm' && DV.M && DV.placeYaiBox) DV.placeYaiBox(); }, 500);
+// guest: what changed — objects only by the sub-keys that changed, so each event stays small
+const snap = () => { const b = {}; WK.forEach(k => { b[k] = JSON.stringify(S()[k]); }); return b; };
+const diffSince = b => { const s = S(), d = {}; WK.forEach(k => { const v = JSON.stringify(s[k]); if (v === b[k]) return;
+    if (OBJK.includes(k) && s[k] && typeof s[k] === 'object') { const old = JSON.parse(b[k] || '{}') || {}, dd = {}; for (const sk in s[k]) if (JSON.stringify(s[k][sk]) !== JSON.stringify(old[sk])) dd[sk] = s[k][sk]; if (Object.keys(dd).length) d[k] = dd; }
+    else d[k] = s[k]; }); return d; };
+const sendDiff = b => { const d = diffSince(b); if (Object.keys(d).length) DV.netEvSend({ k: 'world', d }); };
+DV.worldEdit = fn => { if (!own) return fn(); const b = snap(); const r = fn(); sendDiff(b); return r; };
+DV.applyWorldDiff = d => { const s = S(); for (const k in d) { if (!WK.includes(k)) continue;
+    if (OBJK.includes(k) && d[k] && typeof d[k] === 'object') { s[k] = s[k] || {}; for (const sk in d[k]) { if (['moved', 'stored', 'flip'].includes(k)) s[k][sk] = Object.assign({}, s[k][sk] || {}, d[k][sk]); else s[k][sk] = d[k][sk]; } }
+    else s[k] = d[k]; } refresh(); DV.save(); };
 const doA = DV.doAction;
 DV.doAction = a => {
+  if (own) { const b = snap(), af0 = a.after; a.after = () => { af0 && af0(); setTimeout(() => sendDiff(b), 60); }; }
   if (DV.isVisiting && DV.isVisiting() && S().map === 'farm' && a.apply && a.targets && a.targets.length && DV.visitCells && DV.visitCells()) {
     const ap = a.apply, ch = {};
     a.apply = (x, y) => { ap(x, y); const c = DV.cell(x, y); if (c) ch[x + ',' + y] = { soil: c.soil, wet: c.wet, crop: c.crop }; };
@@ -233,9 +296,11 @@ DV.stealMenu = o => {
   if (s.stealDay === s.day) return DV.toast('วันนี้เสี่ยงไปแล้ว อย่าเลย…');
   DV.openSheet('ลิ้นชักโต๊ะ', 'ไม่มีใครเห็น… หรือเปล่า?', null, [
     { label: 'แอบค้นลิ้นชัก (มินิเกม)', icon: ic('item_money_envelope'), extra: 'สำเร็จ = ได้เงิน 3–8% ของเพื่อน · พลาด = โดนปรับ', run: () => { DV.closeSheet(); s.stealDay = s.day;
-      MG.pick(['timing', 'hold', 'sequence', 'arrows'], { key: 'steal', title: '🤫 แอบค้นลิ้นชักเงียบ ๆ', per: { timing: { rounds: 4, zone: .2, speed: 1.35, shrink: .8, btn: 'งัด!', sub: 'แงะกลอน: ต้องตรงอย่างน้อย 3 ใน 4' },
-          hold: { rounds: 4, zone: .13, btn: 'ค่อย ๆ ดึงลิ้นชัก', sub: 'ดึงช้า ๆ ปล่อยตอนอยู่ในช่องเขียว ไม่งั้นเอี๊ยด!' }, sequence: { symbols: ['1️⃣', '2️⃣', '3️⃣', '4️⃣'], len: 5, prompt: 'หมุนรหัสกุญแจตามที่จำได้', sub: 'แอบดูรหัสกุญแจ แล้วหมุนให้ถูก' },
-          arrows: { n: 8, limit: 1000, sub: 'หลบสายตาเพื่อน! กดลูกศรให้ทัน' } },
+      MG.pick(['lockpick', 'hold', 'sequence', 'reaction'], { key: 'steal', title: '🤫 แอบค้นลิ้นชักเงียบ ๆ', per: {
+          lockpick: { pins: 4, noise: 1, speed: 2.8, tol: .2, btn: 'งัด!', sub: 'แงะกุญแจลิ้นชัก 4 ชั้น · พลาดได้ครั้งเดียว ครั้งที่สองเพื่อนได้ยิน!' },
+          hold: { rounds: 4, zone: .13, btn: 'ค่อย ๆ ดึงลิ้นชัก', sub: 'ดึงช้า ๆ ปล่อยตอนอยู่ในช่องเขียว ไม่งั้นเอี๊ยด!' },
+          sequence: { symbols: ['1️⃣', '2️⃣', '3️⃣', '4️⃣'], len: 5, prompt: 'หมุนรหัสกุญแจตามที่แอบเห็น', sub: 'แอบดูรหัสกุญแจ แล้วหมุนให้ถูก' },
+          reaction: { need: 10, time: 13, away: '😴', watch: '👀', goal: '💰', btn: 'ย่องเข้าไป', sub: 'ย่องตอนเพื่อนเผลอ ถ้าเพื่อนหันมาห้ามขยับ!' } },
         onEnd: sc => { const h = sc >= .99 ? 4 : sc >= .7 ? 3 : 0; if (h >= 3) { const pct = h === 4 ? .08 : .03 + Math.random() * .02, amt = Math.max(0, Math.min(3000, Math.round(hm * pct)));
             if (!amt) return DV.toast('ลิ้นชักว่างเปล่า… เพื่อนจนกว่าที่คิด');
             s.money += amt; DV.netEvSend({ k: 'steal', amt }); DV.setFlag('stole_once'); DV.sfx('coin'); DV.toast(`ได้เงินมา ฿${amt} …หัวใจเต้นแรงมาก`); }
@@ -256,34 +321,17 @@ DV.runFromGhost = (name, emo) => MG.pick(['mash', 'dodge', 'arrows'], { key: 'gh
 
 // ================= ghost encounter (js/ghosts.js): darkness → place → the ghost comes out of the screen → choose, each choice a minigame =================
 DV.scareLevel = () => { try { return localStorage.getItem('dv_scare') || 'mid'; } catch (_) { return 'mid'; } };
-const nearWater = () => { const M = DV.M, p = DV.player; if (!M.water) return false; for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) if ((M.water[p.cy + dy] || [])[p.cx + dx]) return true; return false; };
+const _nearWater = () => { const M = DV.M, p = DV.player; if (!M.water) return false; for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) if ((M.water[p.cy + dy] || [])[p.cx + dx]) return true; return false; };
 DV.ghostScare = () => {
   const s = S(), pool = window.GS.LIST.filter(g => g.id !== s.lastGhost), G = DV.pick(pool); s.lastGhost = G.id;   // never the same ghost two nights running
-  const bg = nearWater() ? 'swamp' : s.map === 'town' ? DV.pick(['forest', 'field']) : DV.pick(['field', 'swamp', 'forest']);
   DV.closeAll(); DV.setBusy && DV.setBusy(false); DV.player.path = []; DV.stat('ghosts');
-  const amulet = s.amuletDay === s.day, prayed = s.prayedDay === s.day, lv = 0;
-  const done = (ok, win, lose, ew, el, faint) => { window.GS.end(); setTimeout(() => {
-    if (ok) { DV.addEnergy(-ew); DV.toast(`${win} (แรง −${ew})`); } else { DV.addEnergy(-el); DV.toast(`${lose} (แรง −${el})`); }
-    DV.goHome && DV.goHome(); DV.hud(); DV.save(); if (!ok && faint) DV.faint('ขาอ่อนทรุดลงกับพื้นกลางทาง…'); else DV.checkFaint && DV.checkFaint(); }, 500); };
-  window.GS.play({ id: G.id, bg, level: DV.scareLevel(), onReady: api => {
-    const card = api.say(`<h2>${G.name}!</h2><p>${G.line}</p>
-      <button data-c="run">🏃 วิ่งหนีกลับบ้าน!<small>มินิเกม · รอด = แรง −6 · ล้ม = แรง −35</small></button>
-      <button data-c="pray">🙏 ยกมือไหว้ ท่องคาถา<small>มินิเกมจำลำดับ · รอด = แรง −3 · ผิด = แรง −40${amulet ? ' · มีผ้ายันต์ ท่องสั้นลง' : prayed ? ' · ไหว้ศาลเมื่อเช้า ท่องสั้นลง' : ''}</small></button>
-      <button data-c="still">😶 ยืนนิ่ง กลั้นหายใจ<small>มินิเกมกดค้าง · รอด = แรง −5 · พลาด = แรง −40</small></button>`);
-    card.onclick = e => { const b = e.target.closest('button'); if (!b) return; api.hideSay(); const c = b.dataset.c;
-      if (c === 'run') MG.pick(['mash', 'dodge', 'arrows'], { key: 'ghostrun', dark: true, title: `${G.name}ไล่ตาม!`,
-          per: { mash: { need: 24, time: 5.5, sub: 'สลับกดซ้าย–ขวา วิ่งให้ถึงบ้าน!' }, dodge: { time: 8, lives: 3, obstacles: ['🌳', '🪨', '🐍', '🕸️', '🎋'], sub: 'วิ่งหนีในความมืด! แตะซ้าย/ขวา หลบสิ่งกีดขวาง' },
-            arrows: { n: 8, limit: 1050, sub: 'เลี้ยวหลบให้ทัน! กดลูกศรตามที่ขึ้น' } },
-          onEnd: sc => done(sc >= .7, 'วิ่งถึงบันไดบ้านทัน! หอบนิดหน่อย', 'ขาพันกันล้มกลางทาง… กว่าจะคลานถึงบ้านแรงหมด', 6, 35) });
-      else if (c === 'pray') MG.play('sequence', { dark: true, title: '🙏 ท่องคาถาให้ถูก', symbols: ['🙏', '📿', '🕯️', '🪷'], len: amulet || prayed ? 3 : 5, prompt: 'ท่องตามลำดับ… อย่าให้ผิด!',
-          onEnd: sc => done(sc >= .99, `ลมเย็นพัดผ่าน ${G.name}ค่อย ๆ จางหายไป`, 'ท่องผิดคำเดียว… เสียงหัวเราะดังอยู่ข้างหู', 3, 40) });
-      else MG.play('hold', { dark: true, title: '😶 กลั้นหายใจ… อย่าขยับ', rounds: 2, zone: .16, btn: 'กดค้าง = กลั้นหายใจ', sub: 'ปล่อยตอนแถบอยู่ในช่องเขียว',
-          onEnd: sc => done(sc >= .99, 'พอลืมตา ก็ไม่มีอะไรแล้ว…', 'มีมือเย็น ๆ แตะไหล่ ขาอ่อนจนทรุด', 5, 40) });
-    }; } });
+  const luck = (s.amuletDay === s.day ? .4 : 0) + (s.prayedDay === s.day ? .2 : 0);
+  window.GS.encounter({ id: G.id, level: DV.scareLevel(), luck, onDone: (ok, text, cost) => {
+    DV.addEnergy(-cost); DV.toast(`${text} (แรง −${cost})`); DV.goHome && DV.goHome(); DV.hud(); DV.save(); DV.checkFaint && DV.checkFaint(); } });
 };
 
 // ================= daily hooks =================
 const morning = DV.onMorning;
-DV.onMorning = () => { const s = S(); morning && morning(); chickensMorning(s); finesMorning(s);
+DV.onMorning = () => { const s = S(); morning && morning(); if (!own) chickensMorning(s); finesMorning(s); setTimeout(placeYaiBox, 300);
   setTimeout(() => DV.ticker && DV.ticker('📢 ราคาพืชผลวันนี้: ' + priceLine()), 6000); };
 })();

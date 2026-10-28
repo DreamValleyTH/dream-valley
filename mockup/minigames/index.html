@@ -15,7 +15,7 @@ h1{font-size:20px;margin:0 0 4px}p{margin:0 0 12px;color:#cdb68c;font-size:13px}
 </style>
 </head>
 <body>
-<h1>🎮 มินิเกมทั้งหมด (12 แบบ)</h1>
+<h1>🎮 มินิเกมทั้งหมด (15 แบบ)</h1>
 <p>ในเกม แต่ละงานจะสุ่มมินิเกมจากชุดของมัน และจะไม่ซ้ำแบบเดิมติดกัน</p>
 <div class="g" id="g"></div>
 <div id="res"></div>
@@ -33,7 +33,10 @@ const L = [
   ['pairs', 'เปิดไพ่จับคู่', 'จัดของเข้าที่', { title: '🧺 จัดของเข้าที่' }],
   ['mash', 'สลับเท้าวิ่ง', 'หนีผี', { title: '👻 ผีกระสือไล่ตาม!', dark: true }],
   ['dodge', 'หลบสิ่งกีดขวาง 3 เลน', 'หนีผี', { title: '👻 วิ่งหนีในป่า!', dark: true }],
-  ['arrows', 'กดลูกศรให้ทัน', 'หนีผี · หลบสายตาเพื่อน', { title: '🙈 หลบให้ทัน!', dark: true }],
+  ['arrows', 'กดลูกศรให้ทัน', 'ผีกระหัง', { title: '🙇 ก้มหลบกระด้ง!', dark: true }],
+  ['reaction', 'ย่องตอนมันไม่มอง', 'ผีคอขาด · ย่องขโมย', { title: '🤫 ย่องหนีผีคอขาด', dark: true }],
+  ['balance', 'ทรงตัวบนตลิ่งลื่น', 'ผีตายทั้งกลม', { title: '⚖️ เดินเลาะตลิ่ง', dark: true }],
+  ['lockpick', 'งัดกุญแจ', 'ขโมยของบ้านเพื่อน', { title: '🔒 แงะลิ้นชัก', pins: 4, noise: 1 }],
 ];
 const g = document.getElementById('g'), res = document.getElementById('res');
 g.innerHTML = L.map((x, i) => `<button data-i="${i}">${x[1]}<small>${x[2]}</small></button>`).join('');

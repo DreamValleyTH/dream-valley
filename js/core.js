@@ -79,7 +79,7 @@ const cloudDoc = key => cloud.doc('data/users/' + cloudUid + '/dvsave-' + key);
 DV.saveLocal = () => {
   const S = DV.S; if (!S) return;
   S.savedAt = Date.now();
-  try { localStorage.setItem(LS + DV.slotKey(S.name, S.code), JSON.stringify(S)); localStorage.setItem('dv3_last', JSON.stringify({ name: S.name, code: S.code })); } catch (e) {}
+  try { localStorage.setItem(LS + DV.slotKey(S.name, S.code), JSON.stringify(DV.ownState ? DV.ownState() : S)); localStorage.setItem('dv3_last', JSON.stringify({ name: S.name, code: S.code })); } catch (e) {}
 };
 let lastCloud = 0, cloudBusy = false;
 DV.save = (force) => {
@@ -88,7 +88,7 @@ DV.save = (force) => {
   const now = Date.now(); if (!force && now - lastCloud < 45000) return;
   lastCloud = now; cloudBusy = true;
   const S = DV.S;
-  cloudDoc(DV.slotKey(S.name, S.code)).set({ json: JSON.stringify(S), savedAt: S.savedAt, day: S.day, name: S.name })
+  cloudDoc(DV.slotKey(S.name, S.code)).set({ json: JSON.stringify(DV.ownState ? DV.ownState() : S), savedAt: S.savedAt, day: S.day, name: S.name })
     .catch(() => {}).finally(() => { cloudBusy = false; });
 };
 DV.loadSlot = async (name, code) => {

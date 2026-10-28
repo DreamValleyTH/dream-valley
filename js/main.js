@@ -15,7 +15,7 @@ DV.begin = (state, fresh, storyDelay) => {
   DV.S = state; DV.bindState(state);
   DV.enterMap(state.map || 'farm', [state.px, state.py], true);
   $('title').classList.add('hidden'); $('hud').classList.remove('hidden'); $('bar').classList.remove('hidden');
-  $('camBtn').classList.remove('hidden'); $('camBtn').textContent = DV.camMode === 'free' ? '🔓' : '🎯'; $('camBtn').onclick = () => DV.toggleCam();
+  $('camBtn').classList.remove('hidden'); DV.camIcon(); $('camBtn').onclick = () => DV.toggleCam();
   DV.hud(); DV.save(true);
   setTimeout(() => DV.startStory(fresh), storyDelay || 0);
 };

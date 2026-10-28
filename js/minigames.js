@@ -219,11 +219,67 @@ G.sweep = (o, L) => {
   ready(L, () => { on = true; L.every(() => { left--; L.t.textContent = `⏱ ${left}`; if (left <= 0) { on = false; finish(L, gone / n, { gone }, o.onEnd); } }, 1000); });
 };
 
+// 13. reaction — "red light, green light": sneak forward only while it looks away; move while it watches and you're caught
+G.reaction = (o, L) => {
+  const need = o.need || 10; let steps = 0, look = false, on = false, left = o.time || 14, caught = false;
+  const dark = L.box.classList.contains('dark');
+  L.area.innerHTML = `<div class="field${dark ? ' dark' : ''}" style="height:150px;margin-bottom:10px"><span class="spr eye" style="left:50%;top:32%;font-size:54px">${o.away || '🙈'}</span>
+    <span class="spr" style="left:90%;top:80%;font-size:26px">${o.goal || '🏠'}</span><span class="spr me" style="left:8%;top:80%;font-size:28px">🚶</span></div>
+    <button class="go">${o.btn || 'ย่องไปข้างหน้า'}</button><div class="msg"></div>`;
+  const eye = L.area.querySelector('.eye'), me = L.area.querySelector('.me'), msg = L.area.querySelector('.msg');
+  const flip = () => { if (!on) return; look = !look; eye.textContent = look ? (o.watch || '👁️') : (o.away || '🙈'); msg.textContent = look ? 'มันหันมาแล้ว! อย่าขยับ!' : 'ย่องเร็ว!';
+    if (look) { snd('tick'); L.after(flip, R(700, 1500)); } else L.after(flip, R(450, 1300) * (o.fast || 1)); };   // it turns back sooner and sooner
+  L.area.querySelector('.go').onpointerdown = e => { e.preventDefault(); if (!on) return; if (look) { caught = true; on = false; snd('dirt'); msg.textContent = 'โดนจับได้!'; return finish(L, steps / need * .4, { caught }, o.onEnd, 600); }
+    steps++; me.style.left = (8 + steps / need * 78) + '%'; snd('tick'); L.s.textContent = `${steps}/${need}`; if (steps >= need) { on = false; finish(L, 1, {}, o.onEnd); } };
+  L.s.textContent = `0/${need}`; L.t.textContent = `⏱ ${left}`;
+  ready(L, () => { on = true; L.after(flip, R(600, 1200)); L.every(() => { left--; L.t.textContent = `⏱ ${left}`; if (left <= 0 && on) { on = false; finish(L, steps / need * .8, {}, o.onEnd); } }, 1000); });
+};
+// 14. balance — keep your weight centred on a slippery bank; the push gets stronger
+G.balance = (o, L) => {
+  let x = 0, v = 0, push = 0, t = o.time || 9, T0 = t, on = false, hold = 0;
+  L.area.innerHTML = `<div class="bar" style="height:44px;background:linear-gradient(90deg,#c8432f 0 12%,#c9b48d 12% 88%,#c8432f 88%)"><i class="zone" style="left:38%;width:24%;opacity:.55"></i><b class="pin" style="width:12px;margin-left:-6px"></b></div>
+    <div class="meter" style="margin-top:10px"><i></i></div><div class="pad" style="margin-top:10px"><button data-d="-1">◀ เอียงซ้าย</button><button data-d="1">เอียงขวา ▶</button></div>`;
+  const pin = L.area.querySelector('.pin'), m = L.area.querySelector('.meter i');
+  L.area.querySelectorAll('.pad button').forEach(b => { b.onpointerdown = e => { e.preventDefault(); hold = +b.dataset.d; }; b.onpointerup = b.onpointerleave = b.onpointercancel = () => { if (hold === +b.dataset.d) hold = 0; }; });
+  L.loop(dt => { pin.style.left = (50 + x * 50) + '%'; if (!on) return; t -= dt; const k = 1 - t / T0;
+    if (Math.random() < dt * (1.2 + k * 2)) push = R(-1, 1) * (1.1 + k * 1.6) * (o.force || 1);
+    v += (push + hold * 2.6 - x * .4) * dt; v *= .97; x += v * dt; m.style.width = (1 - t / T0) * 100 + '%'; L.t.textContent = `⏱ ${Math.max(0, t).toFixed(1)}`;
+    if (Math.abs(x) >= .76) { on = false; snd('dirt'); finish(L, (1 - t / T0) * .7, { fell: 1 }, o.onEnd); } else if (t <= 0) { on = false; finish(L, 1, {}, o.onEnd); } });
+  ready(L, () => { on = true; });
+};
+// 15. lockpick — a pointer circles the lock; tap when it is on the notch. Each miss makes noise; too much noise and you're heard
+G.lockpick = (o, L) => {
+  const pins = o.pins || 4, maxNoise = o.noise || 2; let pin = 0, ang = 0, dir = 1, sp = o.speed || 2.6, notch = R(0, Math.PI * 2), tol = o.tol || .2, noise = 0, on = false;
+  L.area.innerHTML = `<div style="position:relative;width:220px;height:220px;margin:0 auto"><div style="position:absolute;inset:0;border-radius:50%;background:radial-gradient(#5b4a3a 0 30%,#c9b48d 31% 58%,#3b2a1c 59% 62%,#8a7458 63%);border:4px solid #3b2a1c"></div>
+    <i class="nt" style="position:absolute;left:50%;top:50%;width:14px;height:104px;margin-left:-7px;transform-origin:50% 0;background:linear-gradient(transparent 70%,#7fb04c 70%);border-radius:7px"></i>
+    <i class="ptr" style="position:absolute;left:50%;top:50%;width:6px;height:100px;margin-left:-3px;transform-origin:50% 0;background:linear-gradient(transparent 55%,#c8432f 55%);border-radius:3px"></i>
+    <span class="spr" style="left:50%;top:50%;font-size:34px">🔒</span></div>
+    <div class="dots">${'<i></i>'.repeat(pins)}</div><div class="ms" style="margin:6px 0 0">เสียงดัง: <b class="nz">${'○'.repeat(maxNoise + 1)}</b></div><button class="go">${o.btn || 'งัด!'}</button>`;
+  const nt = L.area.querySelector('.nt'), ptr = L.area.querySelector('.ptr'), dots = L.area.querySelectorAll('.dots i'), nz = L.area.querySelector('.nz');
+  const deg = a => `rotate(${a * 180 / Math.PI + 180}deg)`;
+  L.loop(dt => { if (on) { ang += dir * sp * dt; if (Math.random() < dt * .35 * (o.flip || 1)) dir *= -1; } ptr.style.transform = deg(ang); nt.style.transform = deg(notch); });
+  L.area.querySelector('.go').onpointerdown = e => { e.preventDefault(); if (!on) return; let d = Math.abs(((ang - notch) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI);
+    if (d <= tol) { dots[pin].className = 'ok'; pin++; snd('coin'); sp *= 1.18; tol *= .9; notch = R(0, Math.PI * 2); dir = Math.random() < .5 ? 1 : -1; if (pin >= pins) { on = false; finish(L, 1, { noise }, o.onEnd); } }
+    else { noise++; snd('dirt'); nz.textContent = '●'.repeat(noise) + '○'.repeat(Math.max(0, maxNoise + 1 - noise)); L.box.animate([{ transform: 'translateX(-6px)' }, { transform: 'translateX(6px)' }, { transform: 'none' }], 160);
+      if (noise > maxNoise) { on = false; finish(L, pin / pins * .5, { heard: 1 }, o.onEnd, 600); } } };
+  ready(L, () => { on = true; });
+};
+
 const SUB = { timing: 'แตะตอนเข็มอยู่ในช่องเขียว', tension: 'กดค้างให้แถบเขียวลอยขึ้น คุมปลาไว้ในแถบจนหลอดเต็ม', taps: 'แตะเก็บให้ไวที่สุด', mash: 'สลับกดซ้าย–ขวาให้เร็วที่สุด!',
   sequence: 'ดูลำดับที่กระพริบ แล้วกดตามให้ถูก', stir: 'ใช้นิ้ววนรอบหม้อเป็นวงกลม', catch: 'ลากตะกร้ารับของดี หลบของเสีย', dodge: 'แตะซ้าย/ขวาเปลี่ยนเลน หลบสิ่งกีดขวาง',
-  arrows: 'กดลูกศรให้ตรงกับที่ขึ้น ให้ทัน!', hold: 'กดค้าง แล้วปล่อยตอนแถบอยู่ในช่องเขียว', pairs: 'เปิดไพ่จับคู่ให้ครบ', sweep: 'ลากนิ้วกวาดให้เกลี้ยง' };
+  arrows: 'กดลูกศรให้ตรงกับที่ขึ้น ให้ทัน!', reaction: 'ย่องตอนมันหันไปทางอื่น ถ้ามันมองอยู่ห้ามกด!', balance: 'กดค้างเอียงตัวสู้แรงลื่น อย่าให้ตกขอบแดง', lockpick: 'แตะตอนเข็มแดงตรงช่องเขียว พลาดเสียงจะดัง', hold: 'กดค้าง แล้วปล่อยตอนแถบอยู่ในช่องเขียว', pairs: 'เปิดไพ่จับคู่ให้ครบ', sweep: 'ลากนิ้วกวาดให้เกลี้ยง' };
+// difficulty: everything a notch harder than the first version (MG.diff, 1 = old feel)
+MG.diff = 1.25;
+const DEF = { timing: { zone: .22, speed: 1.1 }, tension: { bar: .26, jumpy: 1.4 }, taps: { need: 20 }, mash: { need: 24 }, sequence: { len: 4 }, stir: { need: 8 }, catch: { need: 14, badRate: .28 },
+  dodge: { time: 8 }, arrows: { n: 8, limit: 1200 }, hold: { zone: .16, speed: .55 }, pairs: { time: 25 }, sweep: { n: 22 }, reaction: { need: 10, fast: 1 }, balance: { force: 1 }, lockpick: { speed: 2.6, tol: .2 } };
+function harden(kind, o) { const D = MG.diff, d = DEF[kind] || {}, g = k => o[k] != null ? o[k] : d[k], r = Object.assign({}, o);
+  ({ timing: () => { r.zone = g('zone') / D; r.speed = g('speed') * D; }, tension: () => { r.bar = g('bar') / D; r.jumpy = g('jumpy') * D; }, taps: () => { r.need = Math.ceil(g('need') * D); },
+    mash: () => { r.need = Math.ceil(g('need') * D); }, sequence: () => { r.len = g('len') + 1; }, stir: () => { r.need = g('need') + 2; }, catch: () => { r.need = Math.ceil(g('need') * D); r.badRate = Math.min(.45, g('badRate') * D); },
+    dodge: () => { r.time = g('time') * D; }, arrows: () => { r.n = g('n') + 2; r.limit = g('limit') / D; }, hold: () => { r.zone = g('zone') / D; r.speed = g('speed') * D; }, pairs: () => { r.time = Math.round(g('time') / D); },
+    sweep: () => { r.n = Math.ceil(g('n') * D); }, reaction: () => { r.need = Math.ceil(g('need') * D); r.fast = 1 / D; }, balance: () => { r.force = g('force') * D; }, lockpick: () => { r.speed = g('speed') * D; r.tol = g('tol') / D; } }[kind] || (() => {}))();
+  return r; }
 MG.kinds = Object.keys(G);
-MG.play = (kind, o = {}) => { const L = frame({ title: o.title || '', sub: o.sub || SUB[kind] || '', dark: o.dark, w: o.w || 330 }); try { G[kind](o, L); } catch (e) { console.error(e); finish(L, .5, {}, o.onEnd, 0); } };
+MG.play = (kind, o = {}) => { const L = frame({ title: o.title || '', sub: o.sub || SUB[kind] || '', dark: o.dark, w: o.w || 330 }); try { G[kind](o.easy ? o : harden(kind, o), L); } catch (e) { console.error(e); finish(L, .5, {}, o.onEnd, 0); } };
 // a random game from the pool (not the same as last time for this activity); per-kind overrides in o.per[kind]
 MG.pick = (pool, o = {}) => { const key = o.key || pool.join(); let opts = pool.filter(k => k !== lastKind[key]); if (!opts.length) opts = pool; const k = pick(opts); lastKind[key] = k;
   MG.play(k, Object.assign({}, o, (o.per || {})[k] || {}, { sub: ((o.per || {})[k] || {}).sub || SUB[k] })); return k; };

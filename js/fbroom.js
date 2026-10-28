@@ -21,9 +21,9 @@ window.DV_fbRoom = () => {
       // the farm layout (big, rarely changes) lives in its own field so moving around only sends a few bytes
       const mk = s => { const v = s.val() || {}; let pr = null; try { pr = JSON.parse(v.d || 'null'); if (pr && v.f) Object.assign(pr, JSON.parse(v.f)); } catch (_) {} return { peer: s.key, isMe: s.key === uid, sameTab: s.key === uid, guest: false, presence: pr }; };
       let lastF = null, pend = null, timer = null, lastSend = 0;
-      const send = () => { timer = null; lastSend = Date.now(); const o = Object.assign({}, pend), f = {}; ['farm', 'mvd'].forEach(k => { if (k in o) { f[k] = o[k]; delete o[k]; } });
+      const send = () => { timer = null; lastSend = Date.now(); const o = Object.assign({}, pend), f = {}; ['farm', 'mvd', 'w'].forEach(k => { if (k in o) { f[k] = o[k]; delete o[k]; } });
         const up = { d: JSON.stringify(o).slice(0, 1900), t: firebase.database.ServerValue.TIMESTAMP }, fs = JSON.stringify(f);
-        if (fs !== lastF) { up.f = fs.slice(0, 3900); lastF = fs; }
+        if (fs !== lastF) { up.f = fs; lastF = fs; }
         return mine.update(up); };
       const fire = (joined, left) => subs.forEach(f => { try { f({ joined, left }); } catch (e) { console.error(e); } });
       ref.on('child_added', s => { const p = mk(s); peers[s.key] = p; fire([p], []); });
