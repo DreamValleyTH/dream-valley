@@ -135,11 +135,30 @@ function openScroll() {
   scroll.classList.add('on'); mode = 'scroll';
   try { localStorage.setItem(DV.CL_KEY, L[0].v); } catch (e) {} $('clDot').classList.add('hidden');
 }
+// ---------- จัดการเซฟ: list this device's saves; play one or delete it (tap ลบ twice to confirm) ----------
+function openSaves() {
+  mode = 'saves'; const box = $('tiSaves'), list = $('tiSaveList');
+  const draw = () => {
+    const L = DV.listLocalSaves();
+    list.innerHTML = L.length ? L.map((v, i) => `<div class="sv"><div class="who"><b>${esc(v.name)}</b><small>รหัส ${esc(v.code)} · วันที่ ${v.day}${v.savedAt ? ' · ' + new Date(v.savedAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) : ''}</small></div>`
+      + `<button class="play" data-i="${i}">เล่น</button><button class="del" data-i="${i}">ลบ</button></div>`).join('') : '<div class="empty">ยังไม่มีเซฟในเครื่องนี้</div>';
+    list.querySelectorAll('.play').forEach(b => b.onclick = async () => { const v = L[+b.dataset.i]; const st = await DV.loadSlot(v.name, v.code); if (!st) return; box.classList.add('hidden'); mode = 'menu'; dive(st, false); });
+    list.querySelectorAll('.del').forEach(b => b.onclick = async () => {
+      if (!b.classList.contains('sure')) { list.querySelectorAll('.del.sure').forEach(x => { x.classList.remove('sure'); x.textContent = 'ลบ'; }); b.classList.add('sure'); b.textContent = 'ยืนยันลบ'; return; }
+      const v = L[+b.dataset.i]; await DV.deleteSlot(v.name, v.code); DV.forgetLast(v.name, v.code); DV.sfx && DV.sfx('tick');
+      const l = last(); $('tiWho').innerHTML = l ? `เล่นต่อเป็น <b>${esc(l.name)}</b> · <a id="tiSwitch">ใช้ชื่ออื่น</a>` : ''; const sw = $('tiSwitch'); if (sw) sw.onclick = () => openPanel('cont');
+      draw();
+    });
+  };
+  draw(); box.classList.remove('hidden');
+}
+$('tiSaves').querySelector('.tsv-close').onclick = () => { $('tiSaves').classList.add('hidden'); mode = 'menu'; };
 document.querySelectorAll('#tiMenu button').forEach(b => b.onclick = async () => {
   if (mode !== 'menu') return;
   DV.sfx && DV.sfx('tick');
   if (b.dataset.a === 'new') openPanel('new');
   if (b.dataset.a === 'upd') openScroll();
+  if (b.dataset.a === 'saves') openSaves();
   if (b.dataset.a === 'cont') {
     const l = last(); if (!l) return openPanel('cont');
     mode = 'loading'; $('tiWho').textContent = 'กำลังโหลดเซฟ…';

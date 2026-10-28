@@ -461,3 +461,15 @@ input:-webkit-autofill{-webkit-box-shadow:0 0 0 40px #fffdf6 inset;-webkit-text-
 /* camera mode: one tap toggles follow / free */
 #camBtn{position:fixed;right:calc(10px + env(safe-area-inset-right,0px));bottom:calc(96px + env(safe-area-inset-bottom,0px));z-index:30;width:46px;height:46px;border-radius:50%;border:2px solid #6b4a2c;background:#f3e3c4;font-size:20px;box-shadow:0 3px 0 #6b4a2c;cursor:pointer}
 #camBtn:active{transform:translateY(2px);box-shadow:0 1px 0 #6b4a2c}
+
+/* จัดการเซฟ: list of saves on this device, play or delete */
+#tiSaves{position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;background:rgba(30,20,10,.45);padding:16px}
+#tiSaves.hidden{display:none}
+#tiSaves .box{width:min(380px,100%);max-height:80vh;overflow:auto;border-style:solid;border-width:14px;border-image:url(assets/ui/panel.png) 22 fill/14px stretch;image-rendering:pixelated;color:#3b2a1c;font:14px 'Mitr',sans-serif;padding:4px 6px}
+#tiSaves h3{margin:4px 0 10px;font-size:18px;text-align:center}
+#tiSaves .sv{display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px dashed #b89868}
+#tiSaves .sv .who{flex:1;min-width:0;line-height:1.35}#tiSaves .sv .who b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#tiSaves .sv small{color:#7a5f3f}
+#tiSaves button{font:14px 'Mitr',sans-serif;border-style:solid;border-width:8px;border-image:url(assets/ui/btn.png) 10 fill/8px stretch;background:none;color:#3b2a1c;padding:0 8px;cursor:pointer}
+#tiSaves button.del{color:#a3301e}#tiSaves button.del.sure{color:#fff;border-image:none;background:#b8402a;border-radius:6px;border-width:6px;border-color:#b8402a}
+#tiSaves .tsv-close{display:block;margin:12px auto 4px}
+#tiSaves .empty{text-align:center;color:#7a5f3f;padding:14px 0}

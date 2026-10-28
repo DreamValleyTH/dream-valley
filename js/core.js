@@ -106,6 +106,13 @@ DV.deleteSlot = async (name, code) => {
   try { localStorage.removeItem(LS + key); } catch (e) {}
   if (await DV.cloudReady()) { try { await cloudDoc(key).delete(); } catch (e) {} }
 };
+DV.listLocalSaves = () => {   // every save kept in this browser, newest first
+  const out = [];
+  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (!k || !k.startsWith(LS)) continue;
+    try { const S = JSON.parse(localStorage.getItem(k)); if (S && S.name) out.push({ name: S.name, code: S.code, day: S.day || 1, savedAt: S.savedAt || 0, gender: S.gender }); } catch (e) {} } } catch (e) {}
+  return out.sort((a, b) => b.savedAt - a.savedAt);
+};
+DV.forgetLast = (name, code) => { try { const l = JSON.parse(localStorage.getItem('dv3_last')); if (l && l.name === name && l.code === code) localStorage.removeItem('dv3_last'); } catch (e) {} };
 DV.cloudLabel = () => cloud ? 'เซฟบนคลาวด์ของบัญชีนี้ + เครื่องนี้' : 'เซฟในเครื่องนี้';
 
 // ---------- text helpers ----------
