@@ -16,6 +16,7 @@ const roomName = n => 'dv-' + n;
 async function connect() {
   if (NET.room !== null) return NET.room;
   try { NET.room = (window.claude && claude.use) ? await claude.use('room') : null; } catch (_) { NET.room = null; }
+  if (!NET.room && window.DV_fbRoom) NET.room = await window.DV_fbRoom();   // GitHub Pages / installed app → Firebase
   if (!NET.room) { NET.room = false; return false; }
   try { NET.own = await NET.room.join(roomName(DV.myNumber())); } catch (_) { NET.own = null; }
   if (NET.own) {
@@ -46,7 +47,7 @@ function pushPresence() {
 // ---- dialling a friend ----
 async function call(num) {
   if (num === DV.myNumber()) { NET.status = 'นี่เบอร์ของเราเอง'; return; }
-  const room = await connect(); if (!room) { NET.status = 'โทรไม่ได้ในโหมดนี้ (ต้องเปิดเกมผ่าน Claude และล็อกอิน)'; DV.rerenderPhone(); return; }
+  const room = await connect(); if (!room) { NET.status = 'ยังโทรไม่ได้ — ต้องต่ออินเทอร์เน็ต (และเปิดระบบออนไลน์ของเกม)'; DV.rerenderPhone(); return; }
   NET.target = num; NET.status = 'กำลังโทร…'; DV.rerenderPhone();
   try { NET.line = await room.join(roomName(num)); } catch (e) { NET.status = 'สายไม่ว่าง ลองใหม่อีกครั้ง'; DV.rerenderPhone(); return; }
   NET.mode = 'guest'; pushPresence();

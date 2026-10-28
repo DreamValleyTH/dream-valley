@@ -1,0 +1,18 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "rooms": {
+      "$line": {
+        ".read": "auth != null",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.hasChildren(['d', 't']) && newData.child('d').isString() && newData.child('d').val().length < 2000 && (!newData.child('f').exists() || (newData.child('f').isString() && newData.child('f').val().length < 4000))",
+          "$other": {
+            ".validate": "$other === 'd' || $other === 't' || $other === 'f'"
+          }
+        }
+      }
+    }
+  }
+}
