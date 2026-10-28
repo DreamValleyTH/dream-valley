@@ -457,3 +457,7 @@ input:-webkit-autofill{-webkit-box-shadow:0 0 0 40px #fffdf6 inset;-webkit-text-
 #liftBar .ok{background:#8fd05a;color:#1d3a0e}#liftBar .ok:disabled{background:#b9b0a0;opacity:.6}
 #liftBar .no{background:#f0a090}
 #buildBar .store{white-space:nowrap}
+
+/* camera mode: one tap toggles follow / free */
+#camBtn{position:fixed;right:calc(10px + env(safe-area-inset-right,0px));bottom:calc(96px + env(safe-area-inset-bottom,0px));z-index:30;width:46px;height:46px;border-radius:50%;border:2px solid #6b4a2c;background:#f3e3c4;font-size:20px;box-shadow:0 3px 0 #6b4a2c;cursor:pointer}
+#camBtn:active{transform:translateY(2px);box-shadow:0 1px 0 #6b4a2c}

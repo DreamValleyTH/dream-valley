@@ -97,7 +97,9 @@ if KIT:
             for i, (key, arr) in enumerate(sorted(ts.items())):
                 a = TL._area[name][key]; tile = np.zeros((32, 32, 4), np.uint8); tile[a] = (255, 255, 255, 255); am.paste(Image.fromarray(tile), (i * 32, 0))
             am.save(f'{KIT}/mapkit/tiles/{name}_area.png'); tj.setdefault('area', {})[name] = 1
-    tj['water'] = '#%02x%02x%02x' % tuple(int(v) for v in TL.water_tone())
+    tj['water'] = '#%02x%02x%02x' % tuple(int(v) for v in TL.water_tone()); tj['paths'] = TL.PATHS
+    from worldlib import tex as _tex, grade as _grade   # the game's own grass, for the Map Maker's painted cells
+    Image.fromarray(np.clip(_grade(_tex(f'{ART_B}/tiles/grass_1.png', 128, 128), (0.84, 0.92, 0.80), (0, 2, -2)), 0, 255).astype('uint8')).save(f'{KIT}/mapkit/tiles/grass_tex.png')
     Image.open(os.path.join(TL.TSDIR, 'ref_grass.png')).save(f'{KIT}/mapkit/tiles/grass.png')
     json.dump(tj, open(f'{KIT}/mapkit/tiles.json', 'w'))
     for f in glob.glob(f'{KIT}/mapkit/s/*.png'):   # pictures no longer in the catalog are removed from the kit

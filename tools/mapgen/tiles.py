@@ -29,6 +29,7 @@ SETS = {
     'w': ['water_a'],   # water_b came out a different (cyan) colour
 }
 ORDER = ['y', 's', 'g', 'v', 'p', 'l', 'c', 'a', 'w']
+PATHS = ['y', 's', 'g', 'v', 'p', 'l', 'c', 'a']   # ground kinds that join: each one is laid under the ones drawn after it
 TONE = {'asph': (96, 92, 90), 'conc': (190, 184, 170)}   # pull the darkest / brightest sets toward the game palette
 _cache = {}
 _area = {}   # water sets: where the tile is water or bank (before the open water is cut away)
@@ -76,6 +77,8 @@ def compose(grid):
         if code not in SETS: continue
         cm = pad == code
         if not cm.any(): continue
+        if code in PATHS:   # run under every later path kind, so neighbouring roads/lanes meet without a grass gap
+            cm = cm | np.isin(pad, PATHS[PATHS.index(code) + 1:])
         sets = [load_set(n) for n in SETS[code]]
         layer = Image.new('RGBA', out.size, (0, 0, 0, 0))
         for vy in range(H + 1):            # corner (vx, vy) is shared by cells (vx-1..vx, vy-1..vy)

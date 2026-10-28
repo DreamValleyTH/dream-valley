@@ -86,7 +86,8 @@ try:
 except FileNotFoundError: pass
 _A2 = os.path.join(_HERE, 'art2')
 for _k, _n, _fp, _iso, _blk in [('coop_broken', 'เล้าไก่ (พัง)', (3, 3), True, True), ('fish_cage', 'กระชังปลา', (2, 2), True, False),
-                                ('farm_gate', 'ประตูรั้วไม้', (2, 1), True, False)] + [(f'weeds_{i}', 'กอหญ้ารก', (1, 1), False, True) for i in range(8)]:
+                                ('farm_gate', 'ประตูรั้วไม้', (2, 1), True, False), ('bamboo_fence', 'รั้วไม้ไผ่', (1, 1), True, True),
+                                ('bamboo_fence_b', 'รั้วไม้ไผ่ (ลำเล็ก)', (1, 1), True, True), ('bamboo_fence_vine', 'รั้วไม้ไผ่มีเถาวัลย์', (1, 1), True, True)] + [(f'weeds_{i}', 'กอหญ้ารก', (1, 1), False, True) for i in range(8)]:
     CATALOG[_k] = dict(k=_k, name=_n, cat='farm', src=os.path.join(_A2, _k + '.png'), iso=_iso, fp=list(_fp), block=_blk, shadow='prop', dy=2)
 
 # ---- v1.0 trees & plants (PixelLab, drawn in the tile sets' style, roots and soil patch so they sit on the ground) ----
@@ -109,7 +110,7 @@ HEIGHT = {'stove': 24, 'f_stove': 24, 'firewood': 26, 'f_firewood': 26, 'jars': 
           'compost': 30, 'f_compost': 30, 'sacks': 30, 'f_sacks': 30, 'f_haystack': 40, 'hose': 20, 'f_hose': 20, 'pump': 38, 'f_pump': 38,
           'trough': 24, 'tires': 28, 'well': 40, 'cart': 38, 'f_cart': 38, 'bush': 36, 'bush2': 28, 'banana_pot': 40, 'incense': 28,
           'donation': 34, 'bell': 44, 'f_peb': 10, 'f_rock': 20, 'f_rock_2': 20, 'f_stump': 22, 'f_br': 18, 'f_br_2': 18,
-          **{f'weeds_{i}': 40 for i in range(8)}}
+          **{f'weeds_{i}': 40 for i in range(8)}, 'bamboo_fence': 50, 'bamboo_fence_b': 50, 'bamboo_fence_vine': 50}
 for _k, _h in HEIGHT.items():
     if _k in CATALOG: CATALOG[_k]['h'] = _h
 
@@ -161,7 +162,8 @@ def place_obj(w, o, iso_art, T=32, extra=None):
         ob = w.place(im, x, y, block=block, tap=tap, place=o.get('place'), oid=o['id'], label=o.get('label') or c['name'], shadow=sh if sh else None)
         if c.get('corner'): iso_art[o['id']] = dict(im=im, dx=c['corner'][0], dy=c['corner'][1])
     if o.get('layer') == 'front': ob['front'] = True
-    if o.get('layer') == 'top': ob['top'] = True
+    if o.get('layer') == 'top': ob['top'] = True; ob['front'] = True
+    if o.get('layer') == 'flat': ob['flat'] = True   # lies on the ground: baked into the ground picture
     ob['k'] = o['k']
     return ob
 

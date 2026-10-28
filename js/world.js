@@ -15,6 +15,7 @@ DV.P = P; DV.unP = unP;
 // ---------- canvas ----------
 const cv = $('game'), ctx = cv.getContext('2d');
 let dpr = 1, zoom = 2, VW = 0, VH = 0, uz = 1;   // uz = player pinch zoom
+const CROP_K = .68;
 const camOff = { x: 0, y: 0 };                  // one-finger look-around offset (screen px)
 DV.camOff = camOff;
 function resize() {
@@ -387,7 +388,9 @@ const pend = e => {
 };
 cv.addEventListener('pointerup', pend); cv.addEventListener('pointercancel', pend);
 cv.addEventListener('wheel', e => { e.preventDefault(); setZoom(uzT * (e.deltaY < 0 ? 1.15 : 1 / 1.15), e.clientX, e.clientY); }, { passive: false });
-let camFree = false;
+let camFree = false, lastPs = null;
+DV.camMode = (() => { try { return localStorage.getItem('dv_cam') || 'follow'; } catch (_) { return 'follow'; } })();
+DV.toggleCam = () => { DV.camMode = DV.camMode === 'free' ? 'follow' : 'free'; try { localStorage.setItem('dv_cam', DV.camMode); } catch (_) {} if (DV.camMode === 'follow') DV.recenter(); const b = document.getElementById('camBtn'); if (b) b.textContent = DV.camMode === 'free' ? '🔓' : '🎯'; DV.toast(DV.camMode === 'free' ? 'กล้องอิสระ: ลากเพื่อดูรอบ ๆ กล้องไม่ตามตัวละคร' : 'กล้องตามตัวละคร'); };
 function setZoom(z, fx, fy, now) {
   uzT = Math.max(Math.max(.6, zoomMin / zoomBase), Math.min(2.6, z)); zFocus = fx != null ? [fx, fy] : [innerWidth / 2, innerHeight / 2];
   if (now) { uz = uzT; applyZoom(...zFocus); }
@@ -689,7 +692,10 @@ function render(dt) {
   if (S.map === 'farm' && dirtySoil) drawSoil();
   let lift = 0; for (const id of ['sheet', 'talk']) { const el = $(id); if (!el.classList.contains('hidden')) lift = Math.max(lift, el.offsetHeight / zoom / 2); }
   camLift += (lift - camLift) * Math.min(1, dt * 8);
-  if (player.path.length || player.moving) { const k = Math.min(1, dt * 4); camOff.x -= camOff.x * k; camOff.y -= camOff.y * k; }
+  if (DV.camMode === 'free') {   // free camera: the view stays put while the player walks
+    if (lastPs) { camOff.x -= psx - lastPs[0]; camOff.y -= psy - lastPs[1]; }
+  } else if (player.path.length || player.moving) { const k = Math.min(1, dt * 4); camOff.x -= camOff.x * k; camOff.y -= camOff.y * k; }
+  lastPs = [psx, psy];
   const lim = (v, a, b) => Math.max(a, Math.min(b, v));
   camOff.x = lim(camOff.x, -PW, PW); camOff.y = lim(camOff.y, -PH, PH);
   cam.x = Math.max(0, Math.min(PW - VW, psx + camOff.x - VW / 2)); cam.y = Math.max(0, Math.min(PH - VH + camLift * 2, psy + camOff.y - 24 - VH / 2 + camLift));
@@ -749,8 +755,9 @@ function render(dt) {
       const sway = c.crop.st >= 2 ? Math.sin(now / 700 + x * 1.3 + y) * .6 : 0;
       const [qx, qy] = P(x * T + 16, y * T + 20);
       list.push({ y: depth(x * T + 16, y * T + 22), d: () => {
-        ctx.drawImage(IMG.crops, c.crop.st * 64 + bb[0], cr.row * 64 + bb[1], w, h, Math.round(qx - w / 2 + sway), Math.round(qy + 4 - h), w, h);
-        if (c.crop.st >= 4) { const b = Math.sin(now / 250 + x) * 1.5; ctx.fillStyle = '#fff3a0'; ctx.fillRect(qx - 1, qy + 4 - h - 7 + b, 2, 2); } } });
+        const sw = Math.round(w * CROP_K), sh = Math.round(h * CROP_K);   // crops sized against the player (a chili bush is knee high)
+        ctx.drawImage(IMG.crops, c.crop.st * 64 + bb[0], cr.row * 64 + bb[1], w, h, Math.round(qx - sw / 2 + sway), Math.round(qy + 4 - sh), sw, sh);
+        if (c.crop.st >= 4) { const b = Math.sin(now / 250 + x) * 1.5; ctx.fillStyle = '#fff3a0'; ctx.fillRect(qx - 1, qy + 4 - sh - 7 + b, 2, 2); } } });
     }
   }
   (S.dropped && S.dropped[S.map] || []).filter(groundLive).forEach(d => { const [qx, qy] = P(d.x * T + 16, d.y * T + 18); const ic = DV.icon(DV.item(d.k).icon);
