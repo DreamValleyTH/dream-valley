@@ -130,7 +130,7 @@ function dive(state, fresh) {
 const scroll = $('tiScroll'), paper = $('tiPaper');
 function openScroll() {
   const L = window.DV_CHANGELOG || [];
-  paper.innerHTML = '<h3>อัปเดตเกม</h3>' + L.map(c => `<h4>v${c.v} · ${c.title}</h4><ul>${c.items.map(x => `<li>${x}</li>`).join('')}</ul>`).join('') + '<button class="close">ม้วนเก็บ</button>';
+  paper.innerHTML = '<button class="close">ม้วนเก็บ</button><h3>อัปเดตเกม</h3>' + L.map(c => `<h4>v${c.v} · ${c.title}</h4><ul>${c.items.map(x => `<li>${x}</li>`).join('')}</ul>`).join('');
   paper.querySelector('.close').onclick = () => { paper.style.maxHeight = paper.offsetHeight + 'px'; paper.scrollTop = 0; void paper.offsetHeight; scroll.classList.remove('on'); paper.style.maxHeight = ''; mode = 'menu'; };
   scroll.classList.add('on'); mode = 'scroll';
   try { localStorage.setItem(DV.CL_KEY, L[0].v); } catch (e) {} $('clDot').classList.add('hidden');

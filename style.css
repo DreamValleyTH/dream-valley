@@ -441,7 +441,7 @@ input:-webkit-autofill{-webkit-box-shadow:0 0 0 40px #fffdf6 inset;-webkit-text-
 #tiScroll.on #tiPaper{max-height:62vh;overflow:auto;transition:max-height .7s ease-out .35s}
 #tiPaper h3{margin:12px 14px 4px;font-size:18px}#tiPaper h4{margin:10px 14px 2px;font-size:14px;color:#8a3d22}#tiPaper h4 small{color:#8b7558;font-weight:400}
 #tiPaper ul{margin:0 14px 8px 30px;padding:0;font-size:14px;line-height:1.55}
-#tiPaper .close{display:block;margin:6px auto 12px;font:15px 'Mitr',sans-serif;border-style:solid;border-width:8px;border-image:url(assets/ui/btn.png) 10 fill/8px stretch;background:none;color:#3b2a1c;padding:0 16px}
+#tiPaper .close{position:sticky;top:6px;float:right;z-index:2;margin:6px 8px 0 0;box-shadow:0 2px 6px rgba(60,35,15,.25);font:15px 'Mitr',sans-serif;border-style:solid;border-width:8px;border-image:url(assets/ui/btn.png) 10 fill/8px stretch;background:none;color:#3b2a1c;padding:0 16px}
 #tiArrive{position:fixed;z-index:61;left:50%;bottom:calc(20vh + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);opacity:0;font:600 18px 'Mitr',sans-serif;color:#5a3317;pointer-events:none;
   border-style:solid;border-width:12px;border-image:url(assets/ui/panel.png) 22 fill/12px stretch;image-rendering:pixelated;padding:0 12px;white-space:nowrap;transition:.5s}
 #tiArrive.on{opacity:1;transform:translate(-50%,0)}

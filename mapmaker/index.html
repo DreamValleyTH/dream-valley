@@ -123,7 +123,8 @@ aside{grid-area:side;background:var(--panel);border-top:1px solid var(--line);di
     <button class="tool" data-t="place"><b>➕</b>วางของ</button>
     <button class="tool" data-t="erase"><b>🗑</b>ลบ</button>
     <button class="tool" data-t="paint"><b>🖌</b>พื้น</button>
-    <button class="tool" data-t="door"><b>🚪</b>ประตู</button>
+    <button class="tool" data-t="door"><b>📍</b>จุด</button>
+    <button class="tool" data-t="rand"><b>🎲</b>สุ่ม</button>
   </nav>
   <main>
     <canvas id="cv"></canvas>
@@ -153,7 +154,8 @@ const HINT = {
   place: '<b>วางของ:</b> เลือกของด้านล่าง แล้วแตะจุดบนแผนที่',
   erase: '<b>ลบ:</b> แตะของที่ต้องการลบ (กด ↶ เพื่อเอาคืน)',
   paint: '<b>ระบายพื้น:</b> เลือกชนิดพื้นด้านล่าง แล้วลากนิ้วระบาย · ใช้สองนิ้วเลื่อนแผนที่',
-  door: '<b>ประตู:</b> ลากช่องสีทอง (จุดเข้าร้าน/บ้าน) ไปที่ใหม่',
+  door: '<b>จุด:</b> ลากเพื่อย้าย · 🟨 ประตู/จุดยืนชาวบ้าน · 🟦 จุดเกิดผู้เล่น (🏠 บ้าน)',
+  rand: '<b>สุ่มของ:</b> ระบายโซนสีตามประเภท แล้วกด 🎲 สุ่ม กดซ้ำได้เรื่อย ๆ จนพอใจ',
 };
 let CAT = null, MAP = null, mapName = 'town', IMG = {}, ALPHA = {}, GROUND = null;
 let view = { x: 0, y: 0, z: .5 }, tool = 'move', palKey = null, palTab = 'building', brush = { code: 'l', size: 1 };
@@ -176,7 +178,7 @@ function anchor(o) {   // sprite bottom-centre in iso px — exactly how the gam
 }
 const depth = o => { const [fw, fd] = fpOf(o); return (o.x + fw / 2 + o.y + fd / 2) + (o.layer === 'flat' ? -1e6 : o.layer === 'front' ? 1e6 : o.layer === 'top' ? 2e6 : 0); };
 const LAYERS = [[undefined, '▣', 'ชั้นปกติ: เรียงหน้า-หลังตามตำแหน่ง'], ['flat', '⬇', 'ติดพื้น: วางราบกับพื้น ตัวละครเดินทับได้'], ['front', '⬆', 'หน้าเสมอ: บังตัวละครเสมอ'], ['top', '⏫', 'บนสุด: ลอยเหนือทุกอย่าง (สายไฟ ธง)']];
-let clip = null, mouseCell = null;   // copied item (kind + turn + layer) and the cell under the mouse
+let clip = null, mouseCell = null, mouseXY = null;   // copied item (kind + turn + layer) and the cell under the mouse
 const cellsOf = o => { const [fw, fd] = fpOf(o), r = []; for (let y = o.y; y < o.y + fd; y++) for (let x = o.x; x < o.x + fw; x++) r.push([x, y]); return r; };
 const nameOf = o => { const c = CAT.items[o.k]; return o.label || (c && c.name) || o.k; };
 
@@ -245,7 +247,7 @@ addEventListener('keydown', e => {
   if (e.target.matches('input,textarea')) return;
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveNow(); return; }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); (e.shiftKey ? $('redo') : $('undo')).click(); return; }
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c' && sel) { e.preventDefault(); copySel(); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') { const o = sel || (mouseXY && hitObject(...mouseXY)); if (o) { e.preventDefault(); const keep = sel; sel = o; copySel(); sel = keep; } else toast('ชี้เมาส์ที่ของ หรือแตะเลือกของก่อนกด Ctrl+C'); return; }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v' && clip) { e.preventDefault(); if (!mouseCell) return toast('ชี้เมาส์บนแผนที่ตรงที่จะวาง'); const n = pasteAt(...mouseCell); if (n && tool === 'move') { sel = n; renderDock(); } return; }
   if (sel && tool === 'move') { const k = { ArrowUp: [0, -1], ArrowRight: [1, 0], ArrowDown: [0, 1], ArrowLeft: [-1, 0] }[e.key]; if (k) { e.preventDefault(); nudge(...k); } if (e.key.toLowerCase() === 'r') rotate(sel); }
   if (e.key === 'Escape') { sel = null; renderDock(); dirty = true; }
@@ -372,9 +374,11 @@ function draw() {
     else ctx.drawImage(im, ax - im.width / 2, ay - im.height); }
   if (sel) { ctx.strokeStyle = valid(sel) ? '#8ef07a' : '#ff6a5a'; ctx.lineWidth = 2.5 / view.z; cellsOf(sel).forEach(([x, y]) => { diamond(x, y); ctx.stroke(); });
     const im = IMG[sel.k]; if (im) { const [ax, ay] = anchor(sel); ctx.setLineDash([6 / view.z, 4 / view.z]); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5 / view.z; ctx.strokeRect(ax - im.width / 2, ay - im.height, im.width, im.height); ctx.setLineDash([]); } }
+  if (tool === 'rand' && MAP.zones) for (let y = 0; y < MAP.H; y++) { const r = MAP.zones[y]; for (let x = 0; x < MAP.W; x++) { const z = ZONES[r[x]]; if (!z) continue; ctx.fillStyle = z.col; diamond(x, y); ctx.fill(); } }
   if (opts.doors || tool === 'door') { ctx.font = `${Math.max(10, 12 / view.z)}px "IBM Plex Sans Thai",sans-serif`; ctx.textAlign = 'center';
-    for (const [pid, pl] of Object.entries(MAP.places)) { const [x, y] = pl.door; ctx.fillStyle = dragDoor === pid ? 'rgba(255,240,140,.95)' : 'rgba(233,196,106,.6)'; diamond(x, y); ctx.fill();
-      if (view.z > .28) { const [qx, qy] = P((x + .5) * T, (y + .5) * T); ctx.lineWidth = 3 / view.z; ctx.strokeStyle = '#000'; ctx.strokeText(pl.name, qx, qy - 8 / view.z); ctx.fillStyle = '#fff'; ctx.fillText(pl.name, qx, qy - 8 / view.z); } } }
+    const label = (x, y, t) => { if (view.z <= .28) return; const [qx, qy] = P((x + .5) * T, (y + .5) * T); ctx.lineWidth = 3 / view.z; ctx.strokeStyle = '#000'; ctx.strokeText(t, qx, qy - 8 / view.z); ctx.fillStyle = '#fff'; ctx.fillText(t, qx, qy - 8 / view.z); };
+    for (const [pid, pl] of Object.entries(MAP.places)) { const [x, y] = pl.door; ctx.fillStyle = dragDoor === 'p:' + pid ? 'rgba(255,240,140,.95)' : 'rgba(233,196,106,.6)'; diamond(x, y); ctx.fill(); label(x, y, (pl.kind === 'home' ? '🏠 ' : '') + pl.name); }
+    if (tool === 'door') for (const [k, v] of Object.entries(MAP.spawns || {})) { if (MAP.places.home && k === 'home') continue; const [x, y] = v; ctx.fillStyle = dragDoor === 's:' + k ? 'rgba(150,220,255,.95)' : 'rgba(90,170,230,.65)'; diamond(x, y); ctx.fill(); label(x, y, '▶ ' + (SPAWN_NAME[k] || k)); } }
   if (tool === 'paint' && hover) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5 / view.z; for (const [x, y] of brushCells(...hover)) { diamond(x, y); ctx.stroke(); } }
 }
 function loop() { if (dirty) { dirty = false; draw(); } requestAnimationFrame(loop); }
@@ -387,8 +391,19 @@ function hitObject(cx, cy) {   // pixel-accurate on the sprite, front-most first
 }
 
 // ---------- tools ----------
-let hover = null, dragDoor = null;
-function renderTools() { document.querySelectorAll('.tool').forEach(x => x.setAttribute('aria-pressed', x.dataset.t === tool)); $('side').hidden = !(tool === 'place' || tool === 'paint') && innerWidth < 900; size(); }
+const SPAWN_NAME = { home: 'จุดเกิดที่บ้าน', from_town: 'เข้าจากตำบล', from_farm: 'เข้าจากฟาร์ม', bus: 'ลงรถเมล์', center: 'กลางตำบล', in: 'ในบ้าน' };
+let hover = null, dragDoor = null;   // dragDoor = 'p:<place id>' or 's:<spawn name>'
+function pointAt(cx, cy) {
+  for (const [k, v] of Object.entries(MAP.spawns || {})) if (v[0] === cx && v[1] === cy) return 's:' + k;
+  for (const [k, v] of Object.entries(MAP.places || {})) if (v.door[0] === cx && v.door[1] === cy) return 'p:' + k;
+  return null;
+}
+function movePoint(id, cx, cy) {
+  const [t, k] = [id[0], id.slice(2)];
+  if (t === 'p') { MAP.places[k].door = [cx, cy]; if (k === 'home' && MAP.spawns && MAP.spawns.home) MAP.spawns.home = [cx, cy]; }
+  else { MAP.spawns[k] = [cx, cy]; if (k === 'home' && MAP.places.home) MAP.places.home.door = [cx, cy]; }
+}
+function renderTools() { document.querySelectorAll('.tool').forEach(x => x.setAttribute('aria-pressed', x.dataset.t === tool)); $('side').hidden = !(tool === 'place' || tool === 'paint' || tool === 'rand') && innerWidth < 900; size(); }
 function setTool(t) { tool = t; if (t !== 'move') sel = null; renderTools(); buildPalette(); renderDock(); dirty = true; }
 document.querySelectorAll('.tool').forEach(b => b.onclick = () => setTool(b.dataset.t));
 addEventListener('resize', renderTools);
@@ -405,6 +420,43 @@ function updateSelInfo() {   // refresh only the text — rebuilding the pad mid
 
 function rotate(o) { snapshot(); o.flip = o.flip ? 0 : 1; changed(); if (o === sel && document.querySelector('.pad')) updateSelInfo(); else renderDock(); }
 let palClip = null;
+// ---------- random fill: paint coloured zones by kind, press 🎲 again and again until it looks right ----------
+const ZONES = {
+  b: { name: 'บ้าน/อาคาร', col: 'rgba(230,90,70,.42)', pick: c => c.cat === 'building' && /house|kamnan|nok_house/.test(c.k) },
+  t: { name: 'ต้นไม้', col: 'rgba(60,170,70,.42)', pick: c => c.cat === 'tree' && !/bush/.test(c.k) },
+  s: { name: 'พุ่มไม้/หญ้า', col: 'rgba(170,220,90,.42)', pick: c => /bush|weeds_|f_ban$|f_bam$/.test(c.k) },
+  d: { name: 'ของตกแต่ง', col: 'rgba(240,180,60,.45)', pick: c => c.cat === 'prop' && !/bush|stall|sign|bus/.test(c.k) },
+  m: { name: 'แผงตลาด', col: 'rgba(160,110,230,.42)', pick: c => /stall_/.test(c.k) },
+};
+let zone = { code: 't', size: 2 }, rcfg = (() => { try { return JSON.parse(localStorage.getItem('dvmm_rand') || 'null'); } catch (_) { return null; } })() || { b: 12, t: 30, s: 30, d: 15, m: 40, off: {} };
+const saveRcfg = () => { try { localStorage.setItem('dvmm_rand', JSON.stringify(rcfg)); } catch (_) {} };
+function zoneAt(cx, cy) {
+  if (!MAP.zones) MAP.zones = Array.from({ length: MAP.H }, () => ' '.repeat(MAP.W));
+  let ch = false, r = zone.size - 1;
+  for (let y = cy - r; y <= cy + r; y++) for (let x = cx - r; x <= cx + r; x++) {
+    if (x < 0 || y < 0 || x >= MAP.W || y >= MAP.H) continue; const c = zone.code === 'x' ? ' ' : zone.code, row = MAP.zones[y];
+    if (row[x] !== c) { MAP.zones[y] = row.slice(0, x) + c + row.slice(x + 1); ch = true; } }
+  if (ch) dirty = true; return ch;
+}
+function zoneItems(code) { return Object.entries(CAT.items).filter(([k, c]) => IMG[k] && ZONES[code].pick(Object.assign({ k }, c)) && !(rcfg.off[k])).map(([k]) => k); }
+function randomize() {
+  if (!MAP.zones) return toast('ระบายโซนก่อน แล้วค่อยกดสุ่ม');
+  snapshot();
+  MAP.objects = MAP.objects.filter(o => !o.rnd);   // only what the dice placed last time is replaced
+  const cells = []; for (let y = 0; y < MAP.H; y++) for (let x = 0; x < MAP.W; x++) { const z = MAP.zones[y][x]; if (ZONES[z]) cells.push([x, y, z]); }
+  for (let i = cells.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [cells[i], cells[j]] = [cells[j], cells[i]]; }
+  const pools = {}; let n = 0;
+  for (const [x, y, z] of cells) {
+    if (Math.random() * 100 >= (rcfg[z] || 0)) continue;
+    const pool = pools[z] || (pools[z] = zoneItems(z)); if (!pool.length) continue;
+    const k = pool[Math.floor(Math.random() * pool.length)], [fw, fd] = CAT.items[k].fp;
+    const o = { id: 'r' + Date.now().toString(36) + (n++), k, x: x - Math.floor(fw / 2), y: y - Math.floor(fd / 2), flip: Math.random() < .5 ? 1 : 0, rnd: 1 };
+    if (cellsOf(o).some(([a, b]) => a < 0 || b < 0 || a >= MAP.W || b >= MAP.H || MAP.zones[b][a] !== z)) continue;
+    MAP.objects.push(o); if (!valid(o)) MAP.objects.pop();
+  }
+  changed(); toast(`สุ่มแล้ว ${MAP.objects.filter(o => o.rnd).length} ชิ้น · กดอีกครั้งเพื่อสุ่มใหม่`, 'ย้อน', () => $('undo').click());
+}
+function keepRandom() { MAP.objects.forEach(o => delete o.rnd); MAP.zones = null; changed(); toast('เก็บผลสุ่มไว้แล้ว ลบโซนสีออก'); }
 function copySel() { if (!sel) return; clip = { k: sel.k, flip: sel.flip ? 1 : 0, layer: sel.layer }; toast(`ก๊อป${nameOf(sel)}แล้ว · กดวาง หรือ Ctrl+V ที่จุดเมาส์`); }
 function pasteAt(cx, cy, from) {   // a copy keeps its turn and layer; it lands with its footprint centred on the cell
   const c = from || clip; if (!c || !CAT.items[c.k]) return;
@@ -456,10 +508,11 @@ cv.addEventListener('pointerdown', e => {
     const o = hitObject(e.clientX, e.clientY) || (sel && cellsOf(sel).some(c => c[0] === cx && c[1] === cy) ? sel : null);
     if (o) { down.mode = 'drag'; down.o = o; down.gx = cx - o.x; down.gy = cy - o.y; down.x0 = o.x; down.y0 = o.y; }
   }
-  else if (tool === 'door') { const pid = Object.keys(MAP.places).find(k => MAP.places[k].door[0] === cx && MAP.places[k].door[1] === cy); if (pid) { snapshot(); dragDoor = pid; down.mode = 'door'; dirty = true; } }
+  else if (tool === 'door') { const id = pointAt(cx, cy); if (id) { snapshot(); dragDoor = id; down.mode = 'door'; dirty = true; } }
+  else if (tool === 'rand') { snapshot(); down.mode = 'zone'; down.ch = zoneAt(cx, cy); down.last = [cx, cy]; }
 });
 cv.addEventListener('pointermove', e => {
-  if (e.pointerType === 'mouse') mouseCell = cellAt(e.clientX, e.clientY);
+  if (e.pointerType === 'mouse') { mouseCell = cellAt(e.clientX, e.clientY); mouseXY = [e.clientX, e.clientY]; }
   if (tool === 'paint' && e.pointerType === 'mouse') { hover = cellAt(e.clientX, e.clientY); dirty = true; }
   if (!ptrs.has(e.pointerId)) return; ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (pinch && ptrs.size >= 2) { const [a, b] = [...ptrs.values()], dd = Math.hypot(a.x - b.x, a.y - b.y), z = Math.max(.08, Math.min(3, pinch.z * dd / pinch.d)), r = cv.getBoundingClientRect();
@@ -479,13 +532,15 @@ cv.addEventListener('pointermove', e => {
     for (let i = 1; i <= n; i++) if (paintAt(Math.round(lx + (cx - lx) * i / n), Math.round(ly + (cy - ly) * i / n))) down.ch = true;
     down.last = [cx, cy];
     if (paintAt(cx, cy)) down.ch = true; if (e.pointerType !== 'mouse') { hover = [cx, cy]; } }
-  if (down.mode === 'door' && dragDoor) { MAP.places[dragDoor].door = [cx, cy]; dirty = true; }
+  if (down.mode === 'door' && dragDoor) { movePoint(dragDoor, cx, cy); dirty = true; }
+  if (down.mode === 'zone') { const [lx, ly] = down.last, n = Math.max(Math.abs(cx - lx), Math.abs(cy - ly)); for (let i = 1; i <= n; i++) if (zoneAt(Math.round(lx + (cx - lx) * i / n), Math.round(ly + (cy - ly) * i / n))) down.ch = true; down.last = [cx, cy]; }
 });
 const up = e => {
   ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null;
   if (!down || ptrs.size) return; const d = down; down = null;
   if (d.mode === 'paint') { if (d.ch) changed(); else undo.pop(); if (e.pointerType !== 'mouse') hover = null; return; }
   if (d.mode === 'door') { dragDoor = null; changed(); return; }
+  if (d.mode === 'zone') { if (d.ch) changed(); else undo.pop(); return; }
   if (d.mode === 'drag' && d.moved) { if (d.snap) changed(); renderDock(); return; }
   if (d.moved) return;
   const o = hitObject(e.clientX, e.clientY), [cx, cy] = cellAt(e.clientX, e.clientY);
@@ -513,6 +568,23 @@ function buildPalette() {
     pal.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { brush.size = +b.dataset.s; buildPalette(); renderDock(); });
     return;
   }
+  if (tool === 'rand') {
+    tabs.innerHTML = ''; $('searchBox').hidden = true; pal.className = 'pal terr';
+    pal.innerHTML = Object.entries(ZONES).map(([c, z]) => `<button data-z="${c}" aria-pressed="${zone.code === c}"><i style="background:${z.col.replace(/[\d.]+\)$/, '1)')}"></i>${z.name}<small style="margin-left:auto;color:var(--muted)">${rcfg[c]}%</small></button>`).join('')
+      + `<button data-z="x" aria-pressed="${zone.code === 'x'}"><i style="background:repeating-linear-gradient(45deg,#666 0 4px,#333 4px 8px)"></i>ยางลบโซน</button>`
+      + `<div class="sizes">ความหนาแน่น “${(ZONES[zone.code] || ZONES.t).name}” <input type="range" id="dens" min="2" max="80" value="${rcfg[ZONES[zone.code] ? zone.code : 't']}" style="flex:1"></div>`
+      + `<div class="sizes">ขนาดแปรง ${[1, 2, 3].map(n => `<button class="btn" data-s="${n}" aria-pressed="${zone.size === n}">${n}</button>`).join('')}</div>`
+      + `<div class="sizes" style="flex-wrap:wrap;gap:6px"><button class="btn send" id="rollBtn">🎲 สุ่ม</button><button class="btn" id="keepBtn">✓ เก็บผลนี้</button><button class="btn" id="itemsBtn">เลือกของที่ใช้สุ่ม</button></div>`;
+    pal.querySelectorAll('[data-z]').forEach(b => b.onclick = () => { zone.code = b.dataset.z; buildPalette(); });
+    pal.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { zone.size = +b.dataset.s; buildPalette(); });
+    $('dens').oninput = e => { const c = ZONES[zone.code] ? zone.code : 't'; rcfg[c] = +e.target.value; saveRcfg(); pal.querySelector(`[data-z="${c}"] small`).textContent = rcfg[c] + '%'; };
+    $('rollBtn').onclick = randomize; $('keepBtn').onclick = keepRandom;
+    $('itemsBtn').onclick = () => { const c = ZONES[zone.code] ? zone.code : 't', all = Object.entries(CAT.items).filter(([k, it]) => IMG[k] && ZONES[c].pick(Object.assign({ k }, it)));
+      const m = sheet(`<h2>ของที่ใช้สุ่ม: ${ZONES[c].name}</h2><div class="pal" style="max-height:50vh">${all.map(([k, it]) => `<button class="it" data-k="${k}" aria-pressed="${!rcfg.off[k]}"><img src="${U(`mapkit/s/${k}.png`)}" alt=""><span>${it.name}</span></button>`).join('')}</div><button class="btn primary" id="cl">เสร็จ</button>`);
+      m.querySelectorAll('.it').forEach(b => b.onclick = () => { const k = b.dataset.k; if (rcfg.off[k]) delete rcfg.off[k]; else rcfg.off[k] = 1; b.setAttribute('aria-pressed', !rcfg.off[k]); saveRcfg(); });
+      m.querySelector('#cl').onclick = () => m.remove(); };
+    return;
+  }
   $('searchBox').hidden = false; pal.className = 'pal';
   const cats = mapName === 'farm' ? ['farm', 'tree', 'prop', 'building', 'animal'] : ['building', 'tree', 'prop', 'animal', 'farm'];
   tabs.innerHTML = cats.map(c => `<button class="tab" data-c="${c}" aria-selected="${palTab === c}">${CAT_NAME[c]}</button>`).join('');
@@ -530,12 +602,12 @@ function download(name, text) {
   try { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); return true; } catch (_) { return false; }
 }
 $('menuBtn').onclick = () => {
-  const m = sheet(`<h2>ตัวเลือก <small style="font-size:12px;color:var(--muted);font-weight:400">รุ่น 2.3</small></h2>
+  const m = sheet(`<h2>ตัวเลือก <small style="font-size:12px;color:var(--muted);font-weight:400">รุ่น 2.4</small></h2>
     <label class="tg"><input type="checkbox" data-o="ground" ${opts.ground ? 'checked' : ''}> แสดงภาพพื้นจากเกม (ปิด = วาดพื้นใหม่จากชุดลายทั้งแผ่น)</label>
     <label class="tg"><input type="checkbox" data-o="grid" ${opts.grid ? 'checked' : ''}> แสดงเส้นช่อง</label>
     <label class="tg"><input type="checkbox" data-o="doors" ${opts.doors ? 'checked' : ''}> แสดงจุดประตูและชื่อสถานที่</label>
     <div class="row"><label class="btn">นำเข้าไฟล์<input type="file" id="fi" accept=".json" hidden></label><button class="btn" id="rs">กลับไปผังต้นฉบับ</button><button class="btn" id="wipe" style="color:var(--danger)">🧹 ล้างแผนที่</button></div>
-    <p>เครื่องมือ: ✋ ย้าย (ลากของ หรือแตะของแล้วกดลูกศร) · ⟳ หมุน · ➕ วางของ · 🗑 ลบ · 🖌 ระบายพื้น · 🚪 ย้ายประตู · 💾 บันทึก = เก็บในเครื่องนี้ (กดเองเท่านั้น) · ⬇ โหลดไฟล์แผนที่ = ไฟล์ไว้แนบให้ Claude · บนคอม: ลูกศรคีย์บอร์ดเลื่อน, R หมุน, Ctrl+Z ย้อน, Ctrl+S บันทึก</p>
+    <p>เครื่องมือ: ✋ ย้าย (ลากของ หรือแตะของแล้วกดลูกศร) · ⟳ หมุน · ➕ วางของ · 🗑 ลบ · 🖌 ระบายพื้น · 📍 ย้ายประตู/จุดเกิด/บ้าน · 🎲 สุ่มของตามโซน · Ctrl+C ก๊อปของที่เลือกหรือที่เมาส์ชี้ · Ctrl+V วางตรงเมาส์ · 💾 บันทึก = เก็บในเครื่องนี้ (กดเองเท่านั้น) · ⬇ โหลดไฟล์แผนที่ = ไฟล์ไว้แนบให้ Claude · บนคอม: ลูกศรคีย์บอร์ดเลื่อน, R หมุน, Ctrl+Z ย้อน, Ctrl+S บันทึก</p>
     <button class="btn primary" id="cl">ปิด</button>`);
   m.querySelectorAll('[data-o]').forEach(i => i.onchange = () => { opts[i.dataset.o] = i.checked; smoothDirty = true; try { localStorage.setItem('dvmm_opts', JSON.stringify(opts)); } catch (_) {} dirty = true; });
   m.querySelector('#cl').onclick = () => m.remove();
