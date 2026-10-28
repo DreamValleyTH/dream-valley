@@ -90,13 +90,14 @@ aside{grid-area:side;background:var(--panel);border-top:1px solid var(--line);di
 .card label.tg input{width:22px;height:22px;accent-color:var(--accent)}
 .toast{position:fixed;left:50%;bottom:calc(36dvh + 70px);transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 14px;z-index:30;font-size:14px;display:flex;gap:10px;align-items:center;max-width:calc(100% - 32px)}
 .toast button{background:none;border:0;color:var(--gold);font-weight:600;cursor:pointer;padding:0}
-.hide-sm{display:none}
+.hide-sm{display:none} .only-sm{display:inline}
+.btn.save.unsaved{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
 @media (min-width:900px){
   .app{grid-template-columns:auto minmax(0,1fr) 320px;grid-template-rows:auto minmax(0,1fr) auto;grid-template-areas:"top top top" "tools stage side" "tools dock side"}
   nav.tools{flex-direction:column;border-bottom:0;border-right:1px solid var(--line);padding:8px 6px;overflow:auto}
   .tool{flex:none;width:66px}
   aside{height:auto;border-top:0;border-left:1px solid var(--line)}
-  .hide-sm{display:inline}
+  .hide-sm{display:inline} .only-sm{display:none}
   .toast{bottom:90px}
   .modal{align-items:center}.card{border-radius:14px}
 }
@@ -111,7 +112,8 @@ aside{grid-area:side;background:var(--panel);border-top:1px solid var(--line);di
     <button class="btn icon" id="redo" title="ทำซ้ำ" aria-label="ทำซ้ำ">↷</button>
     <span class="grow"></span>
     <button class="btn icon" id="menuBtn" title="ตัวเลือก" aria-label="ตัวเลือก">⋯</button>
-    <button class="btn send" id="sendBtn">📤 ส่งให้ Claude</button>
+    <button class="btn save" id="saveBtn" title="บันทึก">💾 บันทึก</button>
+    <button class="btn send" id="dlBtn" title="โหลดไฟล์แผนที่">⬇ <span class="hide-sm">โหลดไฟล์แผนที่</span><span class="only-sm">ไฟล์</span></button>
   </header>
   <nav class="tools" id="tools">
     <button class="tool" data-t="move" aria-pressed="true"><b>✋</b>ย้าย</button>
@@ -134,7 +136,6 @@ aside{grid-area:side;background:var(--panel);border-top:1px solid var(--line);di
   </aside>
 </div>
 
-<script src="../js/firebase-config.js"></script>
 <script>
 (() => {
 'use strict';
@@ -154,8 +155,8 @@ const HINT = {
 };
 let CAT = null, MAP = null, mapName = 'town', IMG = {}, ALPHA = {}, GROUND = null;
 let view = { x: 0, y: 0, z: .5 }, tool = 'move', palKey = null, palTab = 'building', brush = { code: 'l', size: 1 };
-let sel = null, dirty = true, undo = [], redo = [], me = '', opts = { ground: true, grid: true, doors: true };
-try { me = localStorage.getItem('dvmm_me') || ''; Object.assign(opts, JSON.parse(localStorage.getItem('dvmm_opts') || '{}')); } catch (_) {}
+let sel = null, dirty = true, undo = [], redo = [], opts = { ground: true, grid: true, doors: true };
+try { Object.assign(opts, JSON.parse(localStorage.getItem('dvmm_opts') || '{}')); } catch (_) {}
 const cv = $('cv'), ctx = cv.getContext('2d');
 
 // ---------- geometry: the same projection as the game ----------
@@ -175,24 +176,6 @@ const depth = o => { const [fw, fd] = fpOf(o); return (o.x + fw / 2 + o.y + fd /
 const cellsOf = o => { const [fw, fd] = fpOf(o), r = []; for (let y = o.y; y < o.y + fd; y++) for (let x = o.x; x < o.x + fw; x++) r.push([x, y]); return r; };
 const nameOf = o => { const c = CAT.items[o.k]; return o.label || (c && c.name) || o.k; };
 
-// ---------- online store: Firebase (same project as the game) — the page still works fully offline ----------
-const Store = {
-  ready: false, db: null, subs: {},
-  async init() {
-    const cfg = window.DV_FIREBASE; if (!cfg) return false;
-    const load = src => new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
-    try {
-      const V = 'https://www.gstatic.com/firebasejs/10.12.2/';
-      await load(V + 'firebase-app-compat.js'); await Promise.all([load(V + 'firebase-auth-compat.js'), load(V + 'firebase-database-compat.js')]);
-      const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(cfg);
-      await app.auth().signInAnonymously(); this.db = app.database(); this.ready = true; return true;
-    } catch (e) { console.warn('online off', e); return false; }
-  },
-  async get(path) { if (!this.ready) return null; try { const s = await this.db.ref(path).get(); return s.exists() ? s.val() : null; } catch (_) { return null; } },
-  async set(path, v) { if (!this.ready) throw new Error('offline'); await this.db.ref(path).set(v); },
-  watch(path, fn) { if (!this.ready) return () => {}; const r = this.db.ref(path), h = s => fn(s.val()); r.on('value', h, () => {}); return () => r.off('value', h); },
-};
-
 // ---------- loading ----------
 const loadImg = src => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = src; });
 async function boot() {
@@ -203,47 +186,47 @@ async function boot() {
   $('mapSel').value = mapName;
   await loadMap(mapName);
   loop();
-  if (await Store.init()) await pullOnline(mapName); else setSave('ออฟไลน์ · บันทึกในเครื่องนี้');
 }
-let unwatch = null, lastSaved = '';
+let lastSaved = '';
 async function loadMap(name) {
   mapName = name; try { localStorage.setItem('dvmm_last', name); } catch (_) {}
-  if (unwatch) { unwatch(); unwatch = null; }
   palTab = name === 'farm' ? 'farm' : 'building';
   let local = null; try { local = JSON.parse(localStorage.getItem('dvmm_' + name) || 'null'); } catch (_) {}
   MAP = local || await fetch(`maps/${name}.json`).then(r => r.json());
   GROUND = await loadImg(`maps/${name}_ground.png`);
   try { ORIG = (await fetch(`maps/${name}.json`).then(r => r.json())).terrain; } catch (_) { ORIG = null; }
   smoothDirty = true;
-  undo = []; redo = []; sel = null; fit(); setSave(local ? 'โหลดจากเครื่องนี้' : 'ผังจาก Claude');
+  undo = []; redo = []; sel = null; fit(); markUnsaved(false); setSave(local ? 'ฉบับที่บันทึกในเครื่องนี้' : 'ผังจาก Claude');
   renderTools(); buildPalette(); renderDock();
-  if (Store.ready) await pullOnline(name);
 }
-async function pullOnline(name) {
-  const d = await Store.get('maps/' + name);
-  if (d && d.json && mapName === name && d.json !== JSON.stringify(MAP)) { MAP = JSON.parse(d.json); lastSaved = d.json; sel = null; smoothDirty = true; renderDock(); dirty = true; setSave(`ฉบับล่าสุดออนไลน์${d.by ? ' · ' + d.by : ''}`); }
-  else setSave('ออนไลน์ · บันทึกอัตโนมัติ');
-  unwatch = Store.watch('maps/' + name, v => { if (!v || !v.json || v.json === lastSaved || v.json === JSON.stringify(MAP) || mapName !== name) return; lastSaved = v.json; MAP = JSON.parse(v.json); sel = null; smoothDirty = true; renderDock(); dirty = true; setSave(`${v.by || 'มีคน'}แก้ล่าสุด`); });
-}
-$('mapSel').onchange = e => loadMap(e.target.value);
+$('mapSel').onchange = async e => {
+  const to = e.target.value;
+  if (unsaved) { e.target.value = mapName; const m = sheet(`<h2>ยังไม่ได้บันทึก</h2><p>แผนที่ “${MAP_NAMES[mapName]}” มีการแก้ที่ยังไม่ได้บันทึก</p><div class="row"><button class="btn primary" id="sv">บันทึกแล้วเปลี่ยน</button><button class="btn" id="dc">ทิ้งการแก้</button><button class="btn" id="cn">ยกเลิก</button></div>`);
+    m.querySelector('#sv').onclick = async () => { m.remove(); await saveNow(true); $('mapSel').value = to; loadMap(to); };
+    m.querySelector('#dc').onclick = () => { m.remove(); markUnsaved(false); $('mapSel').value = to; loadMap(to); };
+    m.querySelector('#cn').onclick = () => m.remove(); return; }
+  loadMap(to);
+};
 
 // ---------- saving + undo ----------
 let saveTimer = null;
-function changed() {
-  dirty = true; smoothDirty = true; clearTimeout(saveTimer); setSave('กำลังบันทึก…');
-  saveTimer = setTimeout(async () => {
-    const json = JSON.stringify(MAP); lastSaved = json;
-    try { localStorage.setItem('dvmm_' + mapName, json); } catch (_) {}
-    if (Store.ready) { try { await Store.set('maps/' + mapName, { json, by: me || 'ไม่ระบุชื่อ', at: Date.now() }); setSave('บันทึกออนไลน์แล้ว'); } catch (_) { setSave('บันทึกในเครื่องแล้ว'); } }
-    else setSave('บันทึกในเครื่องแล้ว');
-  }, 800);
+let unsaved = false;   // nothing is written until 💾 บันทึก is pressed
+function changed() { dirty = true; smoothDirty = true; markUnsaved(true); }
+function markUnsaved(v) { unsaved = v; $('saveBtn').classList.toggle('unsaved', v); $('saveBtn').innerHTML = v ? '💾 บันทึก•' : '💾 บันทึก'; if (v) setSave('ยังไม่ได้บันทึก'); }
+async function saveNow(quiet) {
+  const json = JSON.stringify(MAP); lastSaved = json;
+  try { localStorage.setItem('dvmm_' + mapName, json); } catch (_) {}
+  markUnsaved(false); setSave('บันทึกในเครื่องแล้ว'); if (!quiet) toast('บันทึกแล้ว (เก็บในเครื่องนี้)');
 }
+$('saveBtn').onclick = () => saveNow();
+addEventListener('beforeunload', e => { if (unsaved) { e.preventDefault(); e.returnValue = ''; } });
 function snapshot() { undo.push(JSON.stringify(MAP)); if (undo.length > 80) undo.shift(); redo = []; }
 function restore(json) { MAP = JSON.parse(json); sel = sel && MAP.objects.find(o => o.id === sel.id) || null; renderDock(); changed(); }
 $('undo').onclick = () => { if (!undo.length) return toast('ไม่มีอะไรให้ย้อน'); redo.push(JSON.stringify(MAP)); restore(undo.pop()); };
 $('redo').onclick = () => { if (!redo.length) return; undo.push(JSON.stringify(MAP)); restore(redo.pop()); };
 addEventListener('keydown', e => {
   if (e.target.matches('input,textarea')) return;
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveNow(); return; }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); (e.shiftKey ? $('redo') : $('undo')).click(); return; }
   if (sel && tool === 'move') { const k = { ArrowUp: [0, -1], ArrowRight: [1, 0], ArrowDown: [0, 1], ArrowLeft: [-1, 0] }[e.key]; if (k) { e.preventDefault(); nudge(...k); } if (e.key.toLowerCase() === 'r') rotate(sel); }
   if (e.key === 'Escape') { sel = null; renderDock(); dirty = true; }
@@ -476,45 +459,25 @@ $('q').oninput = buildPalette;
 
 // ---------- sheets: options menu, send to Claude ----------
 function sheet(html) { const m = document.createElement('div'); m.className = 'modal'; m.innerHTML = `<div class="card">${html}</div>`; m.onclick = e => { if (e.target === m) m.remove(); }; document.body.appendChild(m); return m; }
-async function download(name, text) {
+function download(name, text) {
   try { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); return true; } catch (_) { return false; }
 }
 $('menuBtn').onclick = () => {
-  const m = sheet(`<h2>ตัวเลือก <small style="font-size:12px;color:var(--muted);font-weight:400">รุ่น 1.3</small></h2>
+  const m = sheet(`<h2>ตัวเลือก <small style="font-size:12px;color:var(--muted);font-weight:400">รุ่น 1.5</small></h2>
     <label class="tg"><input type="checkbox" data-o="ground" ${opts.ground ? 'checked' : ''}> แสดงภาพพื้นจากเกม (ปิด = เห็นพื้นเป็นสีตามชนิด)</label>
     <label class="tg"><input type="checkbox" data-o="grid" ${opts.grid ? 'checked' : ''}> แสดงเส้นช่อง</label>
     <label class="tg"><input type="checkbox" data-o="doors" ${opts.doors ? 'checked' : ''}> แสดงจุดประตูและชื่อสถานที่</label>
-    <div class="row"><button class="btn" id="dl">ดาวน์โหลด ${mapName}.json</button><label class="btn">นำเข้าไฟล์<input type="file" id="fi" accept=".json" hidden></label><button class="btn" id="rs">กลับไปผังต้นฉบับ</button></div>
-    <p>เครื่องมือ: ✋ ย้าย (ลากของ หรือแตะของแล้วกดลูกศร) · ⟳ หมุน · ➕ วางของ · 🗑 ลบ · 🖌 ระบายพื้น · 🚪 ย้ายประตู · บนคอมใช้ปุ่มลูกศรบนคีย์บอร์ด, R หมุน, Ctrl+Z ย้อน</p>
+    <div class="row"><label class="btn">นำเข้าไฟล์<input type="file" id="fi" accept=".json" hidden></label><button class="btn" id="rs">กลับไปผังต้นฉบับ</button></div>
+    <p>เครื่องมือ: ✋ ย้าย (ลากของ หรือแตะของแล้วกดลูกศร) · ⟳ หมุน · ➕ วางของ · 🗑 ลบ · 🖌 ระบายพื้น · 🚪 ย้ายประตู · 💾 บันทึก = เก็บในเครื่องนี้ (กดเองเท่านั้น) · ⬇ โหลดไฟล์แผนที่ = ไฟล์ไว้แนบให้ Claude · บนคอม: ลูกศรคีย์บอร์ดเลื่อน, R หมุน, Ctrl+Z ย้อน, Ctrl+S บันทึก</p>
     <button class="btn primary" id="cl">ปิด</button>`);
   m.querySelectorAll('[data-o]').forEach(i => i.onchange = () => { opts[i.dataset.o] = i.checked; smoothDirty = true; try { localStorage.setItem('dvmm_opts', JSON.stringify(opts)); } catch (_) {} dirty = true; });
   m.querySelector('#cl').onclick = () => m.remove();
-  m.querySelector('#dl').onclick = () => download(mapName + '.json', JSON.stringify(MAP));
   m.querySelector('#fi').onchange = async ev => { const f = ev.target.files[0]; if (!f) return; try { const d = JSON.parse(await f.text()); if (!d.terrain || !d.objects) throw 0; snapshot(); MAP = d; sel = null; changed(); fit(); renderDock(); m.remove(); toast('นำเข้าแล้ว'); } catch (_) { toast('ไฟล์นี้ไม่ใช่ผังแผนที่'); } };
   m.querySelector('#rs').onclick = async () => { snapshot(); MAP = await fetch(`maps/${mapName}.json`).then(r => r.json()); sel = null; changed(); fit(); renderDock(); m.remove(); toast('กลับไปผังต้นฉบับแล้ว', 'ย้อน', () => $('undo').click()); };
 };
-$('sendBtn').onclick = () => {
-  const nm = MAP_NAMES[mapName] || mapName;
-  const m = sheet(`<h2>📤 ส่งแผนที่ “${nm}” ให้ Claude</h2>
-    <input type="text" id="who" placeholder="ชื่อคุณ (ไม่ใส่ก็ได้)" value="${(me || '').replace(/"/g, '')}">
-    <textarea id="note" rows="3" placeholder="อยากให้ Claude ทำอะไรต่อ เช่น ขยับร้านชำไปริมถนน เพิ่มต้นไม้ริมคลอง"></textarea>
-    <div class="row"><button class="btn send" id="go">ส่งให้ Claude</button><button class="btn" id="dl">ดาวน์โหลดไฟล์แทน</button><button class="btn" id="cl">ยกเลิก</button></div>
-    <p id="msg"></p>`);
-  m.querySelector('#cl').onclick = () => m.remove();
-  m.querySelector('#dl').onclick = () => download(mapName + '.json', JSON.stringify(MAP));
-  m.querySelector('#go').onclick = async () => {
-    const msg = m.querySelector('#msg'), note = m.querySelector('#note').value.trim(), j = JSON.stringify(MAP);
-    me = m.querySelector('#who').value.trim(); try { localStorage.setItem('dvmm_me', me); } catch (_) {}
-    if (!Store.ready) { msg.textContent = 'ตอนนี้ต่อออนไลน์ไม่ได้ — กด “ดาวน์โหลดไฟล์แทน” แล้วแนบไฟล์ให้ Claude ในแชท'; return; }
-    try {
-      await Store.set('maps/' + mapName, { json: j, by: me || 'ไม่ระบุชื่อ', at: Date.now() }); lastSaved = j;
-      await Store.set('handoff/' + mapName, { json: j, note, by: me || 'ไม่ระบุชื่อ', at: Date.now() });
-      const say = `ดึงแผนที่${nm}จาก Map Maker เข้าเกม`;
-      msg.innerHTML = `ส่งแล้ว ✓ พิมพ์บอก Claude ในแชทว่า <b style="color:var(--fg)">“${say}”</b>`;
-      try { await navigator.clipboard.writeText(say); msg.innerHTML += ' (คัดลอกข้อความไว้ให้แล้ว)'; } catch (_) {}
-      setSave('ส่งให้ Claude แล้ว');
-    } catch (e) { msg.textContent = 'ส่งไม่ได้ — กด “ดาวน์โหลดไฟล์แทน” แล้วแนบไฟล์ให้ Claude'; }
-  };
+$('dlBtn').onclick = () => {   // the map file to keep or attach in the chat for Claude
+  const ok = download(`dreamvalley_${mapName}.json`, JSON.stringify(MAP));
+  toast(ok ? 'โหลดไฟล์แผนที่แล้ว · แนบไฟล์นี้ในแชทให้ Claude ได้เลย' : 'โหลดไฟล์ไม่ได้');
 };
 boot();
 })();

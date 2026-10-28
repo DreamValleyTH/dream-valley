@@ -13,20 +13,6 @@
           }
         }
       }
-    },
-    "maps": {
-      ".read": true,
-      "$name": {
-        ".write": "auth != null",
-        ".validate": "newData.hasChildren(['json', 'at']) && newData.child('json').isString() && newData.child('json').val().length < 300000"
-      }
-    },
-    "handoff": {
-      ".read": true,
-      "$name": {
-        ".write": "auth != null",
-        ".validate": "newData.hasChildren(['json', 'at']) && newData.child('json').isString() && newData.child('json').val().length < 300000"
-      }
     }
   }
 }
