@@ -149,7 +149,7 @@ function showPanel(html) { const p = $('panel'); p.innerHTML = html; p.classList
 
 // ---------- travel map: drone photo of the sub-district with pins (positions in % of the 480×360 aerial) ----------
 const PLACES = [
-  { id: 'farm', name: 'ฟาร์มยาย', sub: 'บ้านไม้หลังเก่า บ่อบัว สวนมะม่วง', x: 7, y: 41, map: 'farm' },
+  { id: 'farm', name: 'ฟาร์มยาย', sub: 'บ้านไม้หลังเก่า บ่อบัว สวนมะม่วง', x: 11, y: 41, map: 'farm' },
   { id: 'town', name: 'ใจกลางตำบล', sub: 'ตลาด ร้านค้า อบต. รพ.สต. โรงเรียน ศาลา', x: 47, y: 40, map: 'town' },
   { id: 'temple', name: 'วัดดงเย็น', sub: 'อยู่ในใจกลางตำบล ข้ามสะพานไปทางใต้', x: 75, y: 68, map: 'town' },
   { id: 'forest', name: 'ป่าชุมชน', sub: 'เปิดในเวอร์ชันถัดไป', x: 16, y: 13 },
@@ -176,7 +176,6 @@ function drawMap() {
   };
   info(PLACES.find(p => p.map === cur));
 }
-$('mapClose').onclick = () => $('map').classList.add('hidden');
 
 // ---------- phone ----------
 let phoneTab = 'home';
