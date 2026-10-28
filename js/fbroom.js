@@ -30,7 +30,7 @@ window.DV_fbRoom = () => {
       ref.on('child_changed', s => { const p = peers[s.key]; if (p) p.presence = mk(s).presence; else peers[s.key] = mk(s); fire([], []); });
       ref.on('child_removed', s => { const p = peers[s.key] || mk(s); delete peers[s.key]; fire([], [p]); });
       return {
-        presence: obj => { pend = obj; if (timer) return Promise.resolve(); const wait = Math.max(0, 250 - (Date.now() - lastSend)); timer = setTimeout(send, wait); return Promise.resolve(); },   // ≤4 updates/s
+        presence: obj => { pend = obj; if (timer) return Promise.resolve(); const wait = Math.max(0, 160 - (Date.now() - lastSend)); timer = setTimeout(send, wait); return Promise.resolve(); },   // ≤6 updates/s
         peers: () => Object.values(peers),
         onPeers: fn => { subs.add(fn); return () => subs.delete(fn); },
         leave: async () => { ref.off(); subs.clear(); clearTimeout(timer); await mine.onDisconnect().cancel(); await mine.remove(); },

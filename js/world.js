@@ -770,7 +770,14 @@ function render(dt) {
   list.push({ y: depth(player.x, player.y), d: () => drawChar(player, 'player_' + S.gender, (CMETA['player_' + S.gender] || { feet: 60 }).feet) });
   // friends on the call: drawn from their presence, eased towards the latest position
   (DV.netPlayers ? DV.netPlayers() : []).forEach(pr => {
-    const e = remote[pr.num] || (remote[pr.num] = { x: pr.x, y: pr.y, t: 0, dir: 0 }); e.x += (pr.x - e.x) * Math.min(1, dt * 8); e.y += (pr.y - e.y) * Math.min(1, dt * 8);
+    const e = remote[pr.num] || (remote[pr.num] = { x: pr.x, y: pr.y, t: 0, dir: 0, px: pr.x, py: pr.y, at: now, vx: 0, vy: 0 });
+    if (pr.x !== e.px || pr.y !== e.py) {   // new position arrived: estimate their walking velocity for the gap until the next one
+      const gap = Math.max(60, now - e.at); e.vx = (pr.x - e.px) / gap; e.vy = (pr.y - e.py) / gap; e.px = pr.x; e.py = pr.y; e.at = now; }
+    if (!pr.mv) e.vx = e.vy = 0;
+    const ahead = Math.min(350, now - e.at), tx = pr.x + e.vx * ahead, ty = pr.y + e.vy * ahead;   // predict a little ahead, never far
+    const gapD = Math.hypot(tx - e.x, ty - e.y);
+    if (gapD > T * 8) { e.x = tx; e.y = ty; }   // map change / long hiccup: jump instead of sliding across the map
+    else { const k = Math.min(1, dt * (gapD > T * 2 ? 10 : 6)); e.x += (tx - e.x) * k; e.y += (ty - e.y) * k; }
     e.dir = pr.dir || 0; if (pr.d8 != null) { e.d8 = pr.d8; e._d8from = e.dir; } e.moving = !!pr.mv; e.sit = !!pr.sit; e.t += dt; const sheet = 'player_' + (pr.g === 'f' ? 'f' : 'm');
     list.push({ y: depth(e.x, e.y), d: () => { drawChar(e, sheet, (CMETA[sheet] || { feet: 60 }).feet); const [x, y] = P(e.x, e.y);
       ctx.font = '8px Mitr, sans-serif'; ctx.textAlign = 'center'; const w = ctx.measureText(pr.name || '').width + 8;

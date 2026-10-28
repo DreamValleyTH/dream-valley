@@ -54,10 +54,12 @@ async function call(num) {
   const t0 = Date.now();
   const watch = NET.line.onPeers(() => {
     const host = NET.line.peers().find(p => !p.isMe && p.presence && p.presence.host && p.presence.num === num);
+    if (!host && NET.status === 'connected') { NET.status = ''; DV.toast('เพื่อนออกจากเกมแล้ว · สายหลุด'); hang(); return; }
     if (!host) { if (Date.now() - t0 > 9000 && NET.status === 'กำลังโทร…') { NET.status = 'ไม่มีผู้รับสาย (เพื่อนต้องเปิดเกมค้างไว้)'; hang(); } return; }
     const ok = (host.presence.acc || []).length >= 0 && Array.isArray(host.presence.acc) && host.presence.acc.some(x => NET.line.peers().some(m => m.isMe && m.sameTab && m.peer === x));
     if (ok && NET.status !== 'connected') { NET.status = 'connected'; NET.hostPeer = host.peer; DV.sfx('coin'); DV.toast(`ต่อสายกับ ${host.presence.name} แล้ว — เจอกันที่ฟาร์มของเขา`); DV.rerenderPhone(); if (S().map !== 'farm') DV.travel('farm', 'home'); }
     NET.peers = NET.line.peers().filter(p => !p.isMe);
+    if (NET.status === 'connected' && !ok) { NET.status = ''; DV.toast(`${host.presence.name} วางสายแล้ว · โทรใหม่ได้ทุกเมื่อ`); hang(); }
   }, () => {});
   NET.unwatch = watch;
   setTimeout(() => { if (NET.status === 'กำลังโทร…') { NET.status = 'ไม่มีผู้รับสาย (เพื่อนต้องเปิดเกมค้างไว้)'; hang(); } }, 20000);
@@ -107,7 +109,7 @@ DV.renderCall = (scr, top, tab, go) => {
     scr.innerHTML = top + `<div class="call-on"><div class="co-h"><span class="uic uic-phone"></span> กำลังเล่นด้วยกัน</div><div class="co-list">${(NET.mode === 'guest' ? NET.line.peers() : NET.own.peers()).filter(p => !p.isMe && p.presence && p.presence.name).map(p => `<div class="co-p"><b>${p.presence.name}</b><small>${fmtNum(p.presence.num || '')} · ${p.presence.map === 'town' ? 'ใจกลางตำบล' : p.presence.map === 'house' ? 'ในบ้าน' : 'ฟาร์ม'}</small></div>`).join('') || '<p class="muted">รอเพื่อนเข้ามา…</p>'}</div>
       <div class="co-say">${QUICK.map(q => `<button>${q}</button>`).join('')}</div><button class="co-end">วางสาย</button></div>`;
     scr.querySelectorAll('.co-say button').forEach(b => b.onclick = () => { DV.netSay(b.textContent); DV.sfx('talk'); });
-    scr.querySelector('.co-end').onclick = () => { if (NET.mode === 'host') { NET.accepted = {}; NET.mode = null; pushPresence(); } DV.hangUp(); go('call'); };
+    scr.querySelector('.co-end').onclick = () => { if (NET.mode === 'host') { NET.accepted = {}; NET.mode = null; pushPresence(); } DV.hangUp(); DV.closeAll(); DV.sfx('tick'); };   // hang up = put the phone away
     return;
   }
   const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'];
