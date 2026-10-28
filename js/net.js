@@ -21,7 +21,7 @@ async function connect() {
   try { NET.own = await NET.room.join(roomName(DV.myNumber())); } catch (_) { NET.own = null; }
   if (NET.own) {
     NET.own.onPeers(ch => {
-      (ch.joined || []).forEach(p => { if (!p.isMe && !NET.accepted[p.peer]) { NET.incoming = p; DV.sfx('line'); DV.notify('📱 สายเรียกเข้า — เปิดแอปโทรศัพท์เพื่อรับสาย'); DV.rerenderPhone && DV.rerenderPhone(); DV.hud(); } });
+      (ch.joined || []).forEach(p => { if (!p.isMe && !NET.accepted[p.peer] && p.presence && p.presence.num && p.presence.num !== DV.myNumber() && (!p.t || Date.now() - p.t < 60000)) { NET.incoming = p; DV.sfx('line'); DV.notify('📱 สายเรียกเข้า — เปิดแอปโทรศัพท์เพื่อรับสาย'); DV.rerenderPhone && DV.rerenderPhone(); DV.hud(); } });
       (ch.left || []).forEach(p => { if (NET.incoming && NET.incoming.peer === p.peer) NET.incoming = null; delete NET.accepted[p.peer]; DV.rerenderPhone && DV.rerenderPhone(); });
       if (NET.mode !== 'guest') NET.peers = NET.own.peers().filter(p => !p.isMe && NET.accepted[p.peer]);
     }, () => {});
@@ -40,7 +40,7 @@ function pushPresence() {
   const s = S(), line = NET.mode === 'guest' ? NET.line : NET.own; if (!s || !line) return;
   const p = DV.player;
   const me = { num: DV.myNumber(), name: s.name, g: s.gender, map: s.map, x: Math.round(p.x), y: Math.round(p.y), dir: p.dir, d8: p.d8, mv: p.moving ? 1 : 0, sit: p.sit ? 1 : 0, say: NET.say || null,
-    host: NET.mode === 'guest' ? 0 : 1, acc: Object.keys(NET.accepted).slice(0, 5), ev: NET.ev || null, mny: NET.mode === 'guest' ? undefined : s.money };
+    host: NET.mode === 'guest' ? 0 : 1, acc: Object.keys(NET.accepted).slice(0, 5), ev: NET.ev || null, zz: NET.zz || 0, mny: NET.mode === 'guest' ? undefined : s.money };
   if (me.host && s.cells) { me.farm = Object.entries(s.cells).filter(([, c]) => c.soil || c.crop).map(([k, c]) => `${k}:${c.wet ? 1 : 0}${c.crop ? c.crop.k[0] + c.crop.st : ''}`).join(' ').slice(0, 1800); me.w = JSON.stringify(DV.worldOf ? DV.worldOf() : {}); if (me.w.length > 2600) me.w = '{}'; const lim = 3800 - me.w.length - 60; if (me.farm.length > lim) me.farm = me.farm.slice(0, lim).replace(/ \S*$/, ''); }
   const str = JSON.stringify(me); if (str === lastP) return; lastP = str;
   line.presence(me).catch(() => {});
@@ -55,7 +55,7 @@ async function call(num) {
   NET.mode = 'guest'; pushPresence();
   const t0 = Date.now();
   const watch = NET.line.onPeers(() => {
-    const host = NET.line.peers().find(p => !p.isMe && p.presence && p.presence.host && p.presence.num === num);
+    const host = NET.line.peers().find(p => !p.isMe && p.presence && p.presence.host && p.presence.num === num && p.presence.num !== DV.myNumber());
     if (!host && NET.status === 'connected') { NET.status = ''; DV.toast('เพื่อนออกจากเกมแล้ว · สายหลุด'); hang(); return; }
     if (!host) { if (Date.now() - t0 > 9000 && NET.status === 'กำลังโทร…') { NET.status = 'ไม่มีผู้รับสาย (เพื่อนต้องเปิดเกมค้างไว้)'; hang(); } return; }
     const ok = (host.presence.acc || []).length >= 0 && Array.isArray(host.presence.acc) && host.presence.acc.some(x => NET.line.peers().some(m => m.isMe && m.sameTab && m.peer === x));
@@ -93,6 +93,10 @@ DV.visitCells = () => {
     cells[m[1]] = { soil: true, wet: m[2] === '1', crop: m[3] ? { k: m[3] === 'c' ? (CK.c) : m[3] === 'b' ? 'basil' : m[3] === 'm' ? 'morning_glory' : 'corn', st: +m[4] } : null }; });
   NET._farmStr = host.presence.farm; NET._farm = cells; DV.dirtySoil && DV.dirtySoil(); return cells;
 };
+DV.sessionPeers = () => {   // everyone I'm playing with right now (presence objects), whatever map they're on
+  if (NET.mode === 'guest' && NET.status === 'connected' && NET.line) return NET.line.peers().filter(p => !p.isMe && p.presence && p.presence.num !== DV.myNumber()).map(p => p.presence);
+  if (NET.own) return NET.own.peers().filter(p => !p.isMe && NET.accepted[p.peer] && p.presence).map(p => p.presence);
+  return []; };
 DV.isVisiting = () => NET.mode === 'guest' && NET.status === 'connected';
 
 // ---- the โทรศัพท์ app ----

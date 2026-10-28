@@ -139,6 +139,8 @@ aside{grid-area:side;background:var(--panel);border-top:1px solid var(--line);di
   </aside>
 </div>
 
+<script src="../js/firebase-config.js"></script>
+<script src="../js/fbroom.js"></script>
 <script>
 (() => {
 'use strict';
@@ -147,7 +149,7 @@ const T = 32, K = .75, MAP_NAMES = { town: 'ใจกลางตำบล', far
 const TERR_COL = { '.': '#8db84c', a: '#57575b', c: '#c9c3b2', l: '#d5703c', p: '#b39466', y: '#c68a55', s: '#e6d3a3', v: '#c9cbc6', w: '#4b95a6', r: '#a3c058', g: '#7a5434' };
 const TERR_ORDER = ['.', 'r', 'g', 'y', 's', 'v', 'p', 'l', 'c', 'a', 'w'];   // back first, roads and water last (as the game builds it)
 const TERR_NAME = { '.': 'หญ้า', a: 'ถนนลาดยาง', c: 'ทางคอนกรีต', l: 'ดินลูกรัง', p: 'ทางเดินดิน', v: 'ทางกรวด', y: 'ลานดินบ้าน', s: 'ทรายลานวัด', w: 'น้ำ / คลอง', r: 'นาข้าว', g: 'แปลงผัก' };
-const CAT_NAME = { farm: 'ของในฟาร์ม', building: 'อาคาร', tree: 'ต้นไม้', prop: 'ของตกแต่ง', animal: 'สัตว์' };
+const CAT_NAME = { fence: 'รั้ว', farm: 'ของในฟาร์ม', building: 'อาคาร', tree: 'ต้นไม้', prop: 'ของตกแต่ง', animal: 'สัตว์' };
 const HINT = {
   move: '<b>ย้าย:</b> ลากของไปวางได้เลย หรือแตะของแล้วกดลูกศรเลื่อนทีละช่อง · ลากที่ว่างเพื่อเลื่อนดูแผนที่',
   rotate: '<b>หมุน:</b> แตะของเพื่อหันไปอีกด้าน',
@@ -179,7 +181,7 @@ function anchor(o) {   // sprite bottom-centre in iso px — exactly how the gam
 const depth = o => { const [fw, fd] = fpOf(o); return (o.x + fw / 2 + o.y + fd / 2) + (o.layer === 'flat' ? -1e6 : o.layer === 'front' ? 1e6 : o.layer === 'top' ? 2e6 : 0); };
 const LAYERS = [[undefined, '▣', 'ชั้นปกติ: เรียงหน้า-หลังตามตำแหน่ง'], ['flat', '⬇', 'ติดพื้น: วางราบกับพื้น ตัวละครเดินทับได้'], ['front', '⬆', 'หน้าเสมอ: บังตัวละครเสมอ'], ['top', '⏫', 'บนสุด: ลอยเหนือทุกอย่าง (สายไฟ ธง)']];
 let clip = null, mouseCell = null, mouseXY = null;   // copied item (kind + turn + layer) and the cell under the mouse
-const cellsOf = o => { const [fw, fd] = fpOf(o), r = []; for (let y = o.y; y < o.y + fd; y++) for (let x = o.x; x < o.x + fw; x++) r.push([x, y]); return r; };
+const cellsOf = o => { const c = CAT.items[o.k], [fw, fd] = fpOf(o), r = []; for (let y = o.y; y < o.y + fd; y++) for (let x = o.x; x < o.x + fw; x++) if (!(c && c.mask) || (c.mask[y - o.y] || '')[x - o.x] === '1') r.push([x, y]); return r; };   // a mask fits the footprint to the sprite's shape (e.g. a diagonal fence: 10 / 01)
 const nameOf = o => { const c = CAT.items[o.k]; return o.label || (c && c.name) || o.k; };
 
 // ---------- loading ----------
@@ -227,6 +229,41 @@ $('mapSel').onchange = async e => {
   loadMap(to);
 };
 
+
+// ---------- live view: share a 4-letter code; others watch your map update as you build ----------
+// Firebase (the game's own project): the map is deflated, cut into ~3 KB chunks and cycled slowly through the presence field.
+const LIVE = { role: null, code: '', line: null, chunks: [], ver: '', i: 0, timer: null, got: {}, gotVer: '', who: '' };
+const b64 = buf => { let s = ''; const a = new Uint8Array(buf); for (let i = 0; i < a.length; i += 8192) s += String.fromCharCode.apply(null, a.subarray(i, i + 8192)); return btoa(s); };
+const unb64 = t => Uint8Array.from(atob(t), c => c.charCodeAt(0));
+async function deflate(text) { const cs = new CompressionStream('deflate-raw'); const w = cs.writable.getWriter(); w.write(new TextEncoder().encode(text)); w.close(); return b64(await new Response(cs.readable).arrayBuffer()); }
+async function inflate(t) { const ds = new DecompressionStream('deflate-raw'); const w = ds.writable.getWriter(); w.write(unb64(t)); w.close(); return new TextDecoder().decode(await new Response(ds.readable).arrayBuffer()); }
+async function liveRoom() { if (!window.DV_fbRoom) { toast('ระบบออนไลน์ยังไม่พร้อม'); return null; } const r = await window.DV_fbRoom(); if (!r) toast('ต่อออนไลน์ไม่ได้ ลองใหม่อีกครั้ง'); return r; }
+function liveBadge() { let b = $('liveBadge'); if (!LIVE.role) { if (b) b.remove(); return; } if (!b) { b = document.createElement('div'); b.id = 'liveBadge'; b.style.cssText = 'position:fixed;left:50%;top:58px;transform:translateX(-50%);z-index:40;background:#c8432f;color:#fff;font:600 13px system-ui;padding:5px 12px;border-radius:999px;box-shadow:0 2px 6px rgba(0,0,0,.3)'; document.body.appendChild(b); }
+  b.textContent = LIVE.role === 'host' ? `📡 แชร์สด · รหัส ${LIVE.code}` : `👀 กำลังดู ${LIVE.who || LIVE.code}${LIVE.got.n ? '' : ' · รอข้อมูล…'}`; }
+async function liveShare() {
+  const room = await liveRoom(); if (!room) return;
+  const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; LIVE.code = Array.from({ length: 4 }, () => A[Math.floor(Math.random() * A.length)]).join('');
+  LIVE.role = 'host'; LIVE.line = await room.join('mm-' + LIVE.code); LIVE.last = '';
+  const pack = async () => { const j = JSON.stringify({ map: MAP, name: mapName }); if (j === LIVE.last) return; LIVE.last = j; const z = await deflate(j); LIVE.ver = Math.random().toString(36).slice(2, 7); LIVE.chunks = z.match(/.{1,3000}/g) || ['']; LIVE.i = 0; };
+  await pack();
+  LIVE.timer = setInterval(async () => { await pack(); const n = LIVE.chunks.length, i = LIVE.i++ % n;   // one chunk every 1.5 s, only while someone is watching
+    const watchers = LIVE.line.peers().filter(p => !p.isMe).length;
+    LIVE.line.presence({ role: 'host', name: MAP_NAMES[mapName], v: LIVE.ver, n, mm: watchers ? JSON.stringify({ v: LIVE.ver, i, n, c: LIVE.chunks[i] }) : '' }); }, 1500);
+  liveBadge(); const c = sheet(`<h2>📡 แชร์สดแล้ว</h2><p>ให้อีกคนเปิด Map Maker → ⋯ → 👀 ดูของคนอื่น แล้วใส่รหัส</p><div style="font-size:40px;font-weight:700;letter-spacing:.2em;text-align:center">${LIVE.code}</div><p class="muted">เขาจะเห็นแผนที่ที่คุณกำลังแก้ อัปเดตเองทุกไม่กี่วินาที (ดูได้อย่างเดียว)</p><button class="btn primary" id="ok">โอเค</button>`); c.querySelector('#ok').onclick = () => c.remove();
+}
+async function liveWatch(code) {
+  if (unsaved) await saveNow(true);
+  const room = await liveRoom(); if (!room) return;
+  LIVE.role = 'watch'; LIVE.code = code; LIVE.line = await room.join('mm-' + code); LIVE.got = {}; LIVE.gotVer = ''; liveBadge();
+  LIVE.line.presence({ role: 'watch' });
+  LIVE.line.onPeers(async () => { const h = LIVE.line.peers().find(p => !p.isMe && p.presence && p.presence.role === 'host'); if (!h) return; LIVE.who = h.presence.name; let m = null; try { m = JSON.parse(h.presence.mm || 'null'); } catch (_) {} if (!m) return liveBadge();
+    if (m.v !== LIVE.got.v) LIVE.got = { v: m.v, n: m.n, c: {} }; LIVE.got.c[m.i] = m.c; liveBadge();
+    if (Object.keys(LIVE.got.c).length === m.n && LIVE.gotVer !== m.v) { LIVE.gotVer = m.v; try { const d = JSON.parse(await inflate(Array.from({ length: m.n }, (_, i) => LIVE.got.c[i]).join('')));
+        if (d.name !== mapName) { mapName = d.name; $('mapSel').value = d.name; GROUND = await loadImg(`maps/${d.name}_ground.png`); }
+        MAP = dropMissing(d.map); sel = null; smoothDirty = true; dirty = true; renderDock(); markUnsaved(false); setSave('กำลังดูสด (ไม่บันทึก)'); } catch (e) { console.warn(e); } } }, () => {});
+  toast(`กำลังต่อเข้ารหัส ${code}… แผนที่จะขึ้นภายในไม่กี่วินาที`);
+}
+function liveStop() { clearInterval(LIVE.timer); if (LIVE.line) LIVE.line.leave().catch(() => {}); const was = LIVE.role; Object.assign(LIVE, { role: null, line: null, code: '' }); liveBadge(); if (was === 'watch') loadMap(mapName); toast('หยุดแชร์/ดูสดแล้ว'); }
 // ---------- saving + undo ----------
 let saveTimer = null;
 let unsaved = false;   // nothing is written until 💾 บันทึก is pressed
@@ -237,7 +274,7 @@ async function saveNow(quiet) {
   try { localStorage.setItem('dvmm_' + mapName, json); } catch (_) {}
   markUnsaved(false); setSave('บันทึกในเครื่องแล้ว'); if (!quiet) toast('บันทึกแล้ว (เก็บในเครื่องนี้)');
 }
-$('saveBtn').onclick = () => saveNow();
+$('saveBtn').onclick = () => LIVE.role === 'watch' ? toast('กำลังดูของคนอื่นอยู่ — บันทึกไม่ได้') : saveNow();
 addEventListener('beforeunload', e => { if (unsaved) { e.preventDefault(); e.returnValue = ''; } });
 function snapshot() { undo.push(JSON.stringify(MAP)); if (undo.length > 80) undo.shift(); redo = []; }
 function restore(json) { MAP = JSON.parse(json); sel = sel && MAP.objects.find(o => o.id === sel.id) || null; renderDock(); changed(); }
@@ -588,7 +625,7 @@ function buildPalette() {
     return;
   }
   $('searchBox').hidden = false; pal.className = 'pal';
-  const cats = mapName === 'farm' ? ['farm', 'tree', 'prop', 'building', 'animal'] : ['building', 'tree', 'prop', 'animal', 'farm'];
+  const cats = (mapName === 'farm' ? ['farm', 'fence', 'tree', 'prop', 'building', 'animal'] : ['building', 'tree', 'prop', 'fence', 'animal', 'farm']).filter(c => Object.values(CAT.items).some(it => it.cat === c));
   tabs.innerHTML = cats.map(c => `<button class="tab" data-c="${c}" aria-selected="${palTab === c}">${CAT_NAME[c]}</button>`).join('');
   tabs.querySelectorAll('.tab').forEach(b => b.onclick = () => { palTab = b.dataset.c; $('q').value = ''; buildPalette(); });
   const q = $('q').value.trim();
@@ -604,15 +641,19 @@ function download(name, text) {
   try { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); return true; } catch (_) { return false; }
 }
 $('menuBtn').onclick = () => {
-  const m = sheet(`<h2>ตัวเลือก <small style="font-size:12px;color:var(--muted);font-weight:400">รุ่น 2.5</small></h2>
+  const m = sheet(`<h2>ตัวเลือก <small style="font-size:12px;color:var(--muted);font-weight:400">รุ่น 2.6</small></h2>
     <label class="tg"><input type="checkbox" data-o="ground" ${opts.ground ? 'checked' : ''}> แสดงภาพพื้นจากเกม (ปิด = วาดพื้นใหม่จากชุดลายทั้งแผ่น)</label>
     <label class="tg"><input type="checkbox" data-o="grid" ${opts.grid ? 'checked' : ''}> แสดงเส้นช่อง</label>
     <label class="tg"><input type="checkbox" data-o="doors" ${opts.doors ? 'checked' : ''}> แสดงจุดประตูและชื่อสถานที่</label>
+    <div class="row"><button class="btn" id="lvShare">📡 ${LIVE.role === 'host' ? 'กำลังแชร์ · รหัส ' + LIVE.code : 'แชร์ให้คนอื่นดูสด'}</button><button class="btn" id="lvWatch">👀 ${LIVE.role === 'watch' ? 'เลิกดู' : 'ดูของคนอื่น (ใส่รหัส)'}</button></div>
     <div class="row"><label class="btn">นำเข้าไฟล์<input type="file" id="fi" accept=".json" hidden></label><button class="btn" id="rs">กลับไปผังต้นฉบับ</button><button class="btn" id="wipe" style="color:var(--danger)">🧹 ล้างแผนที่</button></div>
     <p>เครื่องมือ: ✋ ย้าย (ลากของ หรือแตะของแล้วกดลูกศร) · ⟳ หมุน · ➕ วางของ · 🗑 ลบ · 🖌 ระบายพื้น · 📍 ย้ายประตู/จุดเกิด/บ้าน · 🎲 สุ่มของตามโซน · Ctrl+C ก๊อปของที่เลือกหรือที่เมาส์ชี้ · Ctrl+V วางตรงเมาส์ · Delete ลบของที่เลือกหรือที่เมาส์ชี้ · 💾 บันทึก = เก็บในเครื่องนี้ (กดเองเท่านั้น) · ⬇ โหลดไฟล์แผนที่ = ไฟล์ไว้แนบให้ Claude · บนคอม: ลูกศรคีย์บอร์ดเลื่อน, R หมุน, Ctrl+Z ย้อน, Ctrl+S บันทึก</p>
     <button class="btn primary" id="cl">ปิด</button>`);
   m.querySelectorAll('[data-o]').forEach(i => i.onchange = () => { opts[i.dataset.o] = i.checked; smoothDirty = true; try { localStorage.setItem('dvmm_opts', JSON.stringify(opts)); } catch (_) {} dirty = true; });
   m.querySelector('#cl').onclick = () => m.remove();
+  m.querySelector('#lvShare').onclick = () => { m.remove(); LIVE.role === 'host' ? liveStop() : liveShare(); };
+  m.querySelector('#lvWatch').onclick = () => { m.remove(); if (LIVE.role === 'watch') return liveStop(); const c = sheet(`<h2>ดูแผนที่ของคนอื่นแบบสด</h2><p>ใส่รหัส 4 ตัวที่อีกคนแชร์มา</p><input id="lc" maxlength="4" style="font-size:24px;text-transform:uppercase;width:8em;text-align:center" autocapitalize="characters"><div class="row"><button class="btn primary" id="go">ดู</button><button class="btn" id="no">ยกเลิก</button></div>`);
+    c.querySelector('#no').onclick = () => c.remove(); c.querySelector('#go').onclick = () => { const v = c.querySelector('#lc').value.trim().toUpperCase(); if (v.length === 4) { c.remove(); liveWatch(v); } }; };
   m.querySelector('#wipe').onclick = () => { m.remove(); const c = sheet(`<h2>ล้างแผนที่ “${MAP_NAMES[mapName]}”?</h2><p>ของทุกชิ้นจะถูกเอาออก และพื้นทั้งหมดเป็นหญ้าโล่ง (ประตูและทางออกยังอยู่) · กด ↶ ย้อนได้</p><div class="row"><button class="btn primary" id="ok" style="background:var(--danger);border-color:var(--danger);color:#fff">ล้างเลย</button><button class="btn" id="no">ยกเลิก</button></div>`);
     c.querySelector('#no').onclick = () => c.remove();
     c.querySelector('#ok').onclick = () => { snapshot(); MAP.terrain = MAP.terrain.map(r => '.'.repeat(r.length)); MAP.objects = []; sel = null; opts.ground = false; changed(); renderDock(); c.remove(); toast('ล้างแล้ว เหลือหญ้าโล่ง ๆ', 'ย้อน', () => $('undo').click()); }; };
@@ -625,6 +666,7 @@ $('dlBtn').onclick = () => {   // the map file to keep or attach in the chat for
 };
 window.__mm = { get MAP() { return MAP; }, get SMOOTH() { return SMOOTH; }, get TILES() { return TILES; }, get ORIG() { return ORIG; } };
 boot();
+window.__mm = { loadMap, get MAP() { return MAP; }, P, view, cv, T, redraw: () => { dirty = true; } };   // for automated checks
 })();
 </script>
 </body>

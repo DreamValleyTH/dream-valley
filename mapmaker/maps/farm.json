@@ -877,21 +877,24 @@
 "k": "f_tall_banana",
 "x": 2,
 "y": 21,
-"flip": 0
+"flip": 0,
+"tap": "plant_banana"
 },
 {
 "id": "nmvsbe4s70",
 "k": "f_tall_banana",
 "x": 4,
 "y": 21,
-"flip": 0
+"flip": 0,
+"tap": "plant_banana"
 },
 {
 "id": "nmvsbe7ny7",
 "k": "f_tall_banana",
 "x": 6,
 "y": 21,
-"flip": 0
+"flip": 0,
+"tap": "plant_banana"
 },
 {
 "id": "mailbox",
@@ -906,28 +909,32 @@
 "k": "f_tall_papaya",
 "x": 2,
 "y": 18,
-"flip": 0
+"flip": 0,
+"tap": "plant_papaya"
 },
 {
 "id": "nmvsbfyrd79",
 "k": "f_tall_papaya",
 "x": 4,
 "y": 18,
-"flip": 0
+"flip": 0,
+"tap": "plant_papaya"
 },
 {
 "id": "nmvsbg12m86",
 "k": "f_tall_papaya",
 "x": 6,
 "y": 18,
-"flip": 0
+"flip": 0,
+"tap": "plant_papaya"
 },
 {
 "id": "nmvsbhewp61",
 "k": "f_tall_coconut",
 "x": 6,
 "y": 9,
-"flip": 0
+"flip": 0,
+"tap": "plant_coconut"
 },
 {
 "id": "nmvsbmg0947",
@@ -1144,28 +1151,32 @@
 "k": "f_tall_sugarcane_2",
 "x": 21,
 "y": 6,
-"flip": 0
+"flip": 0,
+"tap": "plant_sugarcane"
 },
 {
 "id": "nmvsc3mf541",
 "k": "f_tall_sugarcane_2",
 "x": 23,
 "y": 3,
-"flip": 0
+"flip": 0,
+"tap": "plant_sugarcane"
 },
 {
 "id": "nmvsc3nwj33",
 "k": "f_tall_sugarcane_2",
 "x": 24,
 "y": 6,
-"flip": 0
+"flip": 0,
+"tap": "plant_sugarcane"
 },
 {
 "id": "nmvsc3vcy60",
 "k": "f_tall_sugarcane_2",
 "x": 21,
 "y": 4,
-"flip": 0
+"flip": 0,
+"tap": "plant_sugarcane"
 },
 {
 "id": "weed6",
@@ -1427,7 +1438,8 @@
 "k": "f_tall_coconut",
 "x": 30,
 "y": 22,
-"flip": 0
+"flip": 0,
+"tap": "plant_coconut"
 },
 {
 "id": "nmvscg76587",
@@ -1672,7 +1684,8 @@
 "k": "f_ban",
 "x": 15,
 "y": 18,
-"flip": 0
+"flip": 0,
+"tap": "plant_banana"
 },
 {
 "id": "weed24",
@@ -1858,7 +1871,8 @@
 "k": "f_ban",
 "x": 26,
 "y": 5,
-"flip": 0
+"flip": 0,
+"tap": "plant_banana"
 },
 {
 "id": "rmvsdanle0",
@@ -1990,14 +2004,16 @@
 "k": "f_tall_papaya",
 "x": 8,
 "y": 18,
-"flip": 0
+"flip": 0,
+"tap": "plant_papaya"
 },
 {
 "id": "nmvsdelzo51",
 "k": "f_tall_banana",
 "x": 8,
 "y": 21,
-"flip": 0
+"flip": 0,
+"tap": "plant_banana"
 },
 {
 "id": "nmvsdge9q53",

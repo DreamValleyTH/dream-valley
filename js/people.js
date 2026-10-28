@@ -195,7 +195,7 @@ function buyMenu(pid) {
   (sh.sells || []).forEach(k => { const it = DV.item(k); const price = it.buy || 20;
     opts.push({ label: it.name + (sh.eatHere && it.eat ? ' (กินที่ร้าน)' : ''), icon: ic(it.icon), extra: `฿${price}${it.eat ? ` · แรง +${it.eat}` : ''}`, disabled: s.money < price && 'เงินไม่พอ',
       run: () => { s.money -= price; DV.sfx('coin');
-        if (sh.eatHere && it.eat) { DV.addEnergy(it.eat); DV.floatText(DV.player.x, DV.player.y - 60, `แรง +${it.eat}`, '#c8f59a'); DV.stat('meals'); DV.toast(`อร่อย! แรง +${it.eat}`); }
+        if (sh.eatHere && it.eat) { DV.onEat && DV.onEat(k, it); DV.addEnergy(it.eat); DV.floatText(DV.player.x, DV.player.y - 60, `แรง +${it.eat}`, '#c8f59a'); DV.stat('meals'); DV.toast(`อร่อย! แรง +${it.eat}`); }
         else if (k === 'lottery_ticket') { DV.addItem(k); DV.buyLotto(1, price); DV.toast(`ได้สลาก 1 ใบ (หน้าตั๋ว ฿80 · ค่าความหวัง ฿${price - 80}) · ออกวันที่ ${DV.nextDraw()} 16:00`); }
         else if (DV.buyHook && DV.buyHook(k)) {}
         else { DV.addItem(k); DV.toast(`ซื้อ${it.name}แล้ว — อยู่ในกระเป๋า`); }
@@ -245,7 +245,7 @@ DV.openPlace = pid => {
       run: () => { s.money -= 20; DV.addEnergy(5); DV.stat('merit'); DV.hud(); DV.save(); DV.toast('สาธุ… ใจเบาขึ้น'); DV.closeSheet(); } });
   }
   if (pid === 'clinic' && here.length) opts.push({ label: 'ตรวจสุขภาพ (บัตรทอง)', icon: ic('item_herbal_med_set'), extra: 'ฟรี · แรง +10', disabled: s.flags['checkup' + s.day] && 'วันนี้ตรวจแล้ว',
-    run: () => { s.flags['checkup' + s.day] = 1; DV.addEnergy(10); DV.hud(); DV.toast('หมอแอน: “พักผ่อนให้พอ กินข้าวให้ครบนะคะ”'); DV.closeSheet(); } });
+    run: () => { s.flags['checkup' + s.day] = 1; DV.addEnergy(10); const sick = DV.cure && DV.cure(); DV.hud(); DV.toast(sick ? `หมอแอนจ่ายยาให้ (${sick}) “กินยาแล้วนอนพักนะคะ”` : 'หมอแอน: “พักผ่อนให้พอ กินข้าวให้ครบนะคะ”'); DV.closeSheet(); } });
   if (pid === 'bus_stop') opts.push({ label: 'ขึ้นรถเมล์ไปอำเภอ', icon: ic('item_folder'), extra: '฿30', run: () => { DV.closeSheet(); DV.toast('ลุงเชิด: “รอบอำเภอยังไม่เปิดนะหลาน ถนนกำลังซ่อม… ซ่อมมาสามปีแล้ว”'); } });
   DV.placeExtras && DV.placeExtras(pid, opts);
   if (!opts.length) opts.push({ info: true, label: s.min > 12 * 60 ? 'ไม่มีใครอยู่ตอนนี้ (ดึกแล้ว)' : 'ตอนนี้ไม่มีใครอยู่' });

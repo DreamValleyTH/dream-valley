@@ -118,7 +118,7 @@ DV.openBag = () => {
     if (a === 'use') {
       if (e.seed) { p.classList.add('hidden'); DV.toast(`แตะแปลงผักที่พรวนแล้วเพื่อปลูก${e.it.name.replace('เมล็ด', '')}`); return; }
       if (s.energy >= DV.MAX_E) return DV.toast('แรงเต็มแล้ว เก็บไว้กินทีหลังดีกว่า');
-      take(); DV.addEnergy(e.it.eat); DV.floatText(DV.player.x, DV.player.y - 60, `แรง +${e.it.eat}`, '#c8f59a'); DV.sfx('heart'); DV.toast(`กิน${e.it.name} อร่อย! แรง +${e.it.eat}`);
+      take(); DV.onEat && DV.onEat(e.k, e.it); DV.addEnergy(e.it.eat); DV.floatText(DV.player.x, DV.player.y - 60, `แรง +${e.it.eat}`, '#c8f59a'); DV.sfx('heart'); DV.toast(`กิน${e.it.name} อร่อย! แรง +${e.it.eat}`);
     } else if (a === 'drop') {
       if (!bagConfirm) { bagConfirm = true; return DV.openBag(); }
       take(); bagConfirm = false; DV.sfx('dirt'); DV.toast(`ทิ้ง${e.it.name}ไป 1 ชิ้น`);
@@ -188,7 +188,7 @@ function renderPhone() {
   const top = `<div class="ph-top"><span>${DV.fmt(s.min)}</span><span><span class="uic uic-phone" style="--s:14px"></span></span></div>`;
   if (phoneTab === 'home') {
     const un = DV.lineUnread();
-    const apps = [['map', 'แผนที่', 'map'], ['line', 'LINE', 'chat', un], ['call', 'โทรศัพท์', 'phone', DV.callBadge ? DV.callBadge() : 0], ['bc', 'หอกระจายข่าว', 'broadcast'], ['diary', 'สมุดยาย', 'diary'], ['quests', 'งาน', 'quest'], ['contacts', 'รายชื่อ', 'contacts'],
+    const apps = [['map', 'แผนที่', 'map'], ['line', 'LINE', 'chat', un], ['call', 'โทรศัพท์', 'phone', DV.callBadge ? DV.callBadge() : 0], ['bc', 'หอกระจายข่าว', 'broadcast'], ['contacts', 'รายชื่อ', 'contacts'],
       ['bank', 'ธนาคาร', 'bank', 0, true], ['cam', 'กล้อง', 'camera', 0, true], ['shop', 'ขายออนไลน์', 'shop', 0, true], ['set', 'ตั้งค่า', 'settings']];
     scr.innerHTML = top + `<div class="ph-wall"><div class="ph-date">วันที่ ${s.day}<br><small>${s.name} · รหัส ${s.code}</small></div><div class="ph-grid">` +
       apps.map(([id, n, e, b, soon]) => `<button class="app${soon ? ' soon' : ''}" data-a="${id}"><span class="ae"><span class="uic uic-${e}" style="--s:36px"></span>${b ? `<i>${b}</i>` : ''}</span>${n}${soon ? '<small>เร็ว ๆ นี้</small>' : ''}</button>`).join('') + '</div></div>';

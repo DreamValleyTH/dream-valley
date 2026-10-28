@@ -495,3 +495,15 @@ input:-webkit-autofill{-webkit-box-shadow:0 0 0 40px #fffdf6 inset;-webkit-text-
 .mg-feet button:active{background:var(--sun)}
 .mg-box.run{background:#2a2433;color:#f3e6ff;border-color:#120d18}.mg-box.run .mg-sub{color:#c9b7dc}
 #camBtn{display:flex;align-items:center;justify-content:center;padding:0}#camBtn img{width:32px;height:32px;image-rendering:pixelated;pointer-events:none}
+
+/* v1.9 hunger + 6 tabs */
+  .bars2{display:flex;flex-direction:column;gap:2px}.bars2 .ebar.fb{height:5px}#fullBar{height:100%;background:linear-gradient(90deg,#f2b84b,#e6d36a);border-radius:4px}#fullBar.low{background:var(--chili)}
+#bar{gap:4px}#bar button{min-width:0;width:calc((min(100vw,560px) - 40px) / 6);font-size:12px;padding-left:2px;padding-right:2px}
+.bk-open{display:block;margin:0 auto;width:min(60vw,220px);aspect-ratio:94/114;background:center/contain no-repeat;image-rendering:pixelated}
+.bk-tabs{display:flex;gap:6px;margin:6px 0 10px}.bk-tabs button{flex:1;padding:8px;border-radius:10px;border:2px solid var(--wood);background:var(--paper2);font:500 14px var(--font)}.bk-tabs button.on{background:var(--sun)}
+.guide{display:grid;grid-template-columns:36px 1fr;gap:6px 10px;align-items:center}.guide .si{width:32px;height:32px}.guide small{color:var(--ink2)}
+.hl-row{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:10px;background:#fff8e8;border:2px solid #cdb68c;margin:6px 0}
+.hl-row b{font-weight:600}.risk-low{color:#5f8f3a}.risk-mid{color:#c98a1c}.risk-high{color:var(--chili)}
+.meter2{height:10px;border-radius:6px;background:#d8c7a4;overflow:hidden;margin-top:4px}.meter2 i{display:block;height:100%;background:#7fb04c}
+#zzz{position:fixed;inset:0;z-index:58;background:rgba(10,12,30,.92);color:#e9e4ff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-family:var(--font);text-align:center;padding:20px}
+#zzz.hidden{display:none}#zzz .zz{font-size:48px;animation:zzb 2s ease-in-out infinite alternate}@keyframes zzb{from{transform:translateY(0)}to{transform:translateY(-8px)}}

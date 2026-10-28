@@ -78,6 +78,7 @@ DV.openObject = o => {
   const t = o.tap, s = S();
   if (t === 'tree') return openTree(o);
   if (t === 'box') return DV.openBox(o);
+  if (t && t.startsWith('plant_')) return DV.openPlant(o);
   if (DECO[t]) return openDeco(o, t);
   if (t === 'house') return DV.openSheet('บ้านยาย', 'บ้านไม้ใต้ถุนสูง กลับมาเงียบกว่าที่จำได้', null, [
     { label: 'เข้าบ้าน', icon: ['ui', 'door'], extra: 'ปลอดภัยจากผี · นอน ไหว้ยาย ทำกับข้าว', run: () => { DV.closeSheet(); DV.travel('house', 'in'); } },

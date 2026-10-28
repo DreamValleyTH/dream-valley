@@ -426,6 +426,7 @@ function hitIsoAll(sx, sy) {   // build mode: anything with a footprint
 }
 function tapScreen(sx, sy) {
   if (S.map === 'house' && DV.gecko && Math.hypot(sx - DV.gecko.x, sy - DV.gecko.y) < 16 && !DV.uiBlocked()) return DV.geckoTalk && DV.geckoTalk();
+  if (!DV.build && !DV.uiBlocked() && DV.tapPlayers && DV.tapPlayers((x, y) => { const q = ISO() ? P(x, y) : [x, y]; return Math.abs(sx - q[0]) < 13 && sy < q[1] + 4 && sy > q[1] - 52; })) return;
   if (!ISO()) return tap(sx, sy);
   const [wx, wy] = unP(sx, sy);
   tap(wx, wy, (DV.build ? hitIsoAll(sx, sy) : hitIso(sx, sy)) || 0);
@@ -686,8 +687,12 @@ function drawChar(e, sheet, feet) {
   let col, row = R, dy = 0;
   if (e.sit && M.sit) {
     const now = performance.now(); if (!e._sitAt) e._sitAt = now;
-    const k = (now - e._sitAt) / 1000, intro = Math.min(4, M.sit - 1);
-    row = M.dirs === 8 ? 8 : 4; col = k * 8 < intro ? Math.floor(k * 8) : intro + Math.floor((k - intro / 8) * 3) % Math.max(1, M.sit - intro);
+    const k = (now - e._sitAt) / 1000;
+    if (M.doze !== undefined && M.sit === 9) {   // v1.9: sit down (9 frames), stay seated, after 15 s start nodding off (row 9, looped)
+      row = 8; col = Math.min(8, Math.floor(k * 9));
+      if (M.doze && k > 15) { row = 9; col = Math.floor((k - 15) * 3) % 9; }
+    } else { const intro = Math.min(4, M.sit - 1);
+      row = M.dirs === 8 ? 8 : 4; col = k * 8 < intro ? Math.floor(k * 8) : intro + Math.floor((k - intro / 8) * 3) % Math.max(1, M.sit - intro); }
   } else {
     e._sitAt = 0;
     col = e.moving ? Math.floor(e.t * 10) % 6 : 6 + Math.floor(e.t * (e.sit ? 1.5 : 2.5)) % idleN;
@@ -782,7 +787,7 @@ function render(dt) {
     }
   }
   (S.dropped && S.dropped[S.map] || []).filter(groundLive).forEach(d => { const [qx, qy] = P(d.x * T + 16, d.y * T + 18); const ic = DV.icon(DV.item(d.k).icon);
-    list.push({ y: depth(d.x * T + 16, d.y * T + 18), d: () => { ctx.drawImage(IMG.icons, (ic % 32) * 32, Math.floor(ic / 32) * 32, 32, 32, Math.round(qx - DROP_PX / 2), Math.round(qy - DROP_PX - 2 + Math.sin(now / 500 + d.x) * 1), DROP_PX, DROP_PX); } }); });
+    list.push({ y: depth(d.x * T + 16, d.y * T + 18), d: () => { ctx.drawImage(IMG.icons, (ic % 32) * 32, Math.floor(ic / 32) * 32, 32, 32, Math.round(qx - DROP_PX / 2), Math.round(qy - DROP_PX + 3), DROP_PX, DROP_PX); } }); });
   for (const n of DV.npcsHere) list.push({ y: depth(n.x, n.y), d: () => { drawChar(n, n.id, (CMETA[n.id] || { feet: 60 }).feet); drawMark(n); }, c: () => { n._castOnly = 1; drawChar(n, n.id, (CMETA[n.id] || { feet: 60 }).feet); n._castOnly = 0; } });
   list.push({ y: depth(player.x, player.y), d: () => drawChar(player, 'player_' + S.gender, (CMETA['player_' + S.gender] || { feet: 60 }).feet), c: () => { player._castOnly = 1; drawChar(player, 'player_' + S.gender, (CMETA['player_' + S.gender] || { feet: 60 }).feet); player._castOnly = 0; } });
   // friends on the call: drawn from their presence, eased towards the latest position

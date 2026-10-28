@@ -22,14 +22,21 @@ for who in sys.argv[1:]:
     if old_meta.get('dirs') == 8: sit_row = 8
     else: sit_row = 4
     sit_n = old_meta.get('sit', 8)
-    sheet = Image.new('RGBA', (F * 10, F * 9), (0, 0, 0, 0))
+    sheet = Image.new('RGBA', (F * 10, F * 10), (0, 0, 0, 0))
     for r, d in enumerate(DIRS):
         frames = sorted(glob.glob(f'{base}/animations/walking/{d}/frame_*.png'))
         for c, f in enumerate(frames[:6]): sheet.paste(crop(Image.open(f)), (c * F, r * F))
         rot = crop(Image.open(f'{base}/rotations/{d}.png'))
         for c in range(6, 10): sheet.paste(rot, (c * F, r * F))
-    sheet.paste(old.crop((0, sit_row * F, F * 10, sit_row * F + F)), (0, 8 * F))
+    g = who[-1]; V17 = '/home/claude/art_work/v17'
+    if os.path.exists(f'{V17}/sit_{g}_8.png'):   # v1.9: PixelLab sit-down (row 8) and dozing (row 9)
+        for c in range(9): sheet.paste(crop(Image.open(f'{V17}/sit_{g}_{c}.png')), (c * F, 8 * F))
+        for c in range(9):
+            f = f'{V17}/doze_{g}_{c}.png'
+            if os.path.exists(f): sheet.paste(crop(Image.open(f)), (c * F, 9 * F))
+        sit_n = 9
+    else: sheet.paste(old.crop((0, sit_row * F, F * 10, sit_row * F + F)), (0, 8 * F))
     sheet.save(f'{GAME}/assets/chars/{who}.png')
-    meta[who] = dict(dirs=8, idle=[1] * 8, sit=sit_n, feet=59)
+    meta[who] = dict(dirs=8, idle=[1] * 8, sit=sit_n, feet=59, doze=os.path.exists(f'{V17}/doze_{g}_8.png'))
     print(who, 'ok')
 json.dump(meta, open(f'{GAME}/assets/chars/meta.json', 'w'))

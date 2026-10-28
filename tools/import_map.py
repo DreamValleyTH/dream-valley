@@ -22,6 +22,10 @@ for o in src['objects']:
     elif k == 'f_stump': o['tap'] = 'stump'; o['id'] = f'stump{n["stump"]}'; n['stump'] += 1
     elif k in ('f_rock', 'f_rock_2'): o['tap'] = 'boulder'; o['id'] = f'rock{n["rock"]}'; n['rock'] += 1
     elif k in ('f_br', 'f_br_2'): o['tap'] = 'branch'; o['id'] = f'br{n["br"]}'; n['br'] += 1
+    elif k in ('f_tall_banana', 'f_ban', 'f_ban_2', 'banana', 'banana_s'): o['tap'] = 'plant_banana'
+    elif k == 'f_tall_papaya' or k == 'papaya': o['tap'] = 'plant_papaya'
+    elif k.startswith('f_tall_sugarcane') or k == 'sugarcane': o['tap'] = 'plant_sugarcane'
+    elif k in ('f_tall_coconut', 'coconut'): o['tap'] = 'plant_coconut'
     elif k == 'f_peb': o['tap'] = 'pebble'; o['id'] = f'peb{n["peb"]}'; n['peb'] += 1
 ids = collections.Counter(o['id'] for o in src['objects'])
 for o in src['objects']:

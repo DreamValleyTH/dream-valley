@@ -98,6 +98,19 @@ DECO = [('arch', 'ซุ้มไม้ไผ่ดอกไม้', (2, 1), 72,
 for _k, _n, _fp, _h, _p in DECO:
     CATALOG['deco_' + _k] = dict(k='deco_' + _k, name=_n, cat='farm', src=os.path.join(_A2, 'deco', f'deco_{_k}.png'), iso=False, fp=list(_fp), block=True, shadow='prop', dy=2, h=_h, price=_p)
 
+# ---- v1.9 fences: 4 materials x 3 conditions x 4 directions; the footprint follows the drawn line (mask) so pieces join end to end ----
+FENCE_MAT = {'bamboo': 'รั้วไม้ไผ่', 'zinc': 'รั้วสังกะสี', 'wire': 'รั้วลวดหนาม', 'wall': 'รั้วปูน'}
+FENCE_CON = {'n': '', 'w': ' (โทรม)', 'v': ' (มีเถาวัลย์)'}
+_FD = os.path.join(_A2, 'fence')
+for _m, _mn in FENCE_MAT.items():
+    for _c, _cn in FENCE_CON.items():
+        for _d, _dn, _fp, _mask, _ax in [('x', '↘ (หมุน = ↙)', (1, 1), None, 24), ('v', '↕', (2, 2), ['10', '01'], 52), ('h', '↔', (2, 2), ['01', '10'], 36)]:
+            _k = f'fence_{_m}_{_c}_{_d}'; _src = os.path.join(_FD, _k + '.png')
+            if not os.path.exists(_src): continue
+            CATALOG[_k] = dict(k=_k, name=f'{_mn}{_cn} {_dn}', cat='fence', src=_src, iso=False, fp=list(_fp), block=True, shadow='prop', dy=2, **({'x': {'wpx': 30}, 'v': {'h': 46}, 'h': {'wpx': 54}}[_d]))
+            CATALOG[_k].update(ax=_ax, ay=_ax)
+            if _mask: CATALOG[_k].update(mask=_mask)
+
 # ---- v1.0 trees & plants (PixelLab, drawn in the tile sets' style, roots and soil patch so they sit on the ground) ----
 _TR = os.path.join(_A2, 'trees')
 NEW_TREES = {'mango': 'mango', 'tamarind': 'tamarind', 'coconut': 'coconut', 'sugarpalm': 'sugarpalm', 'raintree': 'raintree', 'sugarcane': 'sugarcane',
@@ -125,13 +138,14 @@ for _k, _h in HEIGHT.items():
 
 def load_img(c, flip=False):
     im = Image.open(c['src']).convert('RGBA'); bb = im.getbbox(); im = im.crop(bb) if bb else im
+    if c.get('wpx') and im.width > c['wpx']: c = dict(c, h=max(1, round(im.height * c['wpx'] / im.width)))   # fences are sized by their length on the ground
     if c.get('h') and im.height > c['h']:   # area-average down, then hard alpha so the pixel art stays crisp
         f = c['h'] / im.height; im = im.resize((max(1, round(im.width * f)), c['h']), Image.BOX)
         a = np.asarray(im).copy(); a[..., 3] = np.where(a[..., 3] > 110, 255, 0); im = Image.fromarray(a)
     return im.transpose(Image.FLIP_LEFT_RIGHT) if flip else im
 
 def catalog_json():
-    keep = ('name', 'cat', 'fp', 'iso', 'block', 'dy', 'corner', 'ax', 'ay', 'shadow')
+    keep = ('name', 'cat', 'fp', 'iso', 'block', 'dy', 'corner', 'ax', 'ay', 'shadow', 'mask')
     return {k: {kk: v for kk, v in c.items() if kk in keep} for k, c in CATALOG.items()}
 
 KIND2CODE = {k: c for c, k in TERRAIN.items()}
@@ -156,7 +170,7 @@ def place_obj(w, o, iso_art, T=32, extra=None):
     W, H = w.W, w.H
     fw, fd = c['fp']; ox, oy = o['x'], o['y']
     if o.get('flip') and c['iso']: fw, fd = fd, fw      # a flipped iso building swaps its footprint axes
-    cells = [(cx, cy) for cy in range(oy, oy + fd) for cx in range(ox, ox + fw) if 0 <= cx < W and 0 <= cy < H]
+    cells = [(cx, cy) for cy in range(oy, oy + fd) for cx in range(ox, ox + fw) if 0 <= cx < W and 0 <= cy < H and (not c.get('mask') or c['mask'][cy - oy][cx - ox] == '1')]
     block = cells if (c['iso'] or c.get('block', True)) else []
     im = load_img(c, o.get('flip'))
     tap = o.get('tap') or ('place' if o.get('place') else None)

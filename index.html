@@ -20,7 +20,7 @@
 
 <div id="hud" class="hidden">
   <div class="hud-card clock-card"><span id="clockIcon" class="uic uic-sun"></span><div><div id="dayLabel">วันที่ 1</div><div id="clock">06:00</div></div></div>
-  <div class="hud-card energy-card"><span class="uic uic-energy"></span><div class="ebar"><div id="energyBar"></div></div><b id="energyNum">100</b></div>
+  <div class="hud-card energy-card"><span class="uic uic-energy"></span><div class="bars2"><div class="ebar"><div id="energyBar"></div></div><div class="ebar fb" title="ความอิ่ม"><div id="fullBar"></div></div></div><b id="energyNum">100</b></div>
   <div class="hud-card small"><span class="uic uic-money"></span><span id="money">฿500</span></div>
   <div class="hud-card small" id="waterCard"><span class="uic uic-water"></span><span id="water">12/12</span></div>
 </div>
@@ -31,8 +31,10 @@
 <button id="camBtn" class="hidden" title="สลับกล้อง: ตามตัวละคร / อิสระ" aria-label="สลับกล้อง">🎯</button>
 <nav id="bar" class="hidden">
   <button id="bagBtn"><span class="uic uic-bag em"></span>กระเป๋า</button>
-  <button id="questBtn"><span class="uic uic-quest em"></span>งาน</button>
+  <button id="questBtn"><span class="uic uic-quest em"></span>เรื่อง</button>
   <button id="phoneBtn"><span class="uic uic-phone em"></span>มือถือ</button>
+  <button id="bookBtn"><span class="uic uic-diary em"></span>สมุดยาย</button>
+  <button id="healthBtn"><span class="uic uic-heart em"></span>สุขภาพ</button>
   <button id="menuBtn"><span class="uic uic-menu em"></span>เมนู</button>
 </nav>
 
@@ -123,6 +125,7 @@
 <script src="js/minigames.js"></script>
 <script src="js/ghosts.js"></script>
 <script src="js/life.js"></script>
+<script src="js/tabs.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/intro.js"></script>
 <script src="js/main.js"></script>
