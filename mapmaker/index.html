@@ -140,7 +140,8 @@ aside{grid-area:side;background:var(--panel);border-top:1px solid var(--line);di
 'use strict';
 const $ = id => document.getElementById(id);
 const T = 32, K = .75, MAP_NAMES = { town: 'ใจกลางตำบล', farm: 'ฟาร์มยาย' };
-const TERR_COL = { '.': '#6f9a3a', a: '#5c5a58', c: '#c4bdac', l: '#c4673a', p: '#a08a62', y: '#b39468', s: '#e2cd9c', w: '#3f8aa0', r: '#9cb653', g: '#7a5434' };
+const TERR_COL = { '.': '#8db84c', a: '#57575b', c: '#c9c3b2', l: '#d5703c', p: '#b39466', y: '#c68a55', s: '#e6d3a3', w: '#4b95a6', r: '#a3c058', g: '#7a5434' };
+const TERR_ORDER = ['.', 'r', 'g', 'y', 's', 'p', 'l', 'c', 'a', 'w'];   // back first, roads and water last (as the game builds it)
 const TERR_NAME = { '.': 'หญ้า', a: 'ถนนลาดยาง', c: 'ทางคอนกรีต', l: 'ดินลูกรัง', p: 'ทางเดินดิน', y: 'ลานดินบ้าน', s: 'ทรายลานวัด', w: 'น้ำ / คลอง', r: 'นาข้าว', g: 'แปลงผัก' };
 const CAT_NAME = { farm: 'ของในฟาร์ม', building: 'อาคาร', tree: 'ต้นไม้', prop: 'ของตกแต่ง', animal: 'สัตว์' };
 const HINT = {
@@ -212,22 +213,24 @@ async function loadMap(name) {
   let local = null; try { local = JSON.parse(localStorage.getItem('dvmm_' + name) || 'null'); } catch (_) {}
   MAP = local || await fetch(`maps/${name}.json`).then(r => r.json());
   GROUND = await loadImg(`maps/${name}_ground.png`);
+  try { ORIG = (await fetch(`maps/${name}.json`).then(r => r.json())).terrain; } catch (_) { ORIG = null; }
+  smoothDirty = true;
   undo = []; redo = []; sel = null; fit(); setSave(local ? 'โหลดจากเครื่องนี้' : 'ผังจาก Claude');
   renderTools(); buildPalette(); renderDock();
   if (Store.ready) await pullOnline(name);
 }
 async function pullOnline(name) {
   const d = await Store.get('maps/' + name);
-  if (d && d.json && mapName === name && d.json !== JSON.stringify(MAP)) { MAP = JSON.parse(d.json); lastSaved = d.json; sel = null; renderDock(); dirty = true; setSave(`ฉบับล่าสุดออนไลน์${d.by ? ' · ' + d.by : ''}`); }
+  if (d && d.json && mapName === name && d.json !== JSON.stringify(MAP)) { MAP = JSON.parse(d.json); lastSaved = d.json; sel = null; smoothDirty = true; renderDock(); dirty = true; setSave(`ฉบับล่าสุดออนไลน์${d.by ? ' · ' + d.by : ''}`); }
   else setSave('ออนไลน์ · บันทึกอัตโนมัติ');
-  unwatch = Store.watch('maps/' + name, v => { if (!v || !v.json || v.json === lastSaved || v.json === JSON.stringify(MAP) || mapName !== name) return; lastSaved = v.json; MAP = JSON.parse(v.json); sel = null; renderDock(); dirty = true; setSave(`${v.by || 'มีคน'}แก้ล่าสุด`); });
+  unwatch = Store.watch('maps/' + name, v => { if (!v || !v.json || v.json === lastSaved || v.json === JSON.stringify(MAP) || mapName !== name) return; lastSaved = v.json; MAP = JSON.parse(v.json); sel = null; smoothDirty = true; renderDock(); dirty = true; setSave(`${v.by || 'มีคน'}แก้ล่าสุด`); });
 }
 $('mapSel').onchange = e => loadMap(e.target.value);
 
 // ---------- saving + undo ----------
 let saveTimer = null;
 function changed() {
-  dirty = true; clearTimeout(saveTimer); setSave('กำลังบันทึก…');
+  dirty = true; smoothDirty = true; clearTimeout(saveTimer); setSave('กำลังบันทึก…');
   saveTimer = setTimeout(async () => {
     const json = JSON.stringify(MAP); lastSaved = json;
     try { localStorage.setItem('dvmm_' + mapName, json); } catch (_) {}
@@ -264,6 +267,49 @@ function keepVisible(o) {   // after nudging, scroll so the object stays on scre
   if (ax < x0) view.x -= x0 - ax; if (ax > x1) view.x += ax - x1; if (ay < y0) view.y -= y0 - ay; if (ay > y1) view.y += ay - y1;
 }
 
+
+// ---------- smooth ground preview: painted cells become rounded, curving shapes (like the game builds them) ----------
+let ORIG = null, smoothDirty = true, SMOOTH = null;
+const SC = 16;   // preview pixels per cell (top-down)
+function blurMask(cells, W, H, rad) {   // 1px-per-cell mask -> SCx, blurred, thresholded -> curvy alpha mask canvas
+  const a = document.createElement('canvas'); a.width = W; a.height = H; const ax = a.getContext('2d'), im = ax.createImageData(W, H);
+  for (let i = 0; i < W * H; i++) if (cells[i]) { im.data[i * 4 + 3] = 255; }
+  ax.putImageData(im, 0, 0);
+  const b = document.createElement('canvas'); b.width = W * SC; b.height = H * SC; const bx = b.getContext('2d');
+  bx.imageSmoothingEnabled = true; bx.filter = `blur(${rad}px)`; bx.drawImage(a, 0, 0, W * SC, H * SC); bx.filter = 'none';
+  const d = bx.getImageData(0, 0, b.width, b.height), q = d.data;
+  for (let i = 3; i < q.length; i += 4) q[i] = q[i] > 92 ? 255 : 0;   // threshold just under half keeps 1-cell lanes connected
+  bx.putImageData(d, 0, 0); return b;
+}
+function buildSmooth() {
+  smoothDirty = false; const W = MAP.W, H = MAP.H, t = MAP.terrain;
+  const changed = new Uint8Array(W * H); let any = false;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (!ORIG || !ORIG[y] || ORIG[y][x] !== t[y][x]) { changed[y * W + x] = 1; any = true; }
+  if (!any && opts.ground && GROUND) { SMOOTH = null; return; }
+  const out = document.createElement('canvas'); out.width = W * SC; out.height = H * SC; const ox = out.getContext('2d');
+  for (const code of TERR_ORDER) {
+    const cells = new Uint8Array(W * H); let has = false;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if ((t[y][x] || '.') === code || code === '.') { cells[y * W + x] = 1; has = true; }
+    if (!has) continue;
+    const m = code === '.' ? null : blurMask(cells, W, H, code === 'w' ? 9 : 6);
+    const layer = document.createElement('canvas'); layer.width = out.width; layer.height = out.height; const lx = layer.getContext('2d');
+    lx.fillStyle = TERR_COL[code]; lx.fillRect(0, 0, layer.width, layer.height);
+    for (let k = 0; k < 900; k++) { lx.fillStyle = `rgba(${k % 2 ? '255,255,255' : '0,0,0'},.05)`; lx.fillRect((k * 397) % layer.width, (k * 211) % layer.height, 6, 3); }   // a little grain
+    if (m) { lx.globalCompositeOperation = 'destination-in'; lx.drawImage(m, 0, 0); }
+    ox.drawImage(layer, 0, 0);
+  }
+  if (opts.ground && GROUND && ORIG) {   // over the game picture: show only the edited area (soft edge), the rest stays the real art
+    const cm = blurMask(changed, W, H, 4); const mx = cm.getContext('2d');
+    mx.filter = 'blur(3px)'; mx.drawImage(cm, 0, 0); mx.filter = 'none';
+    ox.globalCompositeOperation = 'destination-in'; ox.drawImage(cm, 0, 0); ox.globalCompositeOperation = 'source-over';
+  }
+  SMOOTH = out;
+}
+function drawGround() {
+  if (smoothDirty) buildSmooth();
+  if (opts.ground && GROUND) ctx.drawImage(GROUND, 0, 0);
+  if (SMOOTH) { ctx.save(); ctx.transform(K * T / SC, K / 2 * T / SC, -K * T / SC, K / 2 * T / SC, OX(), OY()); ctx.imageSmoothingEnabled = true; ctx.drawImage(SMOOTH, 0, 0); ctx.restore(); }
+}
 // ---------- drawing ----------
 function diamond(x, y) { const c = [[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1]].map(([a, b]) => P(a * T, b * T)); ctx.beginPath(); ctx.moveTo(...c[0]); for (const q of c.slice(1)) ctx.lineTo(...q); ctx.closePath(); }
 const blocks = o => { const it = CAT.items[o.k]; return !!it && it.block !== false && (it.iso || it.cat !== 'prop' || ['bush', 'bush2', 'pole'].indexOf(o.k) < 0); };
@@ -277,8 +323,7 @@ function valid(o) {
 function draw() {
   const d = devicePixelRatio || 1; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#0f0c09'; ctx.fillRect(0, 0, cv.width, cv.height);
   ctx.setTransform(view.z * d, 0, 0, view.z * d, -view.x * view.z * d, -view.y * view.z * d); ctx.imageSmoothingEnabled = view.z < 1;
-  if (opts.ground && GROUND) ctx.drawImage(GROUND, 0, 0);
-  else for (let y = 0; y < MAP.H; y++) { const row = MAP.terrain[y]; for (let x = 0; x < MAP.W; x++) { ctx.fillStyle = TERR_COL[row[x]] || '#6f9a3a'; diamond(x, y); ctx.fill(); } }
+  drawGround();
   const [px0, py0, px1, py1] = MAP.play;
   if (opts.grid && view.z > .3) { ctx.strokeStyle = 'rgba(255,255,255,.08)'; ctx.lineWidth = 1 / view.z; for (let y = 0; y <= MAP.H; y++) { ctx.beginPath(); ctx.moveTo(...P(0, y * T)); ctx.lineTo(...P(MAP.W * T, y * T)); ctx.stroke(); } for (let x = 0; x <= MAP.W; x++) { ctx.beginPath(); ctx.moveTo(...P(x * T, 0)); ctx.lineTo(...P(x * T, MAP.H * T)); ctx.stroke(); } }
   ctx.setLineDash([10 / view.z, 8 / view.z]); ctx.strokeStyle = 'rgba(233,196,106,.85)'; ctx.lineWidth = 2 / view.z; ctx.beginPath();
@@ -306,7 +351,7 @@ function hitObject(cx, cy) {   // pixel-accurate on the sprite, front-most first
 // ---------- tools ----------
 let hover = null, dragDoor = null;
 function renderTools() { document.querySelectorAll('.tool').forEach(x => x.setAttribute('aria-pressed', x.dataset.t === tool)); $('side').hidden = !(tool === 'place' || tool === 'paint') && innerWidth < 900; size(); }
-function setTool(t) { repeatStop(); tool = t; if (t !== 'move') sel = null; renderTools(); buildPalette(); renderDock(); dirty = true; }
+function setTool(t) { tool = t; if (t !== 'move') sel = null; renderTools(); buildPalette(); renderDock(); dirty = true; }
 document.querySelectorAll('.tool').forEach(b => b.onclick = () => setTool(b.dataset.t));
 addEventListener('resize', renderTools);
 
@@ -319,9 +364,7 @@ function updateSelInfo() {   // refresh only the text — rebuilding the pad mid
   const pn = sel.place && MAP.places[sel.place] ? MAP.places[sel.place].name : '', nm = nameOf(sel);
   s.className = ok ? '' : 'bad'; s.textContent = ok ? (pn && pn !== nm ? pn + ' · ' : '') + 'ช่อง ' + sel.x + ', ' + sel.y : 'ทับของอื่น / อยู่บนน้ำ — ขยับอีกนิด';
 }
-let repeatStop = () => {};
-['pointerup', 'pointercancel', 'blur'].forEach(ev => addEventListener(ev, () => repeatStop()));
-document.addEventListener('visibilitychange', () => repeatStop());
+
 function rotate(o) { snapshot(); o.flip = o.flip ? 0 : 1; changed(); if (o === sel && document.querySelector('.pad')) updateSelInfo(); else renderDock(); }
 function erase(o) { snapshot(); const n = nameOf(o); MAP.objects = MAP.objects.filter(q => q !== o); if (sel === o) sel = null; changed(); renderDock(); toast(`ลบ${n}แล้ว`, 'เอาคืน', () => $('undo').click()); }
 
@@ -336,16 +379,11 @@ function renderDock() {
       <button class="btn primary done" id="selDone" aria-label="เสร็จ">✓</button>`;
     d.querySelectorAll('[data-d]').forEach(b => {   // press = one cell, hold = keep moving
       const [dx, dy] = b.dataset.d.split(',').map(Number);
-      b.onpointerdown = e => {
-        e.preventDefault(); repeatStop(); nudge(dx, dy);
-        let t2 = null, n = 0; const t1 = setTimeout(() => { t2 = setInterval(() => { if (++n > 40) return repeatStop(); nudge(dx, dy); }, 130); }, 420);
-        repeatStop = () => { clearTimeout(t1); clearInterval(t2); repeatStop = () => {}; };
-      };
-      b.onpointerup = b.onpointerleave = b.onpointercancel = b.onlostpointercapture = () => repeatStop();
+      b.onclick = e => { e.preventDefault(); nudge(dx, dy); };   // one press = exactly one cell
       b.oncontextmenu = e => e.preventDefault();
     });
     d.querySelector('[data-r]').onclick = () => rotate(sel);
-    $('selDone').onclick = () => { repeatStop(); if (sel) delete sel._moving; sel = null; renderDock(); dirty = true; };
+    $('selDone').onclick = () => { if (sel) delete sel._moving; sel = null; renderDock(); dirty = true; };
   } else {
     let h = HINT[tool]; if (tool === 'place' && palKey) h = `<b>วางของ:</b> แตะจุดบนแผนที่เพื่อวาง “${CAT.items[palKey].name}”`;
     if (tool === 'paint') h = `<b>ระบายพื้น:</b> “${TERR_NAME[brush.code]}” ขนาด ${brush.size} · ลากนิ้วระบาย · สองนิ้วเลื่อนแผนที่`;
@@ -353,7 +391,7 @@ function renderDock() {
   }
 }
 function brushCells(cx, cy) { const r = brush.size - 1, out = []; for (let y = cy - r; y <= cy + r; y++) for (let x = cx - r; x <= cx + r; x++) if (x >= 0 && y >= 0 && x < MAP.W && y < MAP.H && Math.abs(x - cx) + Math.abs(y - cy) <= r + (r > 1 ? 1 : 0)) out.push([x, y]); return out; }
-function paintAt(cx, cy) { let ch = false; for (const [x, y] of brushCells(cx, cy)) { const row = MAP.terrain[y]; if (row[x] !== brush.code) { MAP.terrain[y] = row.slice(0, x) + brush.code + row.slice(x + 1); ch = true; } } if (ch) { opts.ground = false; dirty = true; } return ch; }
+function paintAt(cx, cy) { let ch = false; for (const [x, y] of brushCells(cx, cy)) { const row = MAP.terrain[y]; if (row[x] !== brush.code) { MAP.terrain[y] = row.slice(0, x) + brush.code + row.slice(x + 1); ch = true; } } if (ch) { smoothDirty = true; dirty = true; } return ch; }
 
 // pointer input: dragging the map always pans (nothing moves by accident); a tap uses the current tool
 const ptrs = new Map(); let down = null, pinch = null;
@@ -362,7 +400,7 @@ cv.addEventListener('pointerdown', e => {
   if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), z: view.z, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, vx: view.x, vy: view.y }; if (down && down.mode === 'paint') undo.pop(); if (down && down.mode === 'drag' && down.snap) changed(); down = null; return; }
   const [cx, cy] = cellAt(e.clientX, e.clientY);
   down = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y, mode: 'pan', moved: false };
-  if (tool === 'paint') { snapshot(); down.mode = 'paint'; down.ch = paintAt(cx, cy); }
+  if (tool === 'paint') { snapshot(); down.mode = 'paint'; down.ch = paintAt(cx, cy); down.last = [cx, cy]; }
   else if (tool === 'move') {   // press on an object = drag it along the grid; press on empty ground = pan
     const o = hitObject(e.clientX, e.clientY) || (sel && cellsOf(sel).some(c => c[0] === cx && c[1] === cy) ? sel : null);
     if (o) { down.mode = 'drag'; down.o = o; down.gx = cx - o.x; down.gy = cy - o.y; down.x0 = o.x; down.y0 = o.y; }
@@ -384,7 +422,11 @@ cv.addEventListener('pointermove', e => {
     const nx = cx - down.gx, ny = cy - down.gy;
     if (nx !== o.x || ny !== o.y) { if (!down.snap) { snapshot(); down.snap = true; } o.x = nx; o.y = ny; dirty = true; updateSelInfo(); }
   }
-  if (down.mode === 'paint') { if (paintAt(cx, cy)) down.ch = true; if (e.pointerType !== 'mouse') { hover = [cx, cy]; } }
+  if (down.mode === 'paint') {   // fill every cell between the last finger position and this one, so fast strokes stay continuous
+    const [lx, ly] = down.last || [cx, cy], n = Math.max(Math.abs(cx - lx), Math.abs(cy - ly));
+    for (let i = 1; i <= n; i++) if (paintAt(Math.round(lx + (cx - lx) * i / n), Math.round(ly + (cy - ly) * i / n))) down.ch = true;
+    down.last = [cx, cy];
+    if (paintAt(cx, cy)) down.ch = true; if (e.pointerType !== 'mouse') { hover = [cx, cy]; } }
   if (down.mode === 'door' && dragDoor) { MAP.places[dragDoor].door = [cx, cy]; dirty = true; }
 });
 const up = e => {
@@ -438,14 +480,14 @@ async function download(name, text) {
   try { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); return true; } catch (_) { return false; }
 }
 $('menuBtn').onclick = () => {
-  const m = sheet(`<h2>ตัวเลือก</h2>
-    <label class="tg"><input type="checkbox" data-o="ground" ${opts.ground ? 'checked' : ''}> แสดงภาพพื้นจากเกม (ปิด = เห็นช่องสีตามชนิดพื้น)</label>
+  const m = sheet(`<h2>ตัวเลือก <small style="font-size:12px;color:var(--muted);font-weight:400">รุ่น 1.3</small></h2>
+    <label class="tg"><input type="checkbox" data-o="ground" ${opts.ground ? 'checked' : ''}> แสดงภาพพื้นจากเกม (ปิด = เห็นพื้นเป็นสีตามชนิด)</label>
     <label class="tg"><input type="checkbox" data-o="grid" ${opts.grid ? 'checked' : ''}> แสดงเส้นช่อง</label>
     <label class="tg"><input type="checkbox" data-o="doors" ${opts.doors ? 'checked' : ''}> แสดงจุดประตูและชื่อสถานที่</label>
     <div class="row"><button class="btn" id="dl">ดาวน์โหลด ${mapName}.json</button><label class="btn">นำเข้าไฟล์<input type="file" id="fi" accept=".json" hidden></label><button class="btn" id="rs">กลับไปผังต้นฉบับ</button></div>
     <p>เครื่องมือ: ✋ ย้าย (ลากของ หรือแตะของแล้วกดลูกศร) · ⟳ หมุน · ➕ วางของ · 🗑 ลบ · 🖌 ระบายพื้น · 🚪 ย้ายประตู · บนคอมใช้ปุ่มลูกศรบนคีย์บอร์ด, R หมุน, Ctrl+Z ย้อน</p>
     <button class="btn primary" id="cl">ปิด</button>`);
-  m.querySelectorAll('[data-o]').forEach(i => i.onchange = () => { opts[i.dataset.o] = i.checked; try { localStorage.setItem('dvmm_opts', JSON.stringify(opts)); } catch (_) {} dirty = true; });
+  m.querySelectorAll('[data-o]').forEach(i => i.onchange = () => { opts[i.dataset.o] = i.checked; smoothDirty = true; try { localStorage.setItem('dvmm_opts', JSON.stringify(opts)); } catch (_) {} dirty = true; });
   m.querySelector('#cl').onclick = () => m.remove();
   m.querySelector('#dl').onclick = () => download(mapName + '.json', JSON.stringify(MAP));
   m.querySelector('#fi').onchange = async ev => { const f = ev.target.files[0]; if (!f) return; try { const d = JSON.parse(await f.text()); if (!d.terrain || !d.objects) throw 0; snapshot(); MAP = d; sel = null; changed(); fit(); renderDock(); m.remove(); toast('นำเข้าแล้ว'); } catch (_) { toast('ไฟล์นี้ไม่ใช่ผังแผนที่'); } };
