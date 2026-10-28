@@ -123,11 +123,37 @@ function bfs(sx, sy, goalFn, ignoreNpc) {
   return null;
 }
 DV.bfs = bfs;
-DV.goTo = (goalFn, onArrive) => {
+// ---------- free movement (RTS style): walk straight at the target, go round anything in the way, re-plan when blocked ----------
+const cellOfPx = (x, y) => [Math.floor(x / T), Math.floor(y / T)];
+function clearLine(x0, y0, x1, y1) {   // can a walker (body radius ~6px) go straight from (x0,y0) to (x1,y1)?
+  const d = Math.hypot(x1 - x0, y1 - y0), n = Math.max(1, Math.ceil(d / 5)), [sc, sr] = cellOfPx(x0, y0);
+  for (let i = 1; i <= n; i++) {
+    const x = x0 + (x1 - x0) * i / n, y = y0 + (y1 - y0) * i / n;
+    for (const [ox, oy] of [[0, 0], [6, 0], [-6, 0], [0, 6], [0, -6]]) {
+      const [cx, cy] = cellOfPx(x + ox, y + oy);
+      if ((cx !== sc || cy !== sr) && !walkable(cx, cy)) return false;
+    }
+  }
+  return true;
+}
+function planWalk(goalFn, exact) {   // grid search for the route, then pull it tight into straight legs
+  const p = bfs(player.cx, player.cy, goalFn); if (!p) return null;
+  const last = p[p.length - 1];
+  const pts = p.slice(1).map(([x, y]) => [x * T + T / 2, y * T + T / 2]);
+  const end = exact && exact[0] === last[0] && exact[1] === last[1] ? [exact[2], exact[3]] : [last[0] * T + T / 2, last[1] * T + T - 4];
+  if (pts.length) pts[pts.length - 1] = end; else if (Math.hypot(end[0] - player.x, end[1] - player.y) > 2) pts.push(end);
+  const out = []; let cur = [player.x, player.y], i = 0;
+  while (i < pts.length) {
+    let j = pts.length - 1; while (j > i && !clearLine(cur[0], cur[1], pts[j][0], pts[j][1])) j--;
+    out.push(pts[j]); cur = pts[j]; i = j + 1;
+  }
+  return out;
+}
+DV.goTo = (goalFn, onArrive, exact) => {
   DV.standUp();
-  const p = bfs(player.cx, player.cy, goalFn);
-  if (!p) { DV.toast('ไปตรงนั้นไม่ได้'); return false; }
-  player.path = p.slice(1); player.onArrive = onArrive || null; player.walkTiles = 0;
+  const w = planWalk(goalFn, exact);
+  if (!w) { DV.toast('ไปตรงนั้นไม่ได้'); return false; }
+  player.path = w; player.goal = goalFn; player.goalExact = exact || null; player.onArrive = onArrive || null; player.walkTiles = 0; player.replans = 0;
   if (!player.path.length) arrive();
   return true;
 };
@@ -538,7 +564,7 @@ function tap(wx, wy, hit) {
     return DV.goTo(goal, () => { DV.face(cells[0][0], cells[0][1]); DV.openObject(o); });
   }
   if (cx < 0 || cy < 0 || cx >= DV.M.W || cy >= DV.M.H) return;
-  if (walkable(cx, cy)) DV.goTo((x, y) => x === cx && y === cy);
+  if (walkable(cx, cy)) DV.goTo((x, y) => x === cx && y === cy, null, [cx, cy, wx, wy]);
   else DV.goTo(DV.adjTo([[cx, cy]]));
 }
 DV.tap = tap;
@@ -566,7 +592,7 @@ addEventListener('keydown', e => {
   if (e.key === 'Escape') { DV.closeAll(); return; }
   if (DV.uiBlocked() || player.path.length) return;
   const m = { ArrowDown: [0, 1, 0], s: [0, 1, 0], ArrowUp: [0, -1, 1], w: [0, -1, 1], ArrowRight: [1, 0, 2], d: [1, 0, 2], ArrowLeft: [-1, 0, 3], a: [-1, 0, 3] }[e.key];
-  if (m) { DV.closeSheet(); DV.standUp(); player.dir = m[2]; const nx = player.cx + m[0], ny = player.cy + m[1]; if (walkable(nx, ny)) { player.path = [[nx, ny]]; player.walkTiles = 0; } e.preventDefault(); return; }
+  if (m) { DV.closeSheet(); DV.standUp(); player.dir = m[2]; const nx = player.cx + m[0], ny = player.cy + m[1]; if (walkable(nx, ny)) DV.goTo((x, y) => x === nx && y === ny); e.preventDefault(); return; }
   if (e.key === 'm' || e.key === 'M') return DV.openMap();
   if (e.key === 'i' || e.key === 'I') return DV.openBag();
   if (e.key === 'p' || e.key === 'P') return DV.openPhone();
@@ -799,20 +825,32 @@ function drawMark(n) {   // "!" over NPCs with a quest offer / turn-in, "…" fo
   ctx.fillStyle = m === '!' ? '#f2b84b' : '#9ad35e'; ctx.beginPath(); ctx.arc(x, y, 6, 0, 7); ctx.fill();
   ctx.strokeStyle = '#3b2a1c'; ctx.lineWidth = 1; ctx.stroke(); ctx.fillStyle = '#3b2a1c'; ctx.font = 'bold 9px Mitr, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(m, x, y + 3);
 }
+const D8ANG = [0, 1, 2, 3, 4, 5, 6, 7];
 function moveEnt(e, dt, speed, isPlayer) {
   e.t += dt;
   if (!e.path.length) { if (e.moving) { e.moving = false; if (isPlayer) arrive(); } return; }
-  const [nx, ny] = e.path[0]; const tx = nx * T + T / 2, ty = ny * T + T - 4;
+  const [tx, ty] = e.path[0];
   const dx = tx - e.x, dy = ty - e.y, d = Math.hypot(dx, dy);
   if (!e.moving) e.moving = true;
-  e.dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 2 : 3) : (dy > 0 ? 0 : 1);
-  const sx = Math.abs(dx) > 1.5 ? Math.sign(dx) : 0, sy = Math.abs(dy) > 1.5 ? Math.sign(dy) : 0;
-  if (sx || sy) { e.d8 = D8[sx + ',' + sy]; e._d8from = e.dir; }
-  const st = speed * dt;
-  if (d <= st) { e.x = tx; e.y = ty; e.cx = nx; e.cy = ny; e.path.shift();
-    if (isPlayer) { player.walkTiles = (player.walkTiles || 0) + 1; onStep(nx, ny); DV.step && DV.step(S.map === 'house' ? 'wood' : DV.M.path[ny][nx] ? (S.map === 'town' ? 'hard' : 'dirt') : 'grass'); }
-    if (isPlayer && e.path.length && !walkable(e.path[0][0], e.path[0][1])) e.path = []; }
-  else { e.x += dx / d * st; e.y += dy / d * st; }
+  if (d > 0.5) {
+    e.dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 2 : 3) : (dy > 0 ? 0 : 1);
+    const ang = Math.atan2((dx + dy) / 2, dx - dy);   // screen direction of the step (iso)
+    e.d8 = [2, 1, 0, 7, 6, 5, 4, 3][((Math.round(ang / (Math.PI / 4)) % 8) + 8) % 8]; e._d8from = e.dir;
+  }
+  const st = speed * dt, k = d <= st ? 1 : st / d;
+  const nx = e.x + dx * k, ny = e.y + dy * k, [ncx, ncy] = cellOfPx(nx, ny);
+  if ((ncx !== e.cx || ncy !== e.cy) && !walkable(ncx, ncy)) {   // something stepped into the way: find a new route to the same goal
+    if (isPlayer && player.goal && (player.replans = (player.replans || 0) + 1) < 6) {
+      const w = planWalk(player.goal, player.goalExact); if (w) { e.path = w; return; }
+    }
+    e.path = []; return;
+  }
+  e.x = nx; e.y = ny;
+  if (ncx !== e.cx || ncy !== e.cy) {
+    e.cx = ncx; e.cy = ncy;
+    if (isPlayer) { player.walkTiles = (player.walkTiles || 0) + 1; onStep(ncx, ncy); DV.step && DV.step(S.map === 'house' ? 'wood' : DV.M.path[ncy][ncx] ? (S.map === 'town' ? 'hard' : 'dirt') : 'grass'); }
+  }
+  if (k === 1) e.path.shift();
 }
 // NPCs don't walk (walk cycle parked for now): they stand, breathe, look around, and swap spots only while off-screen
 function npcIdle(dt) {

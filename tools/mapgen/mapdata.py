@@ -103,8 +103,21 @@ for _k, _n in NEW_TREES.items():
         if CATALOG[_k].get('ax') is not None and CATALOG[_k]['fp'] == [1, 1]: CATALOG[_k].update(ax=16, ay=29)   # trunk on the cell centre, a little in front
         if CATALOG[_k].get('ax') is not None and CATALOG[_k]['fp'] == [2, 1]: CATALOG[_k].update(ax=32, ay=29)
 
+# ---- v1.1 proportions: everyday things scaled against the 57px-tall player (a charcoal stove is knee high, etc.) ----
+HEIGHT = {'stove': 24, 'f_stove': 24, 'firewood': 26, 'f_firewood': 26, 'jars': 24, 'f_jars': 24, 'f_jar': 30, 'bicycle': 34, 'f_bike': 34,
+          'bin': 30, 'drum': 32, 'gas': 20, 'bench_long': 26, 'f_bench': 26, 'table_low': 24, 'chairs': 32, 'doghouse': 34, 'f_doghouse': 34,
+          'compost': 30, 'f_compost': 30, 'sacks': 30, 'f_sacks': 30, 'f_haystack': 40, 'hose': 20, 'f_hose': 20, 'pump': 38, 'f_pump': 38,
+          'trough': 24, 'tires': 28, 'well': 40, 'cart': 38, 'f_cart': 38, 'bush': 36, 'bush2': 28, 'banana_pot': 40, 'incense': 28,
+          'donation': 34, 'bell': 44, 'f_peb': 10, 'f_rock': 20, 'f_rock_2': 20, 'f_stump': 22, 'f_br': 18, 'f_br_2': 18,
+          **{f'weeds_{i}': 40 for i in range(8)}}
+for _k, _h in HEIGHT.items():
+    if _k in CATALOG: CATALOG[_k]['h'] = _h
+
 def load_img(c, flip=False):
     im = Image.open(c['src']).convert('RGBA'); bb = im.getbbox(); im = im.crop(bb) if bb else im
+    if c.get('h') and im.height > c['h']:   # area-average down, then hard alpha so the pixel art stays crisp
+        f = c['h'] / im.height; im = im.resize((max(1, round(im.width * f)), c['h']), Image.BOX)
+        a = np.asarray(im).copy(); a[..., 3] = np.where(a[..., 3] > 110, 255, 0); im = Image.fromarray(a)
     return im.transpose(Image.FLIP_LEFT_RIGHT) if flip else im
 
 def catalog_json():

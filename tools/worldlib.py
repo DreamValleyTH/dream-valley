@@ -299,7 +299,7 @@ class World:
                             if acc % 26 < 13 and 1 <= px_ < PW - 2 and 1 <= py_ < PH - 2 and m[py_, px_]: img[py_ - 1:py_ + 2, px_ - 1:px_ + 2] = np.array([226, 190, 80.])
         self.ground_np = img.copy()
         # baked shadows (multiply toward the reference's deep green-brown)
-        s = np.clip(self.shadow * 1.6, 0, 1)[..., None]
+        s = np.clip(self.shadow * 1.6, 0, 1)[..., None] * (0 if getattr(self, 'rt_shadow', False) else 1)   # live shadows: none baked in
         shade_col = np.array([40, 46, 20.])
         target = img * .4 + shade_col * .35
         img = img * (1 - s) + target * s
