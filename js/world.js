@@ -26,11 +26,16 @@ function resize() {
   if (!room) z = Math.max(z, w / PW, h / PH); else z = Math.max(z, w / PW * 1.5);
   let dev = Math.max(1, Math.round(z * dpr));
   if (!room && dev / dpr < Math.max(w / PW, h / PH)) dev = Math.ceil(Math.max(w / PW, h / PH) * dpr);
-  zoom = dev / dpr;
-  zoom = Math.max(.5, Math.round(zoom * uz * dpr * 2) / (dpr * 2));
-  if (!room) zoom = Math.max(zoom, w / PW, h / PH);   // never zoom out past the painted countryside
+  zoomBase = dev / dpr; zoomMin = room ? .5 : Math.max(w / PW, h / PH);
   cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
-  VW = w / zoom; VH = h / zoom;
+  applyZoom();
+}
+// continuous zoom (no snapping) so pinching feels as smooth as panning; keeps the point under the fingers still
+let zoomBase = 2, zoomMin = .5, uzT = 1, zFocus = null;
+function applyZoom(fx, fy) {
+  const w = innerWidth, h = innerHeight, nz = Math.max(zoomMin, .5, zoomBase * uz);
+  if (fx != null && zoom) { camOff.x += (fx - w / 2) * (1 / zoom - 1 / nz); camOff.y += (fy - h / 2) * (1 / zoom - 1 / nz); }
+  zoom = nz; VW = w / zoom; VH = h / zoom;
 }
 addEventListener('resize', resize);
 DV.resize = resize;
@@ -77,7 +82,8 @@ function rebuildBlocked() {
 DV.rebuildBlocked = rebuildBlocked;
 const isGone = o => S && S.gone[o.id] != null && S.day < S.gone[o.id];
 DV.isGone = isGone;
-const inPlot = (x, y) => { const p = DV.M.plot; return p && x >= p[0] && x < p[0] + p[2] && y >= p[1] && y < p[1] + p[3]; };
+// any farm cell that is (or was laid out as) a vegetable bed — beds can be dug anywhere and filled back in
+const inPlot = (x, y) => S && S.map === 'farm' && !!(S.cells && S.cells[x + ',' + y]);
 DV.inPlot = inPlot;
 
 // ---------- entities ----------
@@ -167,9 +173,9 @@ DV.doAction = ({ energy = 0, tool = -1, fx = null, targets = [], apply, after })
   let i = 0;
   const step = () => {
     const k = (performance.now() - t0) / dur; player.prog = Math.min(1, k);
-    while (i < targets.length && i < k * targets.length) { const [x, y] = targets[i++]; burst(x, y, fx); if (apply) apply(x, y); dirtySoil = true; }
+    while (i < targets.length && i < k * targets.length) { const [x, y] = targets[i++]; burst(x, y, fx === 'hoe' ? 'dirt' : fx); if (i > 1) DV.sfx(fx || 'tick'); if (apply) apply(x, y); dirtySoil = true; }
     if (k < 1) return requestAnimationFrame(step);
-    while (i < targets.length) { const [x, y] = targets[i++]; burst(x, y, fx); if (apply) apply(x, y); }
+    while (i < targets.length) { const [x, y] = targets[i++]; burst(x, y, fx === 'hoe' ? 'dirt' : fx); if (apply) apply(x, y); }
     if (!targets.length && apply) apply();
     dirtySoil = true; player.tool = -1; busy = false;
     DV.addEnergy(-energy); DV.hud(); DV.save();
@@ -243,7 +249,7 @@ function freshGround(name) {
   const n = name === 'farm' ? 6 : 5;
   for (let i = 0, tries = 0; i < n && tries < 400; tries++) {
     const x = 1 + Math.floor(rnd() * (M.W - 2)), y = 1 + Math.floor(rnd() * (M.H - 2));
-    if (M.blocked[y][x] || (M.plot && x >= M.plot[0] && x < M.plot[0] + M.plot[2] && y >= M.plot[1] && y < M.plot[1] + M.plot[3]) || L.some(d => d.x === x && d.y === y)) continue;
+    if (M.blocked[y][x] || (name === 'farm' && S.cells && S.cells[x + ',' + y]) || L.some(d => d.x === x && d.y === y)) continue;
     let q = rnd() * tot, k = 0; while (q > pool[k][1]) { q -= pool[k][1]; k++; }
     L.push({ x, y, k: pool[k][0], nat: 1, day: S.day }); i++;
   }
@@ -267,7 +273,7 @@ DV.newPlot = () => {
   return cells;
 };
 DV.cell = (x, y) => S.cells[x + ',' + y];
-DV.plotCells = pred => { const [PX, PY, PWc, PHc] = MAPS.farm.plot, out = []; for (let y = PY; y < PY + PHc; y++) for (let x = PX; x < PX + PWc; x++) { const c = DV.cell(x, y); if (pred(c, x, y)) out.push([x, y]); } return out; };
+DV.plotCells = pred => Object.keys(S.cells || {}).map(k => k.split(',').map(Number)).sort((a, b) => a[1] - b[1] || a[0] - b[0]).filter(([x, y]) => pred(DV.cell(x, y), x, y));
 DV.waterAll = () => { if (!S.cells) return; for (const k in S.cells) if (S.cells[k].soil) S.cells[k].wet = true; dirtySoil = true; };
 DV.damageCrop = () => { const l = DV.plotCells(q => q.crop && q.crop.st > 0); if (l.length) { const [x, y] = DV.pick(l); DV.cell(x, y).crop.st--; } };
 
@@ -278,7 +284,7 @@ function makeSpots(day, name) {
   let r = day * 7919 + name.length * 131 + 13; const rnd = () => (r = (r * 16807) % 2147483647) / 2147483647;
   const cand = [];
   for (let y = 1; y < M.H - 1; y++) for (let x = 1; x < M.W - 1; x++) {
-    if (M.blocked[y][x] || (M.plot && x >= M.plot[0] && x < M.plot[0] + M.plot[2] && y >= M.plot[1] && y < M.plot[1] + M.plot[3])) continue;
+    if (M.blocked[y][x] || (name === 'farm' && S.cells && S.cells[x + ',' + y])) continue;
     cand.push({ x, y, w: M.path[y][x] ? 1 : 3 });
   }
   const out = [], tot = SPOT_KINDS.reduce((a, b) => a + b[1], 0), n = name === 'farm' ? 8 : name === 'house' ? 0 : 6;
@@ -326,7 +332,7 @@ cv.addEventListener('pointerdown', e => {
 });
 cv.addEventListener('pointermove', e => {
   if (!ptrs.has(e.pointerId)) return; ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  if (pinch && ptrs.size >= 2) { setZoom(pinch.uz0 * pdist() / pinch.d0); return; }
+  if (pinch && ptrs.size >= 2) { const [a, b] = [...ptrs.values()]; setZoom(pinch.uz0 * pdist() / pinch.d0, (a.x + b.x) / 2, (a.y + b.y) / 2, true); return; }
   if (down && ptrs.size === 1) {
     const dx = e.clientX - down.x, dy = e.clientY - down.y;
     if (!down.moved && Math.hypot(dx, dy) > 12) down.moved = true;
@@ -339,10 +345,15 @@ const pend = e => {
   if (ptrs.size === 0 && down) { const d = down; down = null; if (!d.moved && S && e.type === 'pointerup') tapScreen(e.clientX / zoom + cam.x, e.clientY / zoom + cam.y); }
 };
 cv.addEventListener('pointerup', pend); cv.addEventListener('pointercancel', pend);
-cv.addEventListener('wheel', e => { e.preventDefault(); setZoom(uz * (e.deltaY < 0 ? 1.12 : 1 / 1.12)); }, { passive: false });
+cv.addEventListener('wheel', e => { e.preventDefault(); setZoom(uzT * (e.deltaY < 0 ? 1.15 : 1 / 1.15), e.clientX, e.clientY); }, { passive: false });
 let camFree = false;
-function setZoom(z) { uz = Math.max(.6, Math.min(2.6, z)); resize(); try { localStorage.setItem('dv3_zoom', uz); } catch (_) {} }
-try { const z = parseFloat(localStorage.getItem('dv3_zoom')); if (z > 0) uz = z; } catch (_) {}
+function setZoom(z, fx, fy, now) {
+  uzT = Math.max(Math.max(.6, zoomMin / zoomBase), Math.min(2.6, z)); zFocus = fx != null ? [fx, fy] : [innerWidth / 2, innerHeight / 2];
+  if (now) { uz = uzT; applyZoom(...zFocus); }
+  try { localStorage.setItem('dv3_zoom', uzT); } catch (_) {}
+}
+function zoomStep(dt) { if (Math.abs(uz - uzT) < .0005) return; uz += (uzT - uz) * Math.min(1, dt * 14); if (Math.abs(uz - uzT) < .0005) uz = uzT; applyZoom(...(zFocus || [innerWidth / 2, innerHeight / 2])); }
+try { const z = parseFloat(localStorage.getItem('dv3_zoom')); if (z > 0) uz = uzT = z; } catch (_) {}
 DV.setZoom = setZoom; DV.recenter = () => { camOff.x = camOff.y = 0; camFree = false; };
 DV.uiBlocked = () => busy || DV.uiOpen() || dayOver || fadeA > 0;
 const sprRect = o => WORLD.atlas.rects[o.s];
@@ -380,7 +391,23 @@ function hitSprite(wx, wy) {
 DV.build = null;   // { sel: object } while the farm build mode is on
 const MOVABLE = o => o && !o.place && o.tap !== 'house' ? true : o && (o.id === 'house');
 function buildTap(cx, cy, h) {
-  const B = DV.build;
+  const B = DV.build, M = DV.M, key = cx + ',' + cy;
+  if (B.tool === 'dig' || B.tool === 'fill') {
+    if (cx < 1 || cy < 1 || cx >= M.W - 1 || cy >= M.H - 1) return;
+    if (B.tool === 'dig') {
+      if (S.cells[key]) return DV.toast('ตรงนี้เป็นแปลงอยู่แล้ว');
+      if (blocked[cy][cx] || (M.exits || []).some(e => e.cells.some(c => c[0] === cx && c[1] === cy)) || (cx === player.cx && cy === player.cy) || DV.npcsHere.some(n => n.cx === cx && n.cy === cy) || droppedAt(cx, cy))
+        return DV.toast('ขุดตรงนั้นไม่ได้');
+      if (S.energy < 3) return DV.toast('แรงไม่พอ');
+      S.cells[key] = { soil: true, wet: false, crop: null, debris: null }; DV.addEnergy(-3); burst(cx, cy, 'dirt'); DV.sfx('hoe'); DV.toast('ขุดแปลงใหม่แล้ว · แรง −3');
+    } else {
+      const c = S.cells[key]; if (!c) return DV.toast('แตะดินในแปลงที่จะกลบ');
+      if (c.crop && !B.confirm) { B.confirm = key; return DV.toast('มีผักอยู่ แตะอีกครั้งเพื่อกลบทิ้ง'); }
+      if (S.energy < 2) return DV.toast('แรงไม่พอ');
+      delete S.cells[key]; B.confirm = null; DV.addEnergy(-2); burst(cx, cy, 'grass'); DV.sfx('fill'); DV.toast('กลบดินเป็นพื้นแล้ว · แรง −2');
+    }
+    dirtySoil = true; DV.hud(); DV.save(); DV.checkFaint(); return;
+  }
   const o = h && h.obj;
   if (!B.sel) {
     if (!o || !o.block.length) return DV.toast('แตะสิ่งของบนฟาร์มที่อยากย้าย (ต้นไม้ รั้ว บ้าน ม้านั่ง ฯลฯ)');
@@ -389,7 +416,7 @@ function buildTap(cx, cy, h) {
   if (o === B.sel) { B.sel = null; DV.buildBar(); return; }
   const sel = B.sel, a0 = sel.block[0], dx = cx - a0[0], dy = cy - a0[1];
   if (!dx && !dy) return;
-  const cells = sel.block.map(([a, b]) => [a + dx, b + dy]), M = DV.M, mine = new Set(sel.block.map(c => c.join()));
+  const cells = sel.block.map(([a, b]) => [a + dx, b + dy]), mine = new Set(sel.block.map(c => c.join()));
   const bad = cells.find(([a, b]) => a < 1 || b < 1 || a >= M.W - 1 || b >= M.H - 1 || (blocked[b][a] && !mine.has(a + ',' + b)) || inPlot(a, b) || (a === player.cx && b === player.cy)
     || (M.exits || []).some(e => e.cells.some(c => c[0] === a && c[1] === b)) || DV.npcsHere.some(n => n.cx === a && n.cy === b));
   if (bad) { DV.sfx('dirt'); return DV.toast('วางตรงนั้นไม่ได้ ชนของอื่นหรือทางเดิน'); }
@@ -495,8 +522,9 @@ function drawSoil() {
   if (!soilCv) { soilCv = document.createElement('canvas'); soilCv.width = M.W * T; soilCv.height = M.H * T; sctx = soilCv.getContext('2d'); }
   sctx.clearRect(0, 0, soilCv.width, soilCv.height);
   const CELLS = (DV.visitCells && DV.visitCells()) || S.cells;
-  const [PX, PY, PWc, PHc] = M.plot;
   const s = (x, y) => { const c = CELLS[x + ',' + y]; return c && c.soil ? 1 : 0; };
+  const ks = Object.keys(CELLS).map(k => k.split(',').map(Number)); if (!ks.length) { dirtySoil = false; return; }
+  const PX = Math.min(...ks.map(k => k[0])), PY = Math.min(...ks.map(k => k[1])), PWc = Math.max(...ks.map(k => k[0])) - PX + 1, PHc = Math.max(...ks.map(k => k[1])) - PY + 1;
   for (let j = PY; j <= PY + PHc; j++) for (let i = PX; i <= PX + PWc; i++) {
     const idx = s(i - 1, j - 1) * 8 + s(i, j - 1) * 4 + s(i - 1, j) * 2 + s(i, j);
     if (idx) sctx.drawImage(IMG.soil, idx * 32, 0, 32, 32, i * T - 16, j * T - 16, 32, 32);
@@ -564,11 +592,11 @@ function render(dt) {
   if (DV.build) { ctx.strokeStyle = 'rgba(255,240,170,.35)'; ctx.lineWidth = 1;
     for (let y = 1; y < M.H - 1; y++) for (let x = 1; x < M.W - 1; x++) if (!blocked[y][x] && !inPlot(x, y)) { const c = [[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1]].map(([a, b]) => P(a * T, b * T)); ctx.beginPath(); ctx.moveTo(...c[0]); c.slice(1).forEach(q => ctx.lineTo(...q)); ctx.closePath(); ctx.stroke(); }
     const sel = DV.build.sel; if (sel) { ctx.fillStyle = `rgba(255,220,90,${.25 + .15 * Math.sin(now / 150)})`; sel.block.forEach(([x, y]) => { const c = [[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1]].map(([a, b]) => P(a * T, b * T)); ctx.beginPath(); ctx.moveTo(...c[0]); c.slice(1).forEach(q => ctx.lineTo(...q)); ctx.closePath(); ctx.fill(); }); } }
-  if (S.map === 'house' && IMG.gecko) {   // ไอ้จุก, the house gecko, creeps about on the left wall
-    const g = DV.gecko || (DV.gecko = { x: 92, y: 96, tx: 92, ty: 96, t: 0 });
-    g.t -= dt; if (g.t <= 0) { g.t = 3 + Math.random() * 6; const spots = [[92, 96], [70, 120], [118, 84], [60, 150], [104, 132]]; [g.tx, g.ty] = spots[Math.floor(Math.random() * spots.length)]; }
-    g.x += Math.sign(g.tx - g.x) * Math.min(Math.abs(g.tx - g.x), dt * 14); g.y += Math.sign(g.ty - g.y) * Math.min(Math.abs(g.ty - g.y), dt * 9);
-    ctx.drawImage(IMG.gecko, Math.round(g.x - 13), Math.round(g.y - 13), 26, 26);
+  if (S.map === 'house' && IMG.gecko) {   // ไอ้จุก, the house gecko: sits still, somewhere new each day
+    const spots = [[92, 96], [70, 122], [118, 84], [252, 74], [300, 98], [210, 70], [150, 60], [330, 128], [56, 150]];
+    const [gx, gy] = spots[(S.day * 7 + 3) % spots.length];
+    DV.gecko = { x: gx, y: gy };
+    ctx.drawImage(IMG.gecko, gx - 13, gy - 13, 26, 26);
   }
   // hidden spots sparkle (forage Lv1+)
   const lv = DV.forageLevel(), st = S.spots[S.map];
@@ -713,7 +741,7 @@ function tick(dt) {
 let last = performance.now();
 function loop(t) {
   const dt = Math.min(.05, (t - last) / 1000); last = t; now = t;
-  if (S && DV.M) { tick(dt); moveEnt(player, dt, 84, true); npcIdle(dt); render(dt); }
+  if (S && DV.M) { zoomStep(dt); tick(dt); moveEnt(player, dt, 84, true); npcIdle(dt); render(dt); }
   requestAnimationFrame(loop);
 }
 DV.startLoop = () => requestAnimationFrame(loop);

@@ -310,8 +310,9 @@ class World:
         col = col * (0.95 + 0.1 * np.random.RandomState(self.seed + 3).rand(*x.shape))[..., None]   # grain, like the land texture
         col = np.where(dike[..., None], np.array([118, 140, 66.]), col)
         near = dist < 56                                                # keep a grass verge right next to the land
-        paddy = outside & ~near & ~ext
-        src = np.where(paddy[..., None], col, src)
+        # (paddies switched off: the edge now continues the same grass and earth as the map, just not walkable)
+        dirt = outside & ~ext & (noise(SH, SW, 14, self.seed + 41) > 1.9)
+        src = np.where(dirt[..., None], src * .55 + np.array([150, 112, 70.]) * .45, src)   # a few worn earth patches, softly blended
         out[..., :3] = np.clip(src * dim, 0, 255).astype(np.uint8); out[..., 3] = 255
         self._iso_outside = (outside, x, y, dist, ext, near)
         # map edge: darken last few px so the diamond reads as a raised island of land
@@ -365,14 +366,14 @@ class World:
         SH, SW = outside.shape
         trees = [L(f) for f in sorted(glob.glob(f'{ART_B}/trees/tree_*.png')) if 'fruit' not in f and 'demo' not in f]
         extra = [L(f) for f in [f'{PL}/props_all/06_forest_a/05.png', f'{PL}/props_all/06_forest_a/06.png'] if os.path.exists(f)]
+        pdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'assets_src', 'plants')
+        extra += [L(f) for f in sorted(glob.glob(pdir + '/*.png'))] * 2
         pool = trees + extra
         r = np.random.RandomState(self.seed + 77); pts = []
         for _ in range(5000):
             u, v = r.randint(0, SW), r.randint(0, SH)
             if not outside[v, u] or ext[v, u] or near[v, u]: continue
-            lx, ly = x[v, u] % 224, y[v, u] % 160
-            on_dike = lx < 14 or ly < 14
-            if r.rand() > (.55 if on_dike else .04): continue
+            if r.rand() > .22: continue
             if any((u - a) ** 2 + ((v - b) * 2) ** 2 < 46 ** 2 for a, b in pts): continue
             pts.append((u, v))
             if len(pts) > 70: break

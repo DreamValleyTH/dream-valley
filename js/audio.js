@@ -19,16 +19,39 @@ function ac() {
   return AC;
 }
 DV.audioCtx = ac;
-// ---- sfx (replaces the old beeper; same names) ----
+// ---- sfx: tones for UI, layered filtered noise for real actions (dig, chop, water, cut, plant, pick up) ----
+function nz(t, dur, type, freq, q, vol, attack = .005) {
+  const src = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
+  src.buffer = noiseBuf; f.type = type; f.frequency.value = freq; f.Q.value = q;
+  g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(vol * V.sfx, t + attack); g.gain.exponentialRampToValueAtTime(.0003, t + dur);
+  src.connect(f); f.connect(g); g.connect(sfxBus); src.start(t, Math.random() * .2); src.stop(t + dur + .05);
+}
+function tone(t, f0, f1, dur, type, vol) {
+  const o = AC.createOscillator(), g = AC.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t); if (f1) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(vol * V.sfx, t + .006); g.gain.exponentialRampToValueAtTime(.0003, t + dur);
+  o.connect(g); g.connect(sfxBus); o.start(t); o.stop(t + dur + .05);
+}
+const ACTION = {
+  hoe: t => { tone(t, 140, 60, .12, 'sine', .25); nz(t + .01, .22, 'lowpass', 900, .7, .22); nz(t + .06, .25, 'bandpass', 2200, .8, .05); },   // blade into soil + crumbling earth
+  dirt: t => { tone(t, 120, 55, .1, 'sine', .2); nz(t, .2, 'lowpass', 800, .7, .2); },
+  fill: t => { nz(t, .35, 'lowpass', 600, .5, .16, .05); nz(t + .12, .25, 'lowpass', 900, .6, .1, .04); },                               // pushing soil back
+  water: t => { nz(t, .55, 'bandpass', 1800, 1.4, .1, .06); nz(t + .05, .5, 'bandpass', 3200, 2, .05, .08); tone(t + .1, 900, 600, .12, 'sine', .03); },  // pouring + drips
+  wood: t => { tone(t, 220, 90, .08, 'triangle', .3); nz(t, .09, 'bandpass', 1400, 3, .3); nz(t + .02, .3, 'lowpass', 500, .8, .08); },    // axe knock + crack
+  grass: t => { nz(t, .18, 'highpass', 2600, .6, .14, .02); nz(t + .09, .16, 'highpass', 3400, .6, .1, .02); },                            // sickle swish
+  leaf: t => { nz(t, .3, 'bandpass', 3000, .8, .08, .03); nz(t + .12, .3, 'bandpass', 2400, .8, .06, .03); },
+  seed: t => { [0, .07, .14].forEach((d, i) => { nz(t + d, .05, 'bandpass', 3500 + i * 300, 4, .08); tone(t + d, 900 + i * 120, 0, .04, 'sine', .04); }); },
+  spark: t => { tone(t, 1320, 0, .09, 'triangle', .07); tone(t + .07, 1760, 0, .14, 'triangle', .06); nz(t, .12, 'highpass', 6000, .5, .03); },   // pick-up chime
+  coin: t => { tone(t, 1568, 0, .07, 'square', .04); tone(t + .06, 2093, 0, .16, 'square', .04); },
+};
 DV.sfx = kind => {
   if (DV.muted || !V.sfx || !ac()) return;
-  const seq = { tick: [[660, .05]], dirt: [[180, .07], [140, .07]], water: [[900, .06], [1200, .05], [1000, .05]], grass: [[300, .05], [380, .05]],
-    seed: [[520, .05], [700, .06]], spark: [[880, .06], [1320, .1]], coin: [[1046, .06], [1568, .12]], card: [[392, .08], [523, .1]],
-    talk: [[600, .04], [500, .04]], heart: [[700, .06], [900, .08]], zzz: [[220, .2]], wood: [[150, .06], [120, .08], [150, .06]],
-    leaf: [[500, .04], [620, .04], [540, .05]], line: [[988, .05], [1319, .08]], ghost: [[180, .3], [150, .4]] }[kind] || [[600, .05]];
-  let t = AC.currentTime;
-  seq.forEach(([f, d]) => { const o = AC.createOscillator(), g = AC.createGain(); o.type = kind === 'dirt' || kind === 'wood' || kind === 'ghost' ? 'triangle' : 'square'; o.frequency.value = f;
-    g.gain.setValueAtTime(.04 * V.sfx, t); g.gain.exponentialRampToValueAtTime(.0005, t + d); o.connect(g); g.connect(sfxBus); o.start(t); o.stop(t + d); t += d * .9; });
+  const t = AC.currentTime;
+  if (ACTION[kind]) return ACTION[kind](t);
+  const seq = { tick: [[660, .05]], card: [[392, .08], [523, .1]], talk: [[600, .04], [500, .04]], heart: [[700, .06], [900, .08]], zzz: [[220, .2]],
+    line: [[988, .05], [1319, .08]], ghost: [[180, .3], [150, .4]] }[kind] || [[600, .05]];
+  let tt = t;
+  seq.forEach(([f, d]) => { const o = AC.createOscillator(), g = AC.createGain(); o.type = kind === 'ghost' ? 'triangle' : 'square'; o.frequency.value = f;
+    g.gain.setValueAtTime(.04 * V.sfx, tt); g.gain.exponentialRampToValueAtTime(.0005, tt + d); o.connect(g); g.connect(sfxBus); o.start(tt); o.stop(tt + d); tt += d * .9; });
 };
 // ---- footsteps: grass = soft swish, dirt/laterite = crunchy, hard road/floor = tap ----
 let stepAlt = 0;

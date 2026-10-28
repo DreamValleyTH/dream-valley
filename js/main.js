@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const DV = window.DV, $ = DV.$;
-DV.begin = (state, fresh) => {
+DV.begin = (state, fresh, storyDelay) => {
   setTimeout(() => DV.netConnect && DV.netConnect(), 1500);
   // migrate older saves
   state.items = state.items || {}; state.line = state.line || { read: 0, liked: {}, posted: {}, dmRead: {}, dmAns: {}, bcSeen: {} };
@@ -11,7 +11,7 @@ DV.begin = (state, fresh) => {
   DV.enterMap(state.map || 'farm', [state.px, state.py], true);
   $('title').classList.add('hidden'); $('hud').classList.remove('hidden'); $('bar').classList.remove('hidden');
   DV.hud(); DV.save(true);
-  DV.startStory(fresh);
+  setTimeout(() => DV.startStory(fresh), storyDelay || 0);
 };
 const baseFlag = () => {};
 const prevOnFlag = DV.onFlag;
@@ -23,13 +23,8 @@ DV.resize();
 
 $('loadBar').style.width = '5%';
 DV.loadAssets(p => { $('loadBar').style.width = Math.round(p * 100) + '%'; }).then(() => {
-  $('loading').classList.add('hidden'); $('loginBox').classList.remove('hidden');
-  DV.initLogin(); DV.startLoop();
+  DV.startLoop(); DV.introReady();
   DV.cloudReady().then(ok => { $('cloudNote').textContent = ok ? 'เซฟผูกกับบัญชีนี้ — เปิดจากเครื่องไหนก็เล่นต่อได้ด้วยชื่อ + รหัสเดิม' : 'เซฟเก็บในเครื่องนี้ (ใช้ชื่อ + รหัสเดิมเพื่อเล่นต่อ)'; });
 });
 window.__dv = DV;
 })();
-(() => { const b = document.getElementById('clBtn'), L = window.DV_CHANGELOG || []; if (!b) return;
-  document.getElementById('clVer').textContent = L.length ? 'v' + L[0].v : '';
-  if (DV.clUnseen()) b.insertAdjacentHTML('beforeend', '<i class="cl-dot"></i>');
-  b.onclick = () => DV.openChangelog(); })();

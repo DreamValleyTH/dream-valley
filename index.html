@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600&family=Pixelify+Sans:wght@700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="ui_icons.css">
 </head>
@@ -29,7 +29,6 @@
 <div id="toast"></div>
 
 <nav id="bar" class="hidden">
-  <button id="mapBtn"><span class="uic uic-map em"></span><span id="mapLabel">แผนที่</span></button>
   <button id="bagBtn"><span class="uic uic-bag em"></span>กระเป๋า</button>
   <button id="questBtn"><span class="uic uic-quest em"></span>งาน</button>
   <button id="phoneBtn"><span class="uic uic-phone em"></span>มือถือ</button>
@@ -79,31 +78,32 @@
 <div id="panel" class="hidden"></div>
 
 <div id="title">
-  <div class="title-box">
-    <div class="logo">Dream Valley</div>
-    <div class="logo-th">บ้านดงเย็น · กลับบ้านยาย</div>
-    <button id="clBtn" class="cl-btn" type="button"><span class="uic uic-star"></span> อัปเดต <span id="clVer"></span></button>
-    <div id="loading"><div class="bar"><div id="loadBar"></div></div><small>กำลังโหลดภาพ…</small></div>
-    <div id="loginBox" class="hidden">
-      <div class="tabs"><button id="tabNew" class="sel">เริ่มใหม่</button><button id="tabCont">เล่นต่อ</button></div>
-      <label class="name-lbl">ชื่อเล่น <input id="pname" maxlength="12" placeholder="เช่น ต้น"></label>
-      <label class="name-lbl">รหัส 6 ตัว <input id="pcode" maxlength="6" placeholder="ABC123" autocomplete="off" autocapitalize="characters"><button id="genCode" type="button" title="สุ่มรหัส">สุ่ม</button></label>
-      <div class="hint">ใช้ <b>ชื่อ + รหัส</b> คู่กันเพื่อเข้าเล่นต่อครั้งหน้า</div>
-      <div id="newOnly">
-        <div class="pick">
-          <button class="who sel" data-g="m"><div class="who-img" style="background-image:url(assets/portraits/player_m.png)"></div>ชาย</button>
-          <button class="who" data-g="f"><div class="who-img" style="background-image:url(assets/portraits/player_f.png)"></div>หญิง</button>
-        </div>
-        <div class="dl-lbl">ความยาว 1 วันในเกม (เวลาจริง)</div>
-        <div class="dls"><button class="dl" data-m="5">5 นาที</button><button class="dl sel" data-m="10">10 นาที</button><button class="dl" data-m="15">15 นาที</button></div>
-      </div>
-      <div id="loginErr"></div>
-      <button class="btn primary" id="startBtn">เริ่มเกมใหม่</button>
-      <div class="help" id="cloudNote"></div>
-      <div class="help">แตะพื้นเพื่อเดิน · แตะคน ร้าน ต้นไม้ แปลงผัก เพื่อเลือกทำ · มือถือ: กลุ่ม LINE หมู่บ้าน · ถ่างนิ้วซูม ลากนิ้วเดียวดูรอบ ๆ</div>
-    </div>
+  <canvas id="tiCv"></canvas>
+  <div id="tiDim"></div>
+  <div class="ti-ui" id="tiLogo"><div id="tiName">DREAM<small>VALLEY</small></div><div id="tiSub">ชุมชนคนช่างฝัน</div></div>
+  <div class="ti-ui" id="tiMenu">
+    <button class="primary" data-a="new">เริ่มเกมใหม่</button><button data-a="cont">เล่นต่อ</button><button data-a="upd">อัปเดต<i class="cl-dot hidden" id="clDot"></i></button>
+    <div id="tiWho"></div>
   </div>
+  <div id="loading"><div class="bar"><div id="loadBar"></div></div><small>กำลังโหลด…</small></div>
+  <div class="ti-panel" id="tiCreate">
+    <h2 id="tiPanelH">สร้างตัวละคร</h2>
+    <div id="newOnly">
+      <div class="ti-who"><button class="ti-arrow" data-g="-1">‹</button><canvas id="tiPv" width="64" height="64"></canvas><button class="ti-arrow" data-g="1">›</button></div>
+      <div class="ti-gname" id="tiGname">ผู้ชาย</div>
+    </div>
+    <div class="ti-row"><label>ชื่อเล่น</label><input id="pname" maxlength="12" placeholder="เช่น ต้น"></div>
+    <div class="ti-row"><label>รหัส 6 ตัว</label><input id="pcode" maxlength="6" placeholder="ABC123" autocomplete="off" autocapitalize="characters"><button class="ti-small" id="genCode" type="button">สุ่ม</button></div>
+    <div class="ti-row" id="dlRow"><label>1 วันในเกม</label><div class="ti-days"><button data-m="5">5 นาที</button><button class="on" data-m="10">10 นาที</button><button data-m="15">15 นาที</button></div></div>
+    <div class="ti-hint">จด <b>ชื่อ + รหัส</b> ไว้ ใช้เข้าเล่นต่อครั้งหน้า</div>
+    <div id="loginErr"></div>
+    <div class="ti-btns"><button class="back" id="tiBack">กลับ</button><button class="go" id="startBtn">ไปบ้านยาย</button></div>
+    <div class="ti-hint" id="cloudNote"></div>
+  </div>
+  <div id="tiScroll"><div class="roll"></div><div class="paper" id="tiPaper"></div><div class="roll"></div></div>
+  <div id="tiVer"></div><div id="tiSkip">แตะเพื่อข้าม</div>
 </div>
+<canvas id="tiCurtain"></canvas>
 
 <script src="data/world.js"></script>
 <script src="data/meta.js"></script>
@@ -121,6 +121,7 @@
 <script src="js/net.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/audio.js"></script>
+<script src="js/intro.js"></script>
 <script src="js/main.js"></script>
 <script>if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude\.ai|claudeusercontent/.test(location.host)) navigator.serviceWorker.register('sw.js').catch(() => {});</script>
 </body>

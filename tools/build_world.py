@@ -13,6 +13,28 @@ def prop(d, i): return f'{P}/{d}/{i:02d}.png'
 def bld(d, i): return f'{B}/{d}/{i:02d}.png'
 def px(tx): return int(tx * T)
 
+
+# ---- tall plants that take two tiles (PixelLab iso set): อ้อย มะพร้าว ตาล จามจุรี ไผ่ กล้วย มะละกอ มะขามใหญ่ ----
+PLANTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'assets_src', 'plants')
+TALL = {'sugarcane': 'plants0_0', 'coconut': 'plants0_1', 'sugarpalm': 'plants0_2', 'raintree': 'plants0_3', 'bamboo': 'plants1_0', 'banana': 'plants1_1', 'papaya': 'plants1_2', 'tamarind_big': 'plants1_3'}
+def tall_img(k):
+    im = Image.open(os.path.join(PLANTS, TALL[k] + '.png')).convert('RGBA'); return im.crop(im.getbbox())
+def plant_tall(w, kinds, n, area, seed, avoid=()):
+    """drop n two-tile plants on free grass inside area=(x0,y0,x1,y1) (cells)"""
+    r = np.random.RandomState(seed); placed = 0
+    for _ in range(600):
+        if placed >= n: break
+        x = r.randint(area[0], area[2]); y = r.randint(area[1], area[3])
+        cells = [(x, y), (x + 1, y)]
+        if any(not (1 <= a < w.W - 1 and 1 <= b < w.H - 1) for a, b in cells): continue
+        if any(w.blocked[b, a] or w.walk_bonus[b, a] or w.water[b, a] for a, b in cells): continue
+        if any(abs(a - ax) + abs(b - ay) < 2 for a, b in cells for ax, ay in avoid): continue
+        k = kinds[r.randint(len(kinds))]
+        o = w.place(tall_img(k), px(x + 1.0), px(y + .95), block=cells, oid=f'tall_{k}_{x}_{y}', shadow='tree', flip=r.rand() < .5)
+        o['label'] = {'sugarcane': 'กออ้อย', 'coconut': 'ต้นมะพร้าว', 'sugarpalm': 'ต้นตาล', 'raintree': 'ต้นจามจุรี', 'bamboo': 'กอไผ่', 'banana': 'กอกล้วย', 'papaya': 'ต้นมะละกอ', 'tamarind_big': 'ต้นมะขามใหญ่'}[k]
+        placed += 1
+    return placed
+
 atlas = Atlas('sprites')
 maps = {}
 
@@ -33,7 +55,7 @@ def build_farm():
     # vegetable plot bed (game draws tilled soil on top)
     PX, PY, PWc, PHc = 11, 13, 8, 5
     w.plot = [PX, PY, PWc, PHc]
-    w.add_surface('plotbed', w.rect(PX - .25, PY - .25, PX + PWc + .25, PY + PHc + .25, .4), walk=False)
+    # (no baked bed any more: beds are drawn live from the soil layer so they can be dug / filled anywhere)
 
     # --- house + yard life ---
     house = w.place(bld('08_houses_a', 0), px(5.6), px(7.0), block=[(c, r) for c in range(3, 9) for r in (4, 5, 6)], tap='house', oid='house', shadow='building', label='บ้านยาย')
@@ -106,6 +128,12 @@ def build_farm():
         if o['id'].startswith(('br',)): o['tap'] = 'branch'
         if o['id'].startswith(('stump',)): o['tap'] = 'stump'
         if o['id'].startswith(('rock',)): o['tap'] = 'boulder'
+    # tall plants: sugarcane by the lane, coconuts and banana near the pond, papaya by the yard
+    pl = [(7, 8), (13, 10), (22, 22)]
+    plant_tall(w, ['sugarcane'], 3, (18, 16, 29, 22), 11, pl)
+    plant_tall(w, ['coconut', 'banana'], 3, (21, 2, 30, 10), 12, pl)
+    plant_tall(w, ['papaya', 'banana'], 2, (1, 12, 9, 20), 13, pl)
+    plant_tall(w, ['bamboo', 'sugarpalm'], 2, (1, 1, 9, 4), 14, pl)
     # places / spawns / exits
     w.add_place('home', 'บ้านยาย', (7, 8), kind='home')
     w.add_place('farm_visit', 'หน้าบ้านยาย', (13, 10), spots=[(13, 10), (14, 10), (12, 11)])
@@ -290,6 +318,11 @@ def build_town():
     w.place(prop('06_forest_a', 6), px(55.3), px(31.2), block=[(55, 30)], oid='ban_e1')
     for i, (x, y) in enumerate([(21.4, 29.0), (26.8, 29.0), (32.2, 28.8), (11.0, 29.0)]):
         w.place(prop('06_forest_b', 6 if i % 2 else 7), px(x), px(y), block=[], oid=f'bush{i}', shadow='prop')
+    avoid = [tuple(pl['door']) for pl in w.places.values()] + [tuple(c) for pl in w.places.values() for c in pl['spots']]
+    plant_tall(w, ['sugarpalm', 'coconut'], 5, (1, 23, 20, 38), 21, avoid)      # houses side
+    plant_tall(w, ['raintree'], 2, (8, 2, 50, 10), 22, avoid)                     # behind the second row
+    plant_tall(w, ['sugarcane', 'banana', 'bamboo'], 5, (36, 24, 54, 38), 23, avoid)
+    plant_tall(w, ['coconut', 'sugarpalm'], 3, (1, 1, 12, 18), 24, avoid)
     w.spawns = {'from_farm': [1, RY], 'bus': [28, RY + 3], 'center': [24, RY + 2]}
     w.exits = [dict(cells=[[0, RY], [0, RY + 1]], to='farm', spawn='from_town', label='กลับฟาร์มยาย')]
     return w

@@ -60,7 +60,6 @@ DV.hud = () => {
   $('questBtn').classList.toggle('badge', ql.act.some(a => a.ready));
   const un = DV.lineUnread ? DV.lineUnread() : 0;
   $('phoneBtn').dataset.n = un > 99 ? '99+' : un || ''; $('phoneBtn').classList.toggle('badge', un > 0);
-  $('mapLabel').textContent = 'แผนที่';
 };
 let toastT = 0;
 // emoji in messages → pixel icons from the PixelLab UI set
@@ -160,8 +159,11 @@ const PLACES = [
   { id: 'company', name: 'ที่ดินบริษัท', sub: 'ล้อมรั้ว ถังน้ำสีฟ้าเรียงเป็นแถว…', x: 88, y: 86 },
   { id: 'district', name: 'อำเภอ', sub: 'ถนนออกไปทางนี้ · รถเมล์ (เปิดเร็ว ๆ นี้)', x: 93, y: 6 },
 ];
-DV.openMap = () => {
-  DV.closeSheet(); DV.standUp();
+DV.openMap = () => DV.openPhone('map');
+DV.renderMapApp = (scr, top) => {
+  scr.innerHTML = top + `<div class="ph-map"><div class="ln-head map-h"><button class="back">‹</button><b><span class="uic uic-map"></span> แผนที่ตำบลบ้านดงเย็น</b><span></span></div><div id="mapBox"></div><div id="mapInfo"></div></div>`;
+  drawMap(); };
+function drawMap() {
   const box = $('mapBox'), by = id => PLACES.find(p => p.id === id), cur = S().map === 'house' ? 'farm' : S().map;
   box.innerHTML = '<div class="aerial"></div>' + PLACES.map(p => `<button class="pin${p.map === cur && (p.id === 'farm' || p.id === 'town') ? ' here' : ''}${p.map ? '' : ' locked'}" data-id="${p.id}" style="left:${p.x}%;top:${p.y}%"><i></i><span>${p.name}</span></button>`).join('');
   box.querySelectorAll('.pin').forEach(b => b.onclick = () => info(by(b.dataset.id)));
@@ -170,11 +172,10 @@ DV.openMap = () => {
     const here = p.map === cur, e = DV.TRAVEL_E[cur + '>' + p.map] || 6;
     $('mapInfo').innerHTML = `<b>${p.name}</b>${p.sub ? `<div class="sub">${p.sub}</div>` : ''}<div class="sub">${here ? 'คุณอยู่แถวนี้' : p.map ? `เดินทางใช้แรง ${e} (ไม่เสียเวลา)` : ''}</div>` +
       (p.map && !here ? `<button class="btn primary" id="goBtn"><span class="uic uic-energy"></span> ออกเดินทาง</button>` : (!p.map ? '<button class="btn" disabled>ยังไปไม่ได้</button>' : ''));
-    const g = $('goBtn'); if (g) g.onclick = () => { $('map').classList.add('hidden'); DV.travel(p.map, p.map === 'town' ? 'from_farm' : 'from_town'); };
+    const g = $('goBtn'); if (g) g.onclick = () => { $('phone').classList.add('hidden'); DV.travel(p.map, p.map === 'town' ? 'from_farm' : 'from_town'); };
   };
   info(PLACES.find(p => p.map === cur));
-  $('map').classList.remove('hidden'); DV.sfx('card');
-};
+}
 $('mapClose').onclick = () => $('map').classList.add('hidden');
 
 // ---------- phone ----------
@@ -187,7 +188,7 @@ function renderPhone() {
   const top = `<div class="ph-top"><span>${DV.fmt(s.min)}</span><span><span class="uic uic-phone" style="--s:14px"></span></span></div>`;
   if (phoneTab === 'home') {
     const un = DV.lineUnread();
-    const apps = [['line', 'LINE', 'chat', un], ['call', 'โทรศัพท์', 'phone', DV.callBadge ? DV.callBadge() : 0], ['bc', 'หอกระจายข่าว', 'broadcast'], ['diary', 'สมุดยาย', 'diary'], ['quests', 'งาน', 'quest'], ['contacts', 'รายชื่อ', 'contacts'],
+    const apps = [['map', 'แผนที่', 'map'], ['line', 'LINE', 'chat', un], ['call', 'โทรศัพท์', 'phone', DV.callBadge ? DV.callBadge() : 0], ['bc', 'หอกระจายข่าว', 'broadcast'], ['diary', 'สมุดยาย', 'diary'], ['quests', 'งาน', 'quest'], ['contacts', 'รายชื่อ', 'contacts'],
       ['bank', 'ธนาคาร', 'bank', 0, true], ['cam', 'กล้อง', 'camera', 0, true], ['shop', 'ขายออนไลน์', 'shop', 0, true], ['set', 'ตั้งค่า', 'settings']];
     scr.innerHTML = top + `<div class="ph-wall"><div class="ph-date">วันที่ ${s.day}<br><small>${s.name} · รหัส ${s.code}</small></div><div class="ph-grid">` +
       apps.map(([id, n, e, b, soon]) => `<button class="app${soon ? ' soon' : ''}" data-a="${id}"><span class="ae"><span class="uic uic-${e}" style="--s:36px"></span>${b ? `<i>${b}</i>` : ''}</span>${n}${soon ? '<small>เร็ว ๆ นี้</small>' : ''}</button>`).join('') + '</div></div>';
@@ -198,6 +199,8 @@ function renderPhone() {
       phoneTab = a; renderPhone(); });
   } else if (phoneTab === 'line' || phoneTab.startsWith('chat:')) {
     DV.renderLine(scr, top, phoneTab, t => { phoneTab = t; renderPhone(); });
+  } else if (phoneTab === 'map') {
+    DV.renderMapApp(scr, top);
   } else if (phoneTab.startsWith('call')) {
     DV.renderCall(scr, top, phoneTab, t => { phoneTab = t; renderPhone(); });
   } else if (phoneTab === 'bc') {
@@ -233,13 +236,16 @@ DV.openChangelog = () => {
   document.querySelectorAll('.cl-dot').forEach(d => d.remove());
 };
 // ---------- build mode (farm only) ----------
-DV.startBuild = () => { if (S().map !== 'farm') return DV.toast('จัดของได้เฉพาะในฟาร์มยาย'); DV.closeAll(); DV.build = { sel: null }; DV.buildBar(); };
+DV.startBuild = () => { if (S().map !== 'farm') return DV.toast('จัดของได้เฉพาะในฟาร์มยาย'); DV.closeAll(); DV.build = { sel: null, tool: 'move' }; DV.buildBar(); };
 DV.endBuild = () => { DV.build = null; const b = $('buildBar'); if (b) b.remove(); };
 DV.buildBar = () => {
   let b = $('buildBar'); if (!b) { b = document.createElement('div'); b.id = 'buildBar'; document.body.appendChild(b); }
-  const sel = DV.build && DV.build.sel;
-  b.innerHTML = `<span class="uic uic-settings"></span><div>${sel ? `ย้าย <b>${sel.label || 'ของชิ้นนี้'}</b> — แตะช่องปลายทาง (แรง −${Math.min(30, 2 + sel.block.length)})` : 'โหมดจัดฟาร์ม: แตะของที่จะย้าย'}</div><button class="btn">เสร็จ</button>`;
-  b.querySelector('button').onclick = DV.endBuild;
+  const B = DV.build, sel = B && B.sel, t = B.tool;
+  const hint = t === 'dig' ? 'แตะพื้นที่จะขุดเป็นแปลงผัก (แรง −3)' : t === 'fill' ? 'แตะดินในแปลงที่จะกลบเป็นพื้น (แรง −2)'
+    : sel ? `ย้าย <b>${sel.label || 'ของชิ้นนี้'}</b> — แตะช่องปลายทาง (แรง −${Math.min(30, 2 + sel.block.length)})` : 'แตะของที่จะย้าย';
+  b.innerHTML = `<div class="bb-tools">${[['move', 'ย้ายของ'], ['dig', 'ขุดแปลง'], ['fill', 'กลบดิน']].map(([k, n]) => `<button class="${t === k ? 'on' : ''}" data-t="${k}">${n}</button>`).join('')}<button class="btn done">เสร็จ</button></div><div class="bb-hint">${hint}</div>`;
+  b.querySelectorAll('[data-t]').forEach(x => x.onclick = () => { B.tool = x.dataset.t; B.sel = null; B.confirm = null; DV.sfx('tick'); DV.buildBar(); });
+  b.querySelector('.done').onclick = DV.endBuild;
 };
 DV.openMenu = () => DV.openSheet('เมนู', `${S().name} · รหัส ${S().code}<br><small>${DV.cloudLabel()} · 1 วันในเกม = ${S().dayLen} นาทีจริง</small>`, null, [
   { label: 'อัปเดตเกม' + (DV.clUnseen() ? ' (ใหม่)' : ''), icon: null, run: () => { DV.closeSheet(); DV.openChangelog(); } },
@@ -252,39 +258,9 @@ DV.openMenu = () => DV.openSheet('เมนู', `${S().name} · รหัส ${
 ]);
 
 // ---------- bottom bar ----------
-$('mapBtn').onclick = () => S() && !DV.uiBlocked() && DV.openMap();
 $('bagBtn').onclick = () => S() && !DV.uiBlocked() && DV.openBag();
 $('questBtn').onclick = () => S() && !DV.uiBlocked() && DV.openQuests();
 $('phoneBtn').onclick = () => S() && !DV.uiBlocked() && DV.openPhone();
 $('menuBtn').onclick = () => S() && !DV.uiBlocked() && DV.openMenu();
 
-// ---------- login: ชื่อ + รหัส 6 ตัว ----------
-let gender = 'm', dayLen = 10;
-document.querySelectorAll('.who').forEach(b => b.onclick = () => { document.querySelectorAll('.who').forEach(x => x.classList.remove('sel')); b.classList.add('sel'); gender = b.dataset.g; });
-document.querySelectorAll('.dl').forEach(b => b.onclick = () => { document.querySelectorAll('.dl').forEach(x => x.classList.remove('sel')); b.classList.add('sel'); dayLen = +b.dataset.m; });
-const codeOk = c => /^[A-Za-z0-9]{6}$/.test(c);
-const err = t => { $('loginErr').textContent = t; };
-$('pcode').addEventListener('input', e => { e.target.value = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 6); });
-$('genCode').onclick = () => { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let c = ''; for (let i = 0; i < 6; i++) c += A[Math.floor(Math.random() * A.length)]; $('pcode').value = c; DV.toast('จดรหัสนี้ไว้นะ ใช้คู่กับชื่อเพื่อเข้าเล่นต่อ'); };
-$('tabNew').onclick = () => { $('tabNew').classList.add('sel'); $('tabCont').classList.remove('sel'); $('newOnly').classList.remove('hidden'); $('startBtn').textContent = 'เริ่มเกมใหม่'; err(''); };
-$('tabCont').onclick = () => { $('tabCont').classList.add('sel'); $('tabNew').classList.remove('sel'); $('newOnly').classList.add('hidden'); $('startBtn').textContent = 'เข้าเล่นต่อ'; err(''); };
-DV.initLogin = () => {
-  const last = DV.lastLogin();
-  if (last) { $('pname').value = last.name; $('pcode').value = last.code; $('tabCont').onclick(); }
-  $('startBtn').onclick = async () => {
-    const name = $('pname').value.trim(), code = $('pcode').value.trim().toUpperCase();
-    if (!name) return err('ใส่ชื่อเล่นก่อนนะ');
-    if (!codeOk(code)) return err('รหัสต้องเป็นตัวอักษร/ตัวเลข 6 ตัว (กดปุ่มสุ่มก็ได้)');
-    $('startBtn').disabled = true; err('กำลังโหลด…');
-    const cont = $('tabCont').classList.contains('sel');
-    const ex = await DV.loadSlot(name, code);
-    $('startBtn').disabled = false;
-    if (cont) { if (!ex) return err('ไม่พบเซฟของชื่อ + รหัสนี้ ลองเช็กตัวสะกดอีกครั้ง'); err(''); DV.begin(ex, false); }
-    else {
-      if (ex && !confirmOverwrite) { confirmOverwrite = true; return err('มีเซฟชื่อ + รหัสนี้อยู่แล้ว (วันที่ ' + ex.day + ') กดอีกครั้งเพื่อเริ่มใหม่ทับ หรือไปแท็บ “เล่นต่อ”'); }
-      confirmOverwrite = false; err(''); DV.begin(DV.newState(name, code, gender, dayLen), true);
-    }
-  };
-};
-let confirmOverwrite = false;
 })();

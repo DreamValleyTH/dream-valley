@@ -85,8 +85,6 @@ button{font-family:inherit;cursor:pointer}
 #talkChoices button{flex:1 1 auto;padding:6px 10px;border-radius:8px;border:2px solid #cdb68c;background:#fff8e8;font-size:14px;color:var(--ink)}
 
 /* title */
-#title{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:30;
-  background:radial-gradient(ellipse at 50% 35%,rgba(43,33,23,.35),rgba(43,33,23,.85)),url(assets/farm_bg.png) center/cover;image-rendering:pixelated;padding:16px}
 .title-box{width:min(360px,100%);background:var(--paper);border:4px solid var(--wood);border-radius:16px;padding:18px;box-shadow:0 8px 0 rgba(0,0,0,.4);text-align:center;image-rendering:auto}
 .logo{font-size:30px;font-weight:500;color:#5a3b1f;letter-spacing:.5px}
 .logo-th{color:var(--ink2);margin-bottom:12px}
@@ -373,3 +371,78 @@ input:-webkit-autofill{-webkit-box-shadow:0 0 0 40px #fffdf6 inset;-webkit-text-
 .co-say{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}.co-say button{border:0;border-radius:999px;background:rgba(255,255,255,.16);color:#fff;font:inherit;font-size:13px;padding:5px 12px}
 .co-end{margin-top:auto;border:0;border-radius:999px;background:#e2483b;color:#fff;font:inherit;font-size:16px;padding:10px 26px}
 .bub .who{border:0!important;border-image:none!important;padding:0!important;background:none!important;filter:none!important;outline:0!important;display:block}
+.ph-map{display:flex;flex-direction:column;height:calc(100% - 26px);background:var(--paper);overflow:auto}
+.ph-map #mapBox{margin:6px;width:auto;border-radius:10px}
+.ph-map #mapInfo{padding:4px 12px 12px;font-size:14px}.ph-map #mapInfo .btn{margin-top:6px}
+.map-h{background:#3b2a1c!important}
+#buildBar{flex-direction:column;align-items:stretch!important;gap:4px!important}
+.bb-tools{display:flex;gap:5px;align-items:center}.bb-tools button:not(.done){flex:1;font:inherit;font-size:13px;border:2px solid #b99a63;background:#fff8e8;border-radius:8px;padding:3px 4px}
+.bb-tools button.on{background:#cfe8a8;border-color:#6fb43f}.bb-tools .done{width:auto!important;margin:0!important;padding:1px 10px!important}
+.bb-hint{font-size:13px;line-height:1.35}
+
+/* ===== title / intro (sky → valley, Stardew-style) ===== */
+#title{position:fixed;inset:0;z-index:30;background:#1b2238;overflow:hidden;font-family:'Mitr',sans-serif}
+#title canvas,#tiCurtain{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated}
+#tiCurtain{position:fixed;z-index:60;pointer-events:none}
+#tiDim{position:absolute;inset:0;background:rgba(20,14,8,.45);opacity:0;transition:opacity .5s;pointer-events:none}
+#title.creating #tiDim{opacity:1}
+.ti-ui{position:absolute;left:0;right:0;display:flex;flex-direction:column;align-items:center;pointer-events:none;padding:0 max(16px,env(safe-area-inset-left,0px))}
+#tiLogo{top:calc(9vh + env(safe-area-inset-top,0px))}
+#tiName{font-family:'Pixelify Sans','Mitr',monospace;font-weight:700;font-size:clamp(44px,13vw,104px);line-height:.9;letter-spacing:2px;text-align:center;transform:translateY(-60vh);opacity:0;
+  background:linear-gradient(#fff2a8 0 35%,#ffc046 35% 70%,#e8892b 70%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#ffd66b;
+  filter:drop-shadow(0 4px 0 #8a4a1f) drop-shadow(0 4px 0 #6b3514) drop-shadow(3px 0 0 #3b1f0e) drop-shadow(-3px 0 0 #3b1f0e) drop-shadow(0 3px 0 #3b1f0e) drop-shadow(0 -3px 0 #3b1f0e) drop-shadow(0 10px 8px rgba(0,0,0,.35))}
+#tiName small{display:block;font-size:.78em}
+#tiSub{margin-top:14px;font-weight:600;font-size:clamp(18px,5vw,30px);opacity:0;transform:scale(.8);border-style:solid;border-width:12px;border-image:url(assets/ui/panel.png) 22 fill/12px stretch;image-rendering:pixelated;padding:0 14px;color:#5a3317;text-shadow:0 1px 0 #fff6dc}
+#tiMenu{bottom:calc(7vh + env(safe-area-inset-bottom,0px));gap:10px}
+#tiMenu button{position:relative;pointer-events:auto;font:18px 'Mitr',sans-serif;color:#3b2a1c;min-width:220px;padding:2px 10px;opacity:0;transform:translateY(30px);border-style:solid;border-width:9px;border-image:url(assets/ui/btn.png) 10 fill/9px stretch;background:none;image-rendering:pixelated;cursor:pointer}
+#tiMenu button:active{border-image-source:url(assets/ui/btn_down.png)}
+#tiMenu button.primary,.ti-btns .go,.ti-days .on{filter:hue-rotate(55deg) saturate(1.3)}
+#tiMenu button.primary{font-weight:600}
+#tiMenu .cl-dot{position:absolute;right:-6px;top:-6px}
+#tiWho{pointer-events:auto;color:#fff8e0;font-size:13px;text-shadow:0 1px 2px #000;opacity:0;transition:opacity .4s .5s;min-height:18px}
+#tiWho a{color:#ffe08a;text-decoration:underline;cursor:pointer}
+#tiSkip,#tiVer{position:absolute;bottom:calc(14px + env(safe-area-inset-bottom,0px));color:rgba(255,255,255,.6);font-size:12px;text-shadow:0 1px 2px #000}
+#tiSkip{right:max(16px,env(safe-area-inset-right,0px))}#tiVer{left:max(16px,env(safe-area-inset-left,0px))}
+#title #loading{position:absolute;left:50%;bottom:calc(16vh + env(safe-area-inset-bottom,0px));width:200px;transform:translateX(-50%);text-align:center;color:#fff;margin:0;text-shadow:0 1px 2px #000}
+#title.show-logo #tiName{animation:tiDrop 1.1s cubic-bezier(.2,.9,.3,1.25) forwards}
+#title.show-sub #tiSub{animation:tiPop .5s ease-out forwards}
+#title.show-menu #tiMenu button{animation:tiRise .45s ease-out forwards}
+#title.show-menu #tiWho{opacity:1}
+#title.show-menu #tiMenu button:nth-child(2){animation-delay:.1s}#title.show-menu #tiMenu button:nth-child(3){animation-delay:.2s}
+@keyframes tiDrop{0%{transform:translateY(-60vh);opacity:1}70%{transform:translateY(8px)}85%{transform:translateY(-4px)}100%{transform:none;opacity:1}}
+@keyframes tiPop{to{opacity:1;transform:none}}@keyframes tiRise{to{opacity:1;transform:none}}
+#title.out #tiName{animation:tiFly .6s ease-in forwards!important}#title.out #tiSub{animation:tiFade .3s forwards!important}
+#title.out #tiMenu button{animation:tiSink .4s ease-in forwards!important}#title.out #tiWho{opacity:0;transition:opacity .2s}
+@keyframes tiFly{to{transform:translateY(-50vh);opacity:0}}@keyframes tiFade{to{opacity:0}}@keyframes tiSink{to{transform:translateY(40vh);opacity:0}}
+.ti-panel{position:absolute;left:50%;top:50%;width:min(360px,calc(100vw - 32px));max-height:calc(100vh - 40px);overflow:auto;transform:translate(-50%,-160%);opacity:0;pointer-events:none;
+  border-style:solid;border-width:18px;border-image:url(assets/ui/panel.png) 22 fill/18px stretch;image-rendering:pixelated;padding:4px 8px;color:#3b2a1c}
+#title.creating .ti-panel{pointer-events:auto;animation:tiPanel .7s cubic-bezier(.2,.9,.3,1.2) .25s forwards}
+@keyframes tiPanel{to{transform:translate(-50%,-50%);opacity:1}}
+.ti-panel h2{margin:0 0 8px;text-align:center;font-size:20px;font-weight:600}
+.ti-who{display:flex;align-items:center;justify-content:center;gap:10px}
+#title #tiPv{position:static;inset:auto;width:128px;height:128px;background:#e9d6a8;border:3px solid #8a5a32;border-radius:10px}
+.ti-arrow{font:600 22px 'Mitr',sans-serif;width:44px;height:44px;border-style:solid;border-width:9px;border-image:url(assets/ui/btn.png) 10 fill/9px stretch;background:none;color:#3b2a1c;padding:0}
+.ti-gname{text-align:center;font-size:14px;margin-top:2px}
+.ti-row{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:15px}
+.ti-row label{width:76px;flex:none}
+.ti-row input{flex:1;min-width:0;font:inherit;padding:6px 8px;border:2px solid #cdb68c;border-radius:8px;background:#fffdf6;color:#33251a;-webkit-text-fill-color:#33251a;color-scheme:light}
+.ti-small,.ti-days button,.ti-btns button{font:14px 'Mitr',sans-serif;border-style:solid;border-width:7px;border-image:url(assets/ui/btn.png) 10 fill/7px stretch;background:none;color:#3b2a1c;padding:0 6px}
+.ti-days{display:flex;gap:6px;flex:1}.ti-days button{flex:1;padding:0;font-size:13px}
+.ti-btns{display:flex;gap:8px;margin-top:12px}.ti-btns button{flex:1;font-size:16px;border-width:9px;border-image-width:9px;padding:2px}
+.ti-btns .go{font-weight:600}.ti-btns button:disabled{opacity:.6}
+.ti-hint{font-size:12px;color:#6b5236;text-align:center;margin-top:8px}
+#title #loginErr{color:#a3321c;font-size:13px;text-align:center;min-height:0;margin-top:6px}
+#tiScroll{position:absolute;left:50%;bottom:0;width:min(380px,calc(100vw - 32px));transform:translate(-50%,110%);transition:transform .45s ease-in .6s;z-index:3}
+#tiScroll.on{transition:transform .55s cubic-bezier(.2,.9,.3,1.1);transform:translate(-50%,calc(-8vh - env(safe-area-inset-bottom,0px)))}
+#tiScroll .roll{height:22px;border-radius:11px;border:3px solid #5a3317;background:linear-gradient(#a8743e,#f0d6a0 40%,#c79a5c 70%,#8a5a32);position:relative;z-index:2;margin:0 -10px}
+#tiScroll .roll::before,#tiScroll .roll::after{content:"";position:absolute;top:3px;width:10px;height:10px;border-radius:50%;background:#5a3317}
+#tiScroll .roll::before{left:4px}#tiScroll .roll::after{right:4px}
+#tiPaper{background:#f3e2b8;background-image:radial-gradient(rgba(150,110,60,.12) 1px,transparent 1px);background-size:6px 6px;border-left:3px solid #c9a46a;border-right:3px solid #c9a46a;max-height:0;overflow:hidden;transition:max-height .6s ease-in;color:#3b2a1c}
+#tiScroll.on #tiPaper{max-height:62vh;overflow:auto;transition:max-height .7s ease-out .35s}
+#tiPaper h3{margin:12px 14px 4px;font-size:18px}#tiPaper h4{margin:10px 14px 2px;font-size:14px;color:#8a3d22}#tiPaper h4 small{color:#8b7558;font-weight:400}
+#tiPaper ul{margin:0 14px 8px 30px;padding:0;font-size:14px;line-height:1.55}
+#tiPaper .close{display:block;margin:6px auto 12px;font:15px 'Mitr',sans-serif;border-style:solid;border-width:8px;border-image:url(assets/ui/btn.png) 10 fill/8px stretch;background:none;color:#3b2a1c;padding:0 16px}
+#tiArrive{position:fixed;z-index:61;left:50%;bottom:calc(20vh + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);opacity:0;font:600 18px 'Mitr',sans-serif;color:#5a3317;pointer-events:none;
+  border-style:solid;border-width:12px;border-image:url(assets/ui/panel.png) 22 fill/12px stretch;image-rendering:pixelated;padding:0 12px;white-space:nowrap;transition:.5s}
+#tiArrive.on{opacity:1;transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){#title *{animation-duration:.01s!important;transition-duration:.01s!important}}

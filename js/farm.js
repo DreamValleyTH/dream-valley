@@ -142,10 +142,10 @@ DV.openPlot = (x, y) => {
       run: () => DV.doAction({ energy: COST.clear * all.length, tool: TOOL.sickle, fx: 'grass', targets: all, apply: clear }) });
   } else if (!c.soil) {
     title = 'ดินหญ้า'; sub = 'พรวนแล้วถึงจะปลูกได้';
-    opts.push({ label: 'พรวนดิน', icon: ['tools', TOOL.hoe], cost: COST.hoe, run: () => DV.doAction({ energy: COST.hoe, tool: TOOL.hoe, fx: 'dirt', targets: [[x, y]], apply: hoe }) });
+    opts.push({ label: 'พรวนดิน', icon: ['tools', TOOL.hoe], cost: COST.hoe, run: () => DV.doAction({ energy: COST.hoe, tool: TOOL.hoe, fx: 'hoe', targets: [[x, y]], apply: hoe }) });
     const all = DV.plotCells(q => !q.debris && !q.soil);
     if (all.length > 1) opts.push({ label: `พรวนทั้งแปลง (${all.length} ช่อง)`, icon: ['tools', TOOL.hoe], cost: COST.hoe, n: all.length,
-      run: () => DV.doAction({ energy: COST.hoe * all.length, tool: TOOL.hoe, fx: 'dirt', targets: all, apply: hoe }) });
+      run: () => DV.doAction({ energy: COST.hoe * all.length, tool: TOOL.hoe, fx: 'hoe', targets: all, apply: hoe }) });
   } else if (!c.crop) {
     title = 'ดินพรวนแล้ว'; sub = c.wet ? 'ดินชุ่มน้ำ' : 'ดินแห้ง · เลือกเมล็ดที่จะปลูก';
     const empty = DV.plotCells(q => q.soil && !q.crop);
