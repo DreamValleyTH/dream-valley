@@ -1,5 +1,5 @@
 # Build farm + town maps for the web game.   python3 build_world.py <out assets dir>
-import sys, os, json, shutil
+import sys, os, json, shutil, glob
 import numpy as np
 from PIL import Image
 from worldlib import World, Atlas, L, T, ART_B, PL
@@ -100,6 +100,9 @@ if KIT:
     tj['water'] = '#%02x%02x%02x' % tuple(int(v) for v in TL.water_tone())
     Image.open(os.path.join(TL.TSDIR, 'ref_grass.png')).save(f'{KIT}/mapkit/tiles/grass.png')
     json.dump(tj, open(f'{KIT}/mapkit/tiles.json', 'w'))
+    for f in glob.glob(f'{KIT}/mapkit/s/*.png'):   # pictures no longer in the catalog are removed from the kit
+        if os.path.basename(f)[:-4] not in cat: os.remove(f)
+    import time as _t; json.dump(dict(v=int(_t.time())), open(f'{KIT}/mapkit/version.json', 'w'))   # cache stamp for the Map Maker
     print('map kit ->', KIT)
 
 extra = {}

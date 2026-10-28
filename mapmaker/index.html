@@ -177,10 +177,15 @@ const cellsOf = o => { const [fw, fd] = fpOf(o), r = []; for (let y = o.y; y < o
 const nameOf = o => { const c = CAT.items[o.k]; return o.label || (c && c.name) || o.k; };
 
 // ---------- loading ----------
-const loadImg = src => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = src; });
+let VER = String(Date.now());   // replaced by the kit's build stamp; every kit file is asked for with ?v=<stamp>, so a new build always shows
+const U = path => path + (path.includes('?') ? '&' : '?') + 'v=' + VER;
+const getJSON = path => fetch(U(path), { cache: 'no-store' }).then(r => { if (!r.ok) throw new Error(path); return r.json(); });
+const loadImg = src => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = U(src); });
 async function boot() {
-  CAT = await fetch('mapkit/catalog.json').then(r => r.json());
+  try { VER = String((await fetch('mapkit/version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.json())).v); } catch (_) {}
+  CAT = await getJSON('mapkit/catalog.json');
   await Promise.all(Object.keys(CAT.items).map(async k => { IMG[k] = await loadImg(`mapkit/s/${k}.png`); }));
+  for (const k of Object.keys(CAT.items)) if (!IMG[k]) delete CAT.items[k];   // no picture on the server -> not offered any more
   for (const k in IMG) { const im = IMG[k]; if (!im) continue; const c = document.createElement('canvas'); c.width = im.width; c.height = im.height; const x = c.getContext('2d'); x.drawImage(im, 0, 0); ALPHA[k] = x.getImageData(0, 0, im.width, im.height).data; }
   try { const m = localStorage.getItem('dvmm_last'); if (m && MAP_NAMES[m]) mapName = m; } catch (_) {}
   $('mapSel').value = mapName;
@@ -189,13 +194,18 @@ async function boot() {
   loop();
 }
 let lastSaved = '';
+function dropMissing(m) {   // objects whose picture no longer exists are taken off the map
+  const before = m.objects.length; m.objects = m.objects.filter(o => CAT.items[o.k] && IMG[o.k]);
+  const n = before - m.objects.length; if (n) setTimeout(() => toast(`เอาของที่ไม่มีรูปแล้วออก ${n} ชิ้น`), 600);
+  return m;
+}
 async function loadMap(name) {
   mapName = name; try { localStorage.setItem('dvmm_last', name); } catch (_) {}
   palTab = name === 'farm' ? 'farm' : 'building';
   let local = null; try { local = JSON.parse(localStorage.getItem('dvmm_' + name) || 'null'); } catch (_) {}
-  const base = await fetch(`maps/${name}.json`, { cache: 'no-cache' }).then(r => r.json());
+  const base = await getJSON(`maps/${name}.json`);
   if (local && (local.rev || 0) !== (base.rev || 0)) local = null;   // Claude rebuilt this map: older saved edits no longer fit
-  MAP = local || base;
+  MAP = dropMissing(local || base);
   GROUND = await loadImg(`maps/${name}_ground.png`);
   ORIG = base.terrain.slice();   // a copy: painting edits MAP.terrain in place
   smoothDirty = true;
@@ -269,7 +279,7 @@ function blurMask(cells, W, H, rad) {   // 1px-per-cell mask -> SCx, blurred, th
 }
 let TILES = null;   // PixelLab tile sets (same as the game) for maps built from tiles
 async function loadTiles() {
-  try { const j = await fetch('mapkit/tiles.json').then(r => r.json()); const sheets = {};
+  try { const j = await getJSON('mapkit/tiles.json'); const sheets = {};
     await Promise.all(Object.keys(j.tiles).map(async n => { sheets[n] = await loadImg(`mapkit/tiles/${n}.png`); }));
     j.sheets = sheets; j.grass = await loadImg('mapkit/tiles/grass.png'); j.areas = {};
     await Promise.all(Object.keys(j.area || {}).map(async n => {   // pond shape, tinted with the game's water colour
@@ -488,7 +498,7 @@ function buildPalette() {
   tabs.querySelectorAll('.tab').forEach(b => b.onclick = () => { palTab = b.dataset.c; $('q').value = ''; buildPalette(); });
   const q = $('q').value.trim();
   const items = Object.entries(CAT.items).filter(([k, c]) => q ? c.name.includes(q) || k.includes(q) : c.cat === palTab);
-  pal.innerHTML = items.map(([k, c]) => `<button class="it" data-k="${k}" aria-pressed="${palKey === k}"><img src="mapkit/s/${k}.png" alt="" loading="lazy"><span>${c.name}</span></button>`).join('') || '<div class="hint" style="color:var(--muted)">ไม่พบ</div>';
+  pal.innerHTML = items.map(([k, c]) => `<button class="it" data-k="${k}" aria-pressed="${palKey === k}"><img src="${U(`mapkit/s/${k}.png`)}" alt="" loading="lazy"><span>${c.name}</span></button>`).join('') || '<div class="hint" style="color:var(--muted)">ไม่พบ</div>';
   pal.querySelectorAll('.it').forEach(b => b.onclick = () => { palKey = b.dataset.k; if (tool !== 'place') setTool('place'); else { buildPalette(); renderDock(); } });
 }
 $('q').oninput = buildPalette;
@@ -499,7 +509,7 @@ function download(name, text) {
   try { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); return true; } catch (_) { return false; }
 }
 $('menuBtn').onclick = () => {
-  const m = sheet(`<h2>ตัวเลือก <small style="font-size:12px;color:var(--muted);font-weight:400">รุ่น 2.1</small></h2>
+  const m = sheet(`<h2>ตัวเลือก <small style="font-size:12px;color:var(--muted);font-weight:400">รุ่น 2.2</small></h2>
     <label class="tg"><input type="checkbox" data-o="ground" ${opts.ground ? 'checked' : ''}> แสดงภาพพื้นจากเกม (ปิด = เห็นพื้นเป็นสีตามชนิด)</label>
     <label class="tg"><input type="checkbox" data-o="grid" ${opts.grid ? 'checked' : ''}> แสดงเส้นช่อง</label>
     <label class="tg"><input type="checkbox" data-o="doors" ${opts.doors ? 'checked' : ''}> แสดงจุดประตูและชื่อสถานที่</label>
@@ -508,8 +518,8 @@ $('menuBtn').onclick = () => {
     <button class="btn primary" id="cl">ปิด</button>`);
   m.querySelectorAll('[data-o]').forEach(i => i.onchange = () => { opts[i.dataset.o] = i.checked; smoothDirty = true; try { localStorage.setItem('dvmm_opts', JSON.stringify(opts)); } catch (_) {} dirty = true; });
   m.querySelector('#cl').onclick = () => m.remove();
-  m.querySelector('#fi').onchange = async ev => { const f = ev.target.files[0]; if (!f) return; try { const d = JSON.parse(await f.text()); if (!d.terrain || !d.objects) throw 0; snapshot(); MAP = d; sel = null; changed(); fit(); renderDock(); m.remove(); toast('นำเข้าแล้ว'); } catch (_) { toast('ไฟล์นี้ไม่ใช่ผังแผนที่'); } };
-  m.querySelector('#rs').onclick = async () => { snapshot(); MAP = await fetch(`maps/${mapName}.json`).then(r => r.json()); sel = null; changed(); fit(); renderDock(); m.remove(); toast('กลับไปผังต้นฉบับแล้ว', 'ย้อน', () => $('undo').click()); };
+  m.querySelector('#fi').onchange = async ev => { const f = ev.target.files[0]; if (!f) return; try { const d = JSON.parse(await f.text()); if (!d.terrain || !d.objects) throw 0; snapshot(); MAP = dropMissing(d); sel = null; changed(); fit(); renderDock(); m.remove(); toast('นำเข้าแล้ว'); } catch (_) { toast('ไฟล์นี้ไม่ใช่ผังแผนที่'); } };
+  m.querySelector('#rs').onclick = async () => { snapshot(); MAP = dropMissing(await getJSON(`maps/${mapName}.json`)); sel = null; changed(); fit(); renderDock(); m.remove(); toast('กลับไปผังต้นฉบับแล้ว', 'ย้อน', () => $('undo').click()); };
 };
 $('dlBtn').onclick = () => {   // the map file to keep or attach in the chat for Claude
   const ok = download(`dreamvalley_${mapName}.json`, JSON.stringify(MAP));
