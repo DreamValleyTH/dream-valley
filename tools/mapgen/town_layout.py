@@ -31,8 +31,14 @@ def smooth(pts, n=6):
             t = j / n; t2, t3 = t * t, t * t * t
             out.append(tuple(.5 * ((2 * p1[k]) + (-p0[k] + p2[k]) * t + (2 * p0[k] - 5 * p1[k] + 4 * p2[k] - p3[k]) * t2 + (-p0[k] + 3 * p1[k] - 3 * p2[k] + p3[k]) * t3) for k in (0, 1)))
     return out + [pts[-1]]
+def ortho(pts):
+    """v1.0 tile ground: lanes run along the grid axes and turn at right angles (the tile sets round the corners)"""
+    out = [pts[0]]
+    for (x0, y0), (x1, y1) in zip(pts[:-1], pts[1:]):
+        out.append((x1, y0) if abs(x1 - x0) >= abs(y1 - y0) else (x0, y1)); out.append((x1, y1))
+    return out
 def path(pts, width, code, keep=()):
-    sp = smooth([(X(x), X(y)) for x, y in pts]); m = cell_dist_poly(sp) < width * S / 2
+    sp = ortho([(round(X(x)), round(X(y))) for x, y in pts]); m = cell_dist_poly([(x + .5, y + .5) for x, y in sp]) < max(.75, width * S / 2)
     for c in keep: m &= grid != c
     grid[m] = code; return sp
 def rect(x0, y0, x1, y1, code):
@@ -83,7 +89,7 @@ for (x0, y0, x1, y1) in [(-6, -6, 11, 5), (2, 2, 40, 22), (11, 17, 39, 31), (45,
 path([(43, -8), (44, 6), (42.5, 14), (44, 22), (45.5, 30), (44, 48)], 2.0, 'w')
 # ทางหลวง 205 (asphalt, centre line) — continues off both edges
 hw = path([(-8, 33.2), (8, 30.5), (20, 27.5), (30, 25.5), (40, 23.5), (50, 21.5), (64, 19)], 2.4, 'a')
-lines = [[[round(x, 2), round(y, 2)] for x, y in hw]]
+lines = [[[x + 1.0, y + 1.0] for x, y in hw]]   # centre of the 3-cell-wide highway (ortho cells)
 # village lanes (concrete), laterite and footpaths — winding, a few dead ends, running out into the fields
 path([(24, 26.8), (23.5, 22), (24.5, 17), (23, 12), (24, 6), (22, 0), (21, -8)], 1.2, 'c', keep='a')
 path([(23.8, 18), (19, 17.5), (14, 15), (9, 15.5), (5, 13), (-2, 12)], 1.0, 'c')
@@ -183,5 +189,6 @@ data = dict(name='town', W=W, H=H, play=[M, M, W - M, H - M], seed=7, terrain=['
             spawns=dict(from_farm=spawn_from_farm, bus=places['bus_stop']['door'], center=[int(X(24)), int(X(25.6))]),
             exits=[dict(cells=[[M, spawn_from_farm[1] + d] for d in (-1, 0, 1)], to='farm', spawn='from_town', label='กลับฟาร์มยาย')])
 out = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'data', 'maps', 'town.json')
+data['tiles'] = True; data['rev'] = 2   # v1.0: ground from the tile sets
 os.makedirs(os.path.dirname(out), exist_ok=True); json.dump(data, open(out, 'w'), ensure_ascii=False)
 print('town', W, H, 'objects', len(objs), 'places', len(places))

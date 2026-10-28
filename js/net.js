@@ -37,7 +37,7 @@ let lastP = '';
 function pushPresence() {
   const s = S(), line = NET.mode === 'guest' ? NET.line : NET.own; if (!s || !line) return;
   const p = DV.player;
-  const me = { num: DV.myNumber(), name: s.name, g: s.gender, map: s.map, x: Math.round(p.x), y: Math.round(p.y), dir: p.dir, mv: p.moving ? 1 : 0, sit: p.sit ? 1 : 0, say: NET.say || null,
+  const me = { num: DV.myNumber(), name: s.name, g: s.gender, map: s.map, x: Math.round(p.x), y: Math.round(p.y), dir: p.dir, d8: p.d8, mv: p.moving ? 1 : 0, sit: p.sit ? 1 : 0, say: NET.say || null,
     host: NET.mode === 'guest' ? 0 : 1, acc: Object.keys(NET.accepted).slice(0, 5) };
   if (me.host && s.cells) { me.farm = Object.entries(s.cells).filter(([, c]) => c.soil || c.crop).map(([k, c]) => `${k}:${c.wet ? 1 : 0}${c.crop ? c.crop.k[0] + c.crop.st : ''}`).join(' ').slice(0, 1800); me.mvd = JSON.stringify((s.moved || {}).farm || {}).slice(0, 600); }
   const str = JSON.stringify(me); if (str === lastP) return; lastP = str;

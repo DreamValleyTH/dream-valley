@@ -92,6 +92,12 @@ if KIT:
         for i, (key, arr) in enumerate(sorted(ts.items())):
             sheet.paste(Image.fromarray(arr), (i * 32, 0)); keys.append(''.join('1' if b else '0' for b in key))
         sheet.save(f'{KIT}/mapkit/tiles/{name}.png'); tj['tiles'][name] = keys
+        if name in TL._area:   # water: the pond shape, tinted by the Map Maker with the game's water colour
+            am = Image.new('RGBA', (16 * 32, 32))
+            for i, (key, arr) in enumerate(sorted(ts.items())):
+                a = TL._area[name][key]; tile = np.zeros((32, 32, 4), np.uint8); tile[a] = (255, 255, 255, 255); am.paste(Image.fromarray(tile), (i * 32, 0))
+            am.save(f'{KIT}/mapkit/tiles/{name}_area.png'); tj.setdefault('area', {})[name] = 1
+    tj['water'] = '#%02x%02x%02x' % tuple(int(v) for v in TL.water_tone())
     Image.open(os.path.join(TL.TSDIR, 'ref_grass.png')).save(f'{KIT}/mapkit/tiles/grass.png')
     json.dump(tj, open(f'{KIT}/mapkit/tiles.json', 'w'))
     print('map kit ->', KIT)
@@ -100,8 +106,8 @@ extra = {}
 for k in ['debris_05', 'debris_06', 'debris_24', 'debris_25', 'debris_00', 'debris_04']:
     extra[k] = atlas.add(L(f'{OBJ}/{k}.png').crop(L(f'{OBJ}/{k}.png').getbbox()))
 alt = {}
-for k in ['tree_mango', 'tree_tamarind']:
-    im = L(f'{TREES}/{k}.png'); alt[k] = atlas.add(im.crop(im.getbbox()))
+for k, n in [('tree_mango', 'mango'), ('tree_tamarind', 'tamarind')]:   # bare trees after picking (v1.0 art)
+    im = L(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapgen', 'art2', 'trees', n + '.png')); alt[k] = atlas.add(im.crop(im.getbbox()))
 im = L(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapgen', 'art2', 'coop_fixed.png')); alt['coop_fixed'] = atlas.add(im.crop(im.getbbox()))
 meta = atlas.save(OUT)
 meta['debris'] = extra; meta['alt'] = alt

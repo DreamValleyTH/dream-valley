@@ -89,6 +89,20 @@ for _k, _n, _fp, _iso, _blk in [('coop_broken', 'เล้าไก่ (พั�
                                 ('farm_gate', 'ประตูรั้วไม้', (2, 1), True, False)] + [(f'weeds_{i}', 'กอหญ้ารก', (1, 1), False, True) for i in range(8)]:
     CATALOG[_k] = dict(k=_k, name=_n, cat='farm', src=os.path.join(_A2, _k + '.png'), iso=_iso, fp=list(_fp), block=_blk, shadow='prop', dy=2)
 
+# ---- v1.0 trees & plants (PixelLab, drawn in the tile sets' style, roots and soil patch so they sit on the ground) ----
+_TR = os.path.join(_A2, 'trees')
+NEW_TREES = {'mango': 'mango', 'tamarind': 'tamarind', 'coconut': 'coconut', 'sugarpalm': 'sugarpalm', 'raintree': 'raintree', 'sugarcane': 'sugarcane',
+             'bamboo': 'bamboo', 'banana': 'banana', 'papaya': 'papaya', 'bamboo_s': 'bamboo_s', 'banana_s': 'banana_s', 'bush': 'bush', 'bush2': 'bush2',
+             'f_tree_mango': 'mango', 'f_tree_mango_fruit_few': 'mango_few', 'f_tree_mango_fruit_mid': 'mango_mid', 'f_tree_mango_fruit_full': 'mango_full',
+             'f_tree_tamarind': 'tamarind', 'f_tree_tamarind_pods': 'tamarind_pods', 'f_bam': 'bamboo_s', 'f_bam_2': 'bamboo_s_b', 'f_ban': 'banana_s',
+             'f_ban_2': 'banana_s_b', 'f_tall_sugarcane': 'sugarcane', 'f_tall_sugarcane_2': 'sugarcane_b', 'f_tall_banana': 'banana',
+             'f_tall_coconut': 'coconut', 'f_tall_papaya': 'papaya', 'f_tall_bamboo': 'bamboo', 'f_tall_bamboo_2': 'bamboo_b'}
+for _k, _n in NEW_TREES.items():
+    if _k in CATALOG and os.path.exists(os.path.join(_TR, _n + '.png')):
+        CATALOG[_k] = dict(CATALOG[_k], src=os.path.join(_TR, _n + '.png'))
+        if CATALOG[_k].get('ax') is not None and CATALOG[_k]['fp'] == [1, 1]: CATALOG[_k].update(ax=16, ay=29)   # trunk on the cell centre, a little in front
+        if CATALOG[_k].get('ax') is not None and CATALOG[_k]['fp'] == [2, 1]: CATALOG[_k].update(ax=32, ay=29)
+
 def load_img(c, flip=False):
     im = Image.open(c['src']).convert('RGBA'); bb = im.getbbox(); im = im.crop(bb) if bb else im
     return im.transpose(Image.FLIP_LEFT_RIGHT) if flip else im
@@ -150,7 +164,7 @@ def build_world(data, World, T=32):
         w.tile_layers = tiles.compose(grid)
         for code, kind in TERRAIN.items():   # cell masks still drive walking / water / decal rules
             cm = grid == code
-            if cm.any() and kind != 'grass': w.add_surface(kind, np.kron(cm, np.ones((T, T), bool)))
+            if cm.any() and kind != 'grass': w.add_surface(kind, tiles.water_area(grid) if code == 'w' else np.kron(cm, np.ones((T, T), bool)))
     else:
         add_terrain(w, grid, T)
     w.dash_lines = data.get('lines', [])

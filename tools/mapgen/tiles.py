@@ -19,7 +19,8 @@ T = 32
 # terrain code -> tileset variant folders (drawn in this order: back first)
 SETS = {
     'y': ['yard'],
-    's': ['gravel'],
+    's': ['yard'],       # temple sand: the light packed-earth set reads as sand
+    'g': ['dirt_a'],     # garden beds
     'v': ['gravel'],
     'p': ['dirt_a', 'dirt_b'],
     'l': ['lat_a', 'lat_b'],
@@ -27,8 +28,10 @@ SETS = {
     'a': ['asph'],
     'w': ['water_a'],   # water_b came out a different (cyan) colour
 }
-ORDER = ['y', 's', 'v', 'p', 'l', 'c', 'a', 'w']
+ORDER = ['y', 's', 'g', 'v', 'p', 'l', 'c', 'a', 'w']
+TONE = {'asph': (96, 92, 90), 'conc': (190, 184, 170)}   # pull the darkest / brightest sets toward the game palette
 _cache = {}
+_area = {}   # water sets: where the tile is water or bank (before the open water is cut away)
 
 def load_set(name):
     """-> {(nw, ne, sw, se) as bools 'is X': RGBA np array with the grass cut away}"""
@@ -42,7 +45,23 @@ def load_set(name):
         im[grass, 3] = 0
         c = t['corners']; key = tuple(c[k] == 'lower' for k in ('NW', 'NE', 'SW', 'SE'))
         out[key] = im
+    if name in TONE:
+        ctr = [im for k, im in out.items() if all(k)][0]
+        shift = np.array(TONE[name], float) - ctr[ctr[..., 3] > 0][:, :3].mean(0)
+        for im in out.values():
+            a = im[..., 3] > 0; im[a, :3] = np.clip(im[a, :3].astype(float) + shift, 0, 255).astype(np.uint8)
+    if name.startswith('water'):   # open water is drawn by the game (non-repeating, game palette): keep only banks and edges
+        _area[name] = {k: im[..., 3] > 0 for k, im in out.items()}
+        ctr = np.asarray(Image.open(os.path.join(d, f"{[t['i'] for t in meta if all(v == 'lower' for v in t['corners'].values())][0]:02d}.png")).convert('RGB')).astype(int)
+        for im in out.values():
+            im[np.abs(im[..., :3].astype(int) - ctr).sum(2) <= 18, 3] = 0
     _cache[name] = out; return out
+
+def water_tone():
+    """mean colour of the tile set's open water — the game grades its own water texture to it"""
+    d = os.path.join(TSDIR, SETS['w'][0]); meta = json.load(open(os.path.join(d, 'meta.json')))
+    i = [t['i'] for t in meta if all(v == 'lower' for v in t['corners'].values())][0]
+    return np.asarray(Image.open(os.path.join(d, f'{i:02d}.png')).convert('RGB')).reshape(-1, 3).mean(0)
 
 def _hash(x, y, salt):   # small integers only, so the Map Maker (JavaScript) gets exactly the same picks
     h = x * 31 + y * 17 + salt * 7
@@ -69,3 +88,18 @@ def compose(grid):
                 layer.alpha_composite(Image.fromarray(tile), (vx * T - T // 2, vy * T - T // 2))
         out.alpha_composite(layer)
     return np.asarray(out)
+
+def water_area(grid):
+    """HxW grid -> bool (H*T, W*T): the exact rounded pond shape of the water tile set"""
+    H, W = grid.shape; m = np.zeros((H * T + T, W * T + T), bool)
+    pad = np.pad(grid, 1, mode='edge'); cm = pad == 'w'
+    if not cm.any(): return m[T // 2:T // 2 + H * T, T // 2:T // 2 + W * T]
+    for n in SETS['w']: load_set(n)
+    sets = [_area[n] for n in SETS['w']]; si = ORDER.index('w')
+    for vy in range(H + 1):
+        for vx in range(W + 1):
+            k = (bool(cm[vy, vx]), bool(cm[vy, vx + 1]), bool(cm[vy + 1, vx]), bool(cm[vy + 1, vx + 1]))
+            if not any(k): continue
+            a = sets[_hash(vx, vy, si) % len(sets)].get(k)
+            if a is not None: m[vy * T:vy * T + T, vx * T:vx * T + T] |= a
+    return m[T // 2:T // 2 + H * T, T // 2:T // 2 + W * T]

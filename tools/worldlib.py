@@ -202,6 +202,13 @@ class World:
 
         TL = getattr(self, 'tile_layers', None)
         for kind, m in self.surfaces:
+            if TL is not None and kind == 'water':   # tile mode: open water is ours (no repeats), the tile set adds the banks
+                wf = tex(f'{ART_B}/tiles/pond/water_fill.png', PW, PH).astype(float)
+                import tiles as _tl
+                tone = _tl.water_tone(); wf = (wf - wf.reshape(-1, 3).mean(0)) * 0.9 + tone
+                n = noise(PH, PW, 14, self.seed + 77); wf *= (1 + n[..., None] * .05)   # slow light/dark drift across the pond
+                din = ndimage.distance_transform_edt(m); wf[din <= 10] *= (0.82 + 0.018 * din[din <= 10])[:, None]
+                img[m] = wf[m]; continue
             if TL is not None and kind != 'paddy': continue   # tile mode: the tile sets draw every surface except paddies
             if kind in ('laterite', 'path'):
                 base = tex(f'{ART_B}/tiles/dirt_laterite.png', PW, PH, 5 if kind == 'laterite' else 40, 3)
@@ -281,6 +288,15 @@ class World:
         if TL is not None:
             a = TL[..., 3:4].astype(float) / 255
             img = img * (1 - a) + TL[..., :3].astype(float) * a
+            am = [m for k, m in self.surfaces if k == 'asphalt']
+            if am and getattr(self, 'dash_lines', None):   # yellow centre dashes along the road polylines
+                m = am[0]; acc = 0.0
+                for pts in self.dash_lines:
+                    for (x0, y0), (x1, y1) in zip(pts[:-1], pts[1:]):
+                        L_ = max(1e-6, np.hypot(x1 - x0, y1 - y0) * T); n_ = int(L_ / 2)
+                        for i in range(n_):
+                            t = i / n_; px_, py_ = int((x0 + (x1 - x0) * t) * T), int((y0 + (y1 - y0) * t) * T); acc += 2
+                            if acc % 26 < 13 and 1 <= px_ < PW - 2 and 1 <= py_ < PH - 2 and m[py_, px_]: img[py_ - 1:py_ + 2, px_ - 1:px_ + 2] = np.array([226, 190, 80.])
         self.ground_np = img.copy()
         # baked shadows (multiply toward the reference's deep green-brown)
         s = np.clip(self.shadow * 1.6, 0, 1)[..., None]
@@ -413,10 +429,11 @@ class World:
     def _outside_trees(self, im):
         outside, x, y, dist, ext, near = self._iso_outside
         SH, SW = outside.shape
-        trees = [L(f) for f in sorted(glob.glob(f'{ART_B}/trees/tree_*.png')) if 'fruit' not in f and 'demo' not in f]
-        extra = [L(f) for f in [f'{PL}/props_all/06_forest_a/05.png', f'{PL}/props_all/06_forest_a/06.png'] if os.path.exists(f)]
+        TR2 = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapgen', 'art2', 'trees')
+        trees = [L(f'{TR2}/{n}.png') for n in ('mango', 'tamarind', 'raintree', 'mango', 'tamarind') if os.path.exists(f'{TR2}/{n}.png')]
+        extra = [L(f'{TR2}/{n}.png') for n in ('bamboo_s', 'banana_s', 'bush', 'bush2') if os.path.exists(f'{TR2}/{n}.png')]
         pdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'assets_src', 'plants')
-        extra += [L(f) for f in sorted(glob.glob(pdir + '/*.png'))] * 2
+        extra += [L(f'{TR2}/{n}.png') for n in ('sugarcane', 'coconut', 'sugarpalm', 'raintree', 'bamboo', 'banana', 'papaya', 'tamarind') if os.path.exists(f'{TR2}/{n}.png')] * 2
         pool = trees + extra
         r = np.random.RandomState(self.seed + 77); pts = []
         for _ in range(5000):

@@ -271,7 +271,11 @@ let TILES = null;   // PixelLab tile sets (same as the game) for maps built from
 async function loadTiles() {
   try { const j = await fetch('mapkit/tiles.json').then(r => r.json()); const sheets = {};
     await Promise.all(Object.keys(j.tiles).map(async n => { sheets[n] = await loadImg(`mapkit/tiles/${n}.png`); }));
-    j.sheets = sheets; j.grass = await loadImg('mapkit/tiles/grass.png'); TILES = j; smoothDirty = true; dirty = true; } catch (_) {}
+    j.sheets = sheets; j.grass = await loadImg('mapkit/tiles/grass.png'); j.areas = {};
+    await Promise.all(Object.keys(j.area || {}).map(async n => {   // pond shape, tinted with the game's water colour
+      const im = await loadImg(`mapkit/tiles/${n}_area.png`); if (!im) return; const c = document.createElement('canvas'); c.width = im.width; c.height = im.height;
+      const x = c.getContext('2d'); x.drawImage(im, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = j.water || '#2a7a66'; x.fillRect(0, 0, c.width, c.height); j.areas[n] = c; }));
+    TILES = j; smoothDirty = true; dirty = true; } catch (_) {}
 }
 const thash = (x, y, salt) => { const h = x * 31 + y * 17 + salt * 7; return (h * h + x * y) % 9973; };
 function buildTiles(changed) {   // exactly the game's dual-grid layout, drawn top-down at 32px per cell
@@ -284,6 +288,7 @@ function buildTiles(changed) {   // exactly the game's dual-grid layout, drawn t
       const nw = at(vx - 1, vy - 1) === code, ne = at(vx, vy - 1) === code, sw = at(vx - 1, vy) === code, se = at(vx, vy) === code;
       if (!(nw || ne || sw || se)) continue;
       const name = sets[thash(vx, vy, si) % sets.length], key = [nw, ne, sw, se].map(b => b ? '1' : '0').join(''), i = TILES.tiles[name].indexOf(key);
+      if (i >= 0 && TILES.areas[name]) ox.drawImage(TILES.areas[name], i * 32, 0, 32, 32, vx * 32 - 16, vy * 32 - 16, 32, 32);
       if (i >= 0 && TILES.sheets[name]) ox.drawImage(TILES.sheets[name], i * 32, 0, 32, 32, vx * 32 - 16, vy * 32 - 16, 32, 32);
     }
   });
@@ -494,7 +499,7 @@ function download(name, text) {
   try { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); return true; } catch (_) { return false; }
 }
 $('menuBtn').onclick = () => {
-  const m = sheet(`<h2>ตัวเลือก <small style="font-size:12px;color:var(--muted);font-weight:400">รุ่น 2.0</small></h2>
+  const m = sheet(`<h2>ตัวเลือก <small style="font-size:12px;color:var(--muted);font-weight:400">รุ่น 2.1</small></h2>
     <label class="tg"><input type="checkbox" data-o="ground" ${opts.ground ? 'checked' : ''}> แสดงภาพพื้นจากเกม (ปิด = เห็นพื้นเป็นสีตามชนิด)</label>
     <label class="tg"><input type="checkbox" data-o="grid" ${opts.grid ? 'checked' : ''}> แสดงเส้นช่อง</label>
     <label class="tg"><input type="checkbox" data-o="doors" ${opts.doors ? 'checked' : ''}> แสดงจุดประตูและชื่อสถานที่</label>

@@ -104,15 +104,19 @@ function walkable(x, y, ignoreNpc) {
   return true;
 }
 DV.walkable = walkable;
+const STEPS8 = [[0, 1], [0, -1], [1, 0], [-1, 0], [1, 1], [-1, -1], [1, -1], [-1, 1]];
+// facing on screen for an 8-direction sheet (rows: S, SE, E, NE, N, NW, W, SW); grid x runs to the lower-right, y to the lower-left
+const D8 = { '1,0': 1, '0,1': 7, '-1,0': 5, '0,-1': 3, '1,1': 0, '-1,-1': 4, '1,-1': 2, '-1,1': 6 }, DIR4TO8 = [7, 3, 1, 5];
 function bfs(sx, sy, goalFn, ignoreNpc) {
   const M = DV.M, W = M.W, H = M.H;
   const prev = new Int32Array(W * H).fill(-2); const q = [sy * W + sx]; prev[q[0]] = -1;
   for (let h = 0; h < q.length; h++) {
     const id = q[h], x = id % W, y = (id / W) | 0;
     if (goalFn(x, y)) { const out = []; let k = id; while (k !== -1) { out.push([k % W, (k / W) | 0]); k = prev[k]; } return out.reverse(); }
-    for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+    for (const [dx, dy] of STEPS8) {   // 8 directions; a diagonal step needs both side cells free (no corner cutting)
       const nx = x + dx, ny = y + dy, nid = ny * W + nx;
       if (nx < 0 || ny < 0 || nx >= W || ny >= H || prev[nid] !== -2 || !walkable(nx, ny, ignoreNpc)) continue;
+      if (dx && dy && (!walkable(x + dx, y, ignoreNpc) || !walkable(x, y + dy, ignoreNpc))) continue;
       prev[nid] = id; q.push(nid);
     }
   }
@@ -626,12 +630,14 @@ DV.cam = cam;
 function shadow(x, y, w) { ctx.fillStyle = 'rgba(20,32,8,.34)'; ctx.beginPath(); ctx.ellipse(x, y, w / 2, 4.5, 0, 0, Math.PI * 2); ctx.fill(); }
 function drawChar(e, sheet, feet) {
   const im = IMG['ch_' + sheet]; if (!im) return;
-  const M = CMETA[sheet] || {}, idleN = (M.idle && M.idle[e.dir]) || 4;
-  let col, row = e.dir, dy = 0;
+  const M = CMETA[sheet] || {};
+  if (M.dirs === 8 && (e.d8 == null || e._d8from !== e.dir)) { e.d8 = DIR4TO8[e.dir] || 0; e._d8from = e.dir; }
+  const R = M.dirs === 8 ? e.d8 : e.dir, idleN = (M.idle && M.idle[R]) || 4;
+  let col, row = R, dy = 0;
   if (e.sit && M.sit) {
     const now = performance.now(); if (!e._sitAt) e._sitAt = now;
     const k = (now - e._sitAt) / 1000, intro = Math.min(4, M.sit - 1);
-    row = 4; col = k * 8 < intro ? Math.floor(k * 8) : intro + Math.floor((k - intro / 8) * 3) % Math.max(1, M.sit - intro);
+    row = M.dirs === 8 ? 8 : 4; col = k * 8 < intro ? Math.floor(k * 8) : intro + Math.floor((k - intro / 8) * 3) % Math.max(1, M.sit - intro);
   } else {
     e._sitAt = 0;
     col = e.moving ? Math.floor(e.t * 10) % 6 : 6 + Math.floor(e.t * (e.sit ? 1.5 : 2.5)) % idleN;
@@ -728,7 +734,7 @@ function render(dt) {
   // friends on the call: drawn from their presence, eased towards the latest position
   (DV.netPlayers ? DV.netPlayers() : []).forEach(pr => {
     const e = remote[pr.num] || (remote[pr.num] = { x: pr.x, y: pr.y, t: 0, dir: 0 }); e.x += (pr.x - e.x) * Math.min(1, dt * 8); e.y += (pr.y - e.y) * Math.min(1, dt * 8);
-    e.dir = pr.dir || 0; e.moving = !!pr.mv; e.sit = !!pr.sit; e.t += dt; const sheet = 'player_' + (pr.g === 'f' ? 'f' : 'm');
+    e.dir = pr.dir || 0; if (pr.d8 != null) { e.d8 = pr.d8; e._d8from = e.dir; } e.moving = !!pr.mv; e.sit = !!pr.sit; e.t += dt; const sheet = 'player_' + (pr.g === 'f' ? 'f' : 'm');
     list.push({ y: depth(e.x, e.y), d: () => { drawChar(e, sheet, (CMETA[sheet] || { feet: 60 }).feet); const [x, y] = P(e.x, e.y);
       ctx.font = '8px Mitr, sans-serif'; ctx.textAlign = 'center'; const w = ctx.measureText(pr.name || '').width + 8;
       ctx.fillStyle = 'rgba(40,28,18,.75)'; roundRect(x - w / 2, y - 76, w, 11, 3); ctx.fill(); ctx.fillStyle = '#fff3d9'; ctx.fillText(pr.name || '', x, y - 67.5);
@@ -800,6 +806,8 @@ function moveEnt(e, dt, speed, isPlayer) {
   const dx = tx - e.x, dy = ty - e.y, d = Math.hypot(dx, dy);
   if (!e.moving) e.moving = true;
   e.dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 2 : 3) : (dy > 0 ? 0 : 1);
+  const sx = Math.abs(dx) > 1.5 ? Math.sign(dx) : 0, sy = Math.abs(dy) > 1.5 ? Math.sign(dy) : 0;
+  if (sx || sy) { e.d8 = D8[sx + ',' + sy]; e._d8from = e.dir; }
   const st = speed * dt;
   if (d <= st) { e.x = tx; e.y = ty; e.cx = nx; e.cy = ny; e.path.shift();
     if (isPlayer) { player.walkTiles = (player.walkTiles || 0) + 1; onStep(nx, ny); DV.step && DV.step(S.map === 'house' ? 'wood' : DV.M.path[ny][nx] ? (S.map === 'town' ? 'hard' : 'dirt') : 'grass'); }
