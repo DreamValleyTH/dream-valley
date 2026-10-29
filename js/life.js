@@ -251,16 +251,16 @@ setInterval(() => {   // host: apply what visitors did
 }, 600);
 // visitor: farm plot actions are sent to the host
 // ---- visiting = working in the friend's world: their farm state is swapped in while you're there, and what you change is sent back ----
-const WK = ['gone', 'trees', 'coopFixed', 'hens', 'henFed', 'coopEggs', 'coopTwin', 'moved', 'stored', 'flip', 'deco', 'boxes'];
+const WK = ['gone', 'trees', 'coopFixed', 'houseFixed', 'dogFixed', 'fenceTier', 'hens', 'henFed', 'coopEggs', 'coopTwin', 'moved', 'stored', 'flip', 'deco', 'boxes'];
 const WDEF = { gone: {}, trees: {}, hens: [], moved: {}, stored: {}, flip: {}, deco: [], boxes: {} };
 const OBJK = ['gone', 'trees', 'moved', 'stored', 'flip', 'boxes'];
 // presence carries a compact copy (Firebase rules keep it under 4 KB): only the farm's parts, only what is still active
 DV.worldOf = () => { const s = S(), farm = o => (o || {}).farm || {}, g = {};
   for (const k in s.gone || {}) if (s.gone[k] > s.day) g[k] = s.gone[k] >= 99999 ? 1 : s.gone[k];
   const st = {}; for (const k in farm(s.stored)) if (!TPL(k)) st[k] = 1;
-  return { g, t: s.trees || {}, c: s.coopFixed || 0, h: s.hens || [], hf: s.henFed || 0, ce: s.coopEggs || 0, ct: s.coopTwin || 0, m: farm(s.moved), s: st, f: farm(s.flip), dc: s.deco || [], b: s.boxes || {} }; };
+  return { g, t: s.trees || {}, c: s.coopFixed || 0, hx: s.houseFixed || 0, dx: s.dogFixed || 0, ft: s.fenceTier || 1, h: s.hens || [], hf: s.henFed || 0, ce: s.coopEggs || 0, ct: s.coopTwin || 0, m: farm(s.moved), s: st, f: farm(s.flip), dc: s.deco || [], b: s.boxes || {} }; };
 const unpack = w => { const g = {}; for (const k in w.g || {}) g[k] = w.g[k] === 1 ? 99999 : w.g[k]; const st = Object.assign({}, w.s || {}); (window.DV_DECOT || []).forEach(k => { st[k] = 1; });
-  return { gone: g, trees: w.t || {}, coopFixed: w.c || 0, hens: w.h || [], henFed: w.hf || 0, coopEggs: w.ce || 0, coopTwin: w.ct || 0, moved: { farm: w.m || {} }, stored: { farm: st }, flip: { farm: w.f || {} }, deco: w.dc || [], boxes: w.b || {} }; };
+  return { gone: g, trees: w.t || {}, coopFixed: w.c || 0, houseFixed: w.hx || 0, dogFixed: w.dx || 0, fenceTier: w.ft || 1, hens: w.h || [], henFed: w.hf || 0, coopEggs: w.ce || 0, coopTwin: w.ct || 0, moved: { farm: w.m || {} }, stored: { farm: st }, flip: { farm: w.f || {} }, deco: w.dc || [], boxes: w.b || {} }; };
 let own = null, hostW = '';
 DV.ownState = () => { if (!own) return S(); const c = Object.assign({}, S()); WK.forEach(k => { c[k] = own[k]; }); return c; };   // saving never writes the friend's farm into your save
 DV.inSandbox = () => !!own;

@@ -552,11 +552,13 @@
 "flip": 1
 },
 {
-"id": "nmvsbqcs181",
+"id": "doghouse",
 "k": "f_doghouse",
 "x": 11,
 "y": 9,
-"flip": 0
+"flip": 0,
+"tap": "doghouse",
+"label": "บ้านหมา"
 },
 {
 "id": "nmvsbqpb019",

@@ -79,9 +79,11 @@ DV.openObject = o => {
   if (t === 'tree') return openTree(o);
   if (t === 'box') return DV.openBox(o);
   if (t === 'fence') return DV.openFence();
+  if (t === 'doghouse') return DV.openDoghouse(o);
   if (t && t.startsWith('plant_')) return DV.openPlant(o);
   if (DECO[t]) return openDeco(o, t);
   if (t === 'house') return DV.openSheet('บ้านยาย', 'บ้านไม้ใต้ถุนสูง กลับมาเงียบกว่าที่จำได้', null, [
+    ...(DV.houseRepairOpt ? DV.houseRepairOpt() : []),
     { label: 'เข้าบ้าน', icon: ['ui', 'door'], extra: 'ปลอดภัยจากผี · นอน ไหว้ยาย ทำกับข้าว', run: () => { DV.closeSheet(); DV.travel('house', 'in'); } },
     { label: 'นอน (จบวัน)', icon: ic('item_alarm_clock'), extra: 'ตื่นมาแรงเต็ม', run: () => { DV.closeSheet(); DV.sleep(); } },
     { label: 'งีบหลับ 1 ชั่วโมง', icon: ic('item_alarm_clock'), extra: 'ข้ามเวลา 1 ชม. · แรง +20', disabled: s.napCount >= 2 && 'วันนี้งีบพอแล้ว',

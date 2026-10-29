@@ -8,7 +8,8 @@ src = json.load(open(sys.argv[1])); name = src['name']
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'maps', name + '.json')
 old = json.load(open(OUT)) if os.path.exists(OUT) else {}
 TAP = [('f_house', 'house', 'บ้านยาย', 'house'), ('coop_broken', 'coop', 'เล้าไก่', 'coop'), ('f_jar', 'jar', None, 'jar'), ('f_spirit', 'spirit', None, 'spirit'),
-       ('f_mailbox', 'mailbox', None, 'mailbox'), ('f_pump', 'pump', None, 'pump'), ('f_bench', 'bench', None, 'bench')]
+       ('f_mailbox', 'mailbox', None, 'mailbox'), ('f_pump', 'pump', None, 'pump'), ('f_bench', 'bench', None, 'bench'),
+       ('f_doghouse', 'doghouse', 'บ้านหมา', 'doghouse')]
 n = collections.Counter(); seen = set()
 for o in src['objects']:
     k = o['k']

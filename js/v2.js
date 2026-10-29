@@ -92,6 +92,39 @@ const m0 = DV.onMorning;
 DV.onMorning = () => { m0 && m0(); const s = S(); fenceMorning(s); const dt = DV.date();
   if (dt.d === 1) setTimeout(() => DV.notify(`📅 เข้าเดือน${dt.month}แล้ว · ${dt.seasonName}`), 4000); };
 
+// ================= repairs: grandma's house (hire ช่างเปี๊ยก, takes days) and the dog house (do it yourself) =================
+const so1 = DV.objSprite;
+DV.objSprite = o => { const s = S(), A = WORLD.atlas.alt || {};
+  if (s && s.map === 'farm' && o.tap === 'house' && s.houseFixed && A.house_fixed) return A.house_fixed;
+  if (s && s.map === 'farm' && o.tap === 'doghouse' && s.dogFixed && A.dog_fixed) return A.dog_fixed;
+  return so1(o); };
+const HOUSE = { price: 12000, days: 3 };
+DV.houseRepairOpt = () => { const s = S(); if (s.houseFixed || (DV.isVisiting && DV.isVisiting())) return [];
+  const j = s.houseJob; if (j) return [{ info: true, label: 'ช่างเปี๊ยกกำลังซ่อมบ้าน', extra: `เสร็จเช้าวันที่ ${DV.date(j.done).d} ${DV.date(j.done).month}` }];
+  return [{ label: 'จ้างช่างเปี๊ยกซ่อมบ้าน', icon: ['ui', 'home'], hl: true, extra: `หลังคาใหม่ ฝาใหม่ · ฿${HOUSE.price.toLocaleString()} · ${HOUSE.days} วัน`, disabled: s.money < HOUSE.price && `เงินไม่พอ (มี ฿${s.money.toLocaleString()})`,
+    run: () => { s.money -= HOUSE.price; s.houseJob = { done: s.day + HOUSE.days }; DV.closeSheet(); DV.sfx('coin'); DV.hud(); DV.save();
+      DV.cut('st_house_fix', 'จ้างช่างซ่อมบ้านยาย', [{ who: 'piak', text: 'บ้านยายเพียรหลังนี้ ลุงเคยมาเปลี่ยนเสาให้ตั้งแต่หลานยังไม่เกิด… ไม้เนื้อแข็งยังดีอยู่ แค่หลังคากับฝาที่ผุ' },
+        { who: 'piak', text: `ให้เวลาลุง ${HOUSE.days} วัน เปลี่ยนสังกะสีทั้งแผง ตีฝาใหม่ ซ่อมบันได ฝนตกคืนไหนจะได้ไม่ต้องเอากะละมังรองน้ำอีก` }]); } }]; };
+const houseMorning = s => { const j = s.houseJob; if (!j) return; if (s.day < j.done) return DV.notify(`🔨 ช่างเปี๊ยกกำลังซ่อมบ้าน (เสร็จ ${DV.date(j.done).d} ${DV.date(j.done).month})`);
+  s.houseFixed = s.day; s.houseJob = null; DV.save();
+  setTimeout(() => DV.cut('st_house_fix', 'บ้านยายหายรั่วแล้ว', [{ who: 'piak', text: 'เสร็จแล้ว! หลังคาใหม่เอี่ยม ฝาตีใหม่หมด บันไดไม่ลั่นเอี๊ยดแล้วด้วย' },
+    { who: 'narrator', text: 'แดดเช้าสะท้อนหลังคาสังกะสีใหม่ บ้านไม้หลังเดิมดูยืดตัวขึ้นอีกนิด… เหมือนยายยืนยิ้มอยู่หน้าบ้าน' }]), 2600); };
+const pe1 = DV.placeExtras;
+DV.placeExtras = (pid, opts) => { pe1 && pe1(pid, opts); const s = S(); if (pid === 'workshop' && !s.houseFixed && !s.houseJob) opts.push({ label: 'จ้างซ่อมบ้านยาย', icon: ['ui', 'home'], extra: `฿${HOUSE.price.toLocaleString()} · ${HOUSE.days} วัน`, run: () => { const o = DV.houseRepairOpt()[0]; o && o.run && !o.disabled ? o.run() : DV.toast(o && o.disabled || 'ยังจ้างไม่ได้'); } }); };
+DV.openDoghouse = o => { const s = S(), wood = (s.items && s.items.wood) || 0, need = 3, cost = 150;
+  if (s.dogFixed) return DV.openSheet('บ้านหมา', 'ซ่อมแล้ว มีผ้าห่มผืนเก่าของยายปูไว้ข้างใน', null, [
+    { info: true, label: 'ยังไม่มีเจ้าของบ้านหลังนี้', extra: 'ลูกหมาตัวนั้นแวะมาดมหน้าประตูบ่อย ๆ' }], { spr: o.s });
+  DV.openSheet('บ้านหมาพัง ๆ', 'บ้านหมาของไอ้ด่าง หมาของยาย หลังคาผุ ไม้หลุดสองแผ่น', null, [
+    { label: 'ซ่อมบ้านหมา', icon: ['tools', DV.TOOL.saw], cost: 15, extra: `ไม้ฟืน ${need} มัด + ฿${cost} ค่าตะปูกับสังกะสี`,
+      disabled: (wood < need && `ไม้ไม่พอ (มี ${wood}/${need} · เก็บกิ่งไม้ ผ่าตอไม้)`) || (s.money < cost && `เงินไม่พอ (ต้องมี ฿${cost})`),
+      run: () => DV.doAction({ energy: 15, tool: DV.TOOL.saw, fx: 'wood', targets: [o.block[0]], apply: () => { s.items.wood -= need; s.money -= cost; s.dogFixed = s.day; },
+        after: () => { DV.sfx('spark'); DV.hud(); DV.save(); setTimeout(() => DV.cut('st_dog_fix', 'บ้านหมาของไอ้ด่าง', [
+          { who: 'narrator', text: 'ตอกตะปูตัวสุดท้าย ปลอกคอเก่าสีแดงของไอ้ด่างยังแขวนอยู่ที่ตะปูข้างประตู ยายไม่เคยเอาออก' },
+          { who: 'player', text: 'ไอ้ด่างอยู่กับยายมาสิบสองปี… ยายคงคิดถึงมันทุกเย็นที่นั่งตรงนี้' },
+          { who: 'narrator', text: 'หลังโอ่งน้ำมีจมูกเล็ก ๆ โผล่มาดม ลูกหมาจรตัวหนึ่งมองบ้านหลังใหม่ตาแป๋ว… แล้ววิ่งหนีไป' }]), 900); } }) }], { spr: o.s }); };
+const m1 = DV.onMorning;
+DV.onMorning = () => { m1 && m1(); houseMorning(S()); };
+
 // no browser right-click menu over the game
 document.addEventListener('contextmenu', e => { if (!e.target.closest('input,textarea')) e.preventDefault(); });
 })();

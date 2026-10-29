@@ -117,6 +117,9 @@ alt = {}
 for k, n in [('tree_mango', 'mango'), ('tree_tamarind', 'tamarind')]:   # bare trees after picking (v1.0 art)
     im = L(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapgen', 'art2', 'trees', n + '.png')); alt[k] = atlas.add(im.crop(im.getbbox()))
 im = L(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapgen', 'art2', 'coop_fixed.png')); alt['coop_fixed'] = atlas.add(im.crop(im.getbbox()))
+_A2 = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mapgen', 'art2')
+alt['house_fixed'] = atlas.add(mapdata.load_img(dict(mapdata.CATALOG['f_house'], src=os.path.join(_A2, 'house_fixed.png'))))   # repaired by ช่างเปี๊ยก
+alt['dog_fixed'] = atlas.add(mapdata.load_img(dict(mapdata.CATALOG['f_doghouse'], src=os.path.join(_A2, 'dog_fixed.png'))))
 for _k in [k for k in mapdata.CATALOG if k.startswith('fence_')]: alt[_k] = atlas.add(mapdata.load_img(mapdata.CATALOG[_k]))   # fence tiers swap sprites in the game
 meta = atlas.save(OUT)
 meta['debris'] = extra; meta['alt'] = alt
